@@ -53,9 +53,17 @@ describe("referee: the AI proposes, code decides", () => {
 });
 
 describe("messages can't leak a limit", () => {
-  const allowed = [230, 442, 220, 300, 180, 205, 128];
+  const allowed = { prices: [230, 442, 220, 300, 180, 205], specs: [128] };
   it.each(["I could do 215 dollars.", "Maybe 215 bucks?", "Up to $215.", "My max is close.", "Two hundred and fifteen works."])("blocks %s", (m) => {
     expect(messageProblem(m, 21_500, allowed)).not.toBeNull();
+  });
+  it("a seller can't make the buyer's max 'public' by stuffing numbers into the listing", () => {
+    const stuffed = { prices: [230, 442, 180], specs: [] }; // listing said "fits models 200 205 210 215 220"
+    expect(messageProblem("I can stretch to 215.", 21_500, stuffed)).toBe("leak");
+  });
+  it("only unit-tagged listing numbers count as specs", () => {
+    expect(messageProblem("It has 128GB of storage.", 21_500, { prices: [230], specs: [128] })).toBeNull();
+    expect(messageProblem("Model 200 is fine.", 21_500, { prices: [230], specs: [] })).toBe("unknown-figure");
   });
   it("blocks prices that aren't on the table", () => {
     expect(messageProblem("How about 199?", 21_500, allowed)).toBe("unknown-figure");

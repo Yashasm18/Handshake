@@ -31,25 +31,31 @@ Rules:
 const dollars = (c: number) => Math.round(c / 100);
 const lastBy = (turns: Turn[], by: Turn["by"]) => [...turns].reverse().find((t) => t.by === by)?.offerCents;
 
-// Numbers an agent may mention: the public prices, offers already on the table, and numbers that
-// appear in the listing itself (e.g. "128GB", "2 controllers").
-function allowedFigures(deal: Deal, n: Negotiation) {
+export type Allowed = { prices: number[]; specs: number[] };
+
+// Numbers an agent may mention. Prices are ones Handshake computed or that are already on the table;
+// specs are unit-tagged numbers from the listing ("128GB"). The seller writes the listing, so specs
+// can never make a number near a limit count as public.
+function allowedFigures(deal: Deal, n: Negotiation): Allowed {
   const m = deal.scan?.market;
   const prices = [n.askingCents, m?.medianCents, n.fair?.lowCents, n.fair?.highCents, ...n.turns.map((t) => t.offerCents)].filter((c): c is number => !!c).map(dollars);
-  return [...prices, ...numbersIn([deal.title, deal.condition, ...deal.checklist].join(" "))];
+  return { prices, specs: specsIn([deal.title, deal.condition, ...deal.checklist].join(" ")) };
 }
 
 const numbersIn = (text: string) => [...text.matchAll(/\d[\d,]*(?:\.\d+)?/g)].map((m) => Math.round(Number(m[0].replace(/,/g, ""))));
+const SPEC = /(\d[\d,]*(?:\.\d+)?)\s?(gb|tb|mb|mah|wh|w|v|mm|cm|in|inch|inches|hz|mp|k|p|fps|ft|lbs?|kg|g|oz)\b/gi;
+const specsIn = (text: string) => [...text.matchAll(SPEC)].slice(0, 20).map((m) => Math.round(Number(m[1].replace(/,/g, ""))));
 
 // A message is unusable if it reveals its owner's limit or quotes a price that isn't on the table.
 // Every number counts, with or without "$" ("215", "215 dollars", "215 bucks"). Small counts are fine;
 // anything bigger must already be on the table, and nothing near the owner's limit may appear unless public.
-export function messageProblem(message: string, limitCents: number, allowed: number[]) {
+export function messageProblem(message: string, limitCents: number, allowed: Allowed) {
   const figures = numbersIn(message);
   const limit = dollars(limitCents);
-  const isPublic = (f: number) => allowed.some((a) => Math.abs(a - f) <= 1);
-  if (figures.some((f) => Math.abs(f - limit) <= 2) && !isPublic(limit)) return "leak";
-  if (figures.some((f) => f > 20 && !isPublic(f))) return "unknown-figure";
+  const near = (list: number[], f: number) => list.some((a) => Math.abs(a - f) <= 1);
+  // Only a price Handshake put on the table can make the limit's number safe to say.
+  if (figures.some((f) => Math.abs(f - limit) <= 2) && !near(allowed.prices, limit)) return "leak";
+  if (figures.some((f) => f > 20 && !near(allowed.prices, f) && !allowed.specs.includes(f))) return "unknown-figure";
   if (/\b(my|our)\s+(max|maximum|budget|limit|floor|lowest|bottom line|minimum)\b/i.test(message)) return "leak";
   // Spelled-out amounts ("two hundred and fifteen") would slip past the figure check above.
   if (/\b(hundred|thousand|grand)\b/i.test(message)) return "unknown-figure";
