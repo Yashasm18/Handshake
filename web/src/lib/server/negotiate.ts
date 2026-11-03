@@ -31,18 +31,25 @@ Rules:
 const dollars = (c: number) => Math.round(c / 100);
 const lastBy = (turns: Turn[], by: Turn["by"]) => [...turns].reverse().find((t) => t.by === by)?.offerCents;
 
-// Dollar figures an agent may mention: the public facts plus offers already on the table.
+// Numbers an agent may mention: the public prices, offers already on the table, and numbers that
+// appear in the listing itself (e.g. "128GB", "2 controllers").
 function allowedFigures(deal: Deal, n: Negotiation) {
   const m = deal.scan?.market;
-  return [n.askingCents, m?.medianCents, n.fair?.lowCents, n.fair?.highCents, ...n.turns.map((t) => t.offerCents)].filter((c): c is number => !!c).map(dollars);
+  const prices = [n.askingCents, m?.medianCents, n.fair?.lowCents, n.fair?.highCents, ...n.turns.map((t) => t.offerCents)].filter((c): c is number => !!c).map(dollars);
+  return [...prices, ...numbersIn([deal.title, deal.condition, ...deal.checklist].join(" "))];
 }
 
+const numbersIn = (text: string) => [...text.matchAll(/\d[\d,]*(?:\.\d+)?/g)].map((m) => Math.round(Number(m[0].replace(/,/g, ""))));
+
 // A message is unusable if it reveals its owner's limit or quotes a price that isn't on the table.
-function messageProblem(message: string, limitCents: number, allowed: number[]) {
-  const figures = [...message.matchAll(/\$\s?(\d[\d,]*(?:\.\d+)?)/g)].map((m) => Math.round(Number(m[1].replace(/,/g, ""))));
+// Every number counts, with or without "$" ("215", "215 dollars", "215 bucks"). Small counts are fine;
+// anything bigger must already be on the table, and nothing near the owner's limit may appear unless public.
+export function messageProblem(message: string, limitCents: number, allowed: number[]) {
+  const figures = numbersIn(message);
   const limit = dollars(limitCents);
-  if (figures.some((f) => Math.abs(f - limit) <= 1) && !allowed.includes(limit)) return "leak";
-  if (figures.some((f) => !allowed.some((a) => Math.abs(a - f) <= 1))) return "unknown-figure";
+  const isPublic = (f: number) => allowed.some((a) => Math.abs(a - f) <= 1);
+  if (figures.some((f) => Math.abs(f - limit) <= 2) && !isPublic(limit)) return "leak";
+  if (figures.some((f) => f > 20 && !isPublic(f))) return "unknown-figure";
   if (/\b(my|our)\s+(max|maximum|budget|limit|floor|lowest|bottom line|minimum)\b/i.test(message)) return "leak";
   // Spelled-out amounts ("two hundred and fifteen") would slip past the figure check above.
   if (/\b(hundred|thousand|grand)\b/i.test(message)) return "unknown-figure";
@@ -81,7 +88,7 @@ async function agentTurn(deal: Deal, n: Negotiation, role: "buyer" | "seller", l
 }
 
 // Where this side's next offer may land: never past its own limit, never backwards, never past the other side.
-function allowedRange(n: Negotiation, role: "buyer" | "seller", limitCents: number) {
+export function allowedRange(n: Negotiation, role: "buyer" | "seller", limitCents: number) {
   const myLast = lastBy(n.turns, role);
   const theirLast = lastBy(n.turns, role === "buyer" ? "seller" : "buyer");
   return role === "buyer"
@@ -91,7 +98,7 @@ function allowedRange(n: Negotiation, role: "buyer" | "seller", limitCents: numb
 
 // The referee: whatever the agent proposed, the number must stay inside its owner's limit and may
 // only move toward the other side. Returns the turn to record and whether the deal closed.
-function referee(n: Negotiation, role: "buyer" | "seller", limitCents: number, proposal: { offer_usd: number; accept: boolean }) {
+export function referee(n: Negotiation, role: "buyer" | "seller", limitCents: number, proposal: { offer_usd: number; accept: boolean }) {
   const myLast = lastBy(n.turns, role);
   const theirLast = lastBy(n.turns, role === "buyer" ? "seller" : "buyer") ?? (role === "buyer" ? n.askingCents : undefined);
   const want = Math.round(proposal.offer_usd) * 100;
@@ -122,7 +129,7 @@ function referee(n: Negotiation, role: "buyer" | "seller", limitCents: number, p
 }
 
 // If time runs out with overlapping limits, code splits what's left between the two positions.
-function finalSplit(n: Negotiation, floorCents: number, maxCents: number) {
+export function finalSplit(n: Negotiation, floorCents: number, maxCents: number) {
   const lo = Math.max(floorCents, lastBy(n.turns, "buyer") ?? floorCents);
   const hi = Math.min(maxCents, lastBy(n.turns, "seller") ?? n.askingCents);
   return lo <= hi ? Math.round((lo + hi) / 2 / 100) * 100 : null;

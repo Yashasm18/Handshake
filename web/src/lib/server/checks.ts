@@ -104,7 +104,10 @@ const ClaimSchema = z.strictObject({
   finding: z.string().describe("What is visibly wrong, one sentence. Say 'No visible damage' if none."),
   damaged_part: z.string().describe("The specific part affected, e.g. 'screen', 'left Joy-Con', 'charger'"),
   verdict: z.enum(["MATCHES_LISTING", "MINOR_ISSUE", "NOT_AS_DESCRIBED"]),
-  replacement_query: z.string().nullable().describe("Store search for a replacement of the damaged part, or null if not replaceable"),
+  replacement_query: z
+    .string()
+    .nullable()
+    .describe("Store search for the damaged PART ALONE, as it is sold on its own, e.g. 'Nintendo Switch Joy-Con (L)' or 'iPhone 13 replacement screen'. Never search for the whole product. Null if the part isn't sold separately."),
 });
 
 export async function reviewClaim(input: { listing: string; checklist: string[]; note: string; photo: string; listingPhoto?: string }) {

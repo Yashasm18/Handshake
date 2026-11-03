@@ -1,7 +1,9 @@
 import "server-only";
+import { refundFor } from "../refund";
 import type { Deal } from "../types";
 import { usd } from "../types";
-import { labelMatches, marketFor, readLabel, reviewClaim } from "./checks";
+import { median, partComps, searchComps } from "./channel3";
+import { labelMatches, readLabel, reviewClaim } from "./checks";
 import { HttpError, log, withDeal } from "./deals";
 import { runNegotiation, startNegotiation } from "./negotiate";
 import * as pp from "./paypal";
@@ -167,31 +169,29 @@ export const openClaim = (id: string, input: { note: string; photo: string }) =>
     let partPriceCents: number | null = null;
     let partComp: NonNullable<Deal["claim"]>["partComp"];
     if (review.verdict !== "MATCHES_LISTING" && review.replacement_query) {
-      const m = await marketFor(review.replacement_query, null).catch(() => null);
-      if (m) {
-        partPriceCents = m.medianCents;
-        const c = m.comps[0];
-        partComp = c && { title: c.title, url: c.url, merchant: c.merchant };
+      const comps = partComps(review.damaged_part, await searchComps(review.replacement_query).catch(() => []), deal.priceCents);
+      if (comps.length) {
+        partPriceCents = median(comps.map((c) => c.priceCents));
+        // Show the listing closest to the price we used, so "see one" backs up the number.
+        const c = [...comps].sort((x, y) => Math.abs(x.priceCents - partPriceCents!) - Math.abs(y.priceCents - partPriceCents!))[0];
+        partComp = { title: c.title, url: c.url, merchant: c.merchant };
       }
     }
 
-    // Money math lives here, in code: grounded in the real part price and capped per verdict.
-    const cap = review.verdict === "NOT_AS_DESCRIBED" ? 0.6 : review.verdict === "MINOR_ISSUE" ? 0.35 : 0;
-    const fallback = review.verdict === "NOT_AS_DESCRIBED" ? 0.3 : 0.15;
-    const raw = review.verdict === "MATCHES_LISTING" ? 0 : (partPriceCents ?? Math.round(deal.priceCents * fallback));
-    const refundCents = Math.min(raw, Math.round(deal.priceCents * cap));
+    const verdict = review.photo_shows_item ? review.verdict : "MATCHES_LISTING";
+    const { refundCents, captureCents } = refundFor(verdict, partPriceCents, deal.priceCents);
 
     deal.claim = {
       photo: input.photo,
       note: input.note,
       finding: review.photo_shows_item ? review.finding : "The photo doesn't appear to show the item from this deal.",
       damagedPart: review.damaged_part,
-      verdict: review.photo_shows_item ? review.verdict : "MATCHES_LISTING",
+      verdict,
       partQuery: review.replacement_query,
       partPriceCents,
       partComp,
-      refundCents: review.photo_shows_item ? refundCents : 0,
-      captureCents: deal.priceCents - (review.photo_shows_item ? refundCents : 0),
+      refundCents,
+      captureCents,
       buyerAccepted: false,
       sellerAccepted: false,
     };

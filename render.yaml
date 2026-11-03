@@ -5,7 +5,8 @@ services:
     runtime: node
     rootDir: web
     plan: starter
-    buildCommand: npm ci && npm run build
+    # Tests guard the money rules (part pricing, refund caps, negotiation limits); a failure blocks the deploy.
+    buildCommand: npm ci && npm test && npm run build
     startCommand: npm run start
     healthCheckPath: /api/config
     # Deals live on this disk so they survive redeploys and restarts.
