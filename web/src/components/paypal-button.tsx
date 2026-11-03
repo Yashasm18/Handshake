@@ -65,7 +65,9 @@ export function PayPalButton({ dealId, onHeld, onError }: { dealId: string; onHe
   }, [dealId, onHeld, onError]);
 
   return (
-    <div className="relative min-h-[56px]">
+    // PayPal's iframe declares no color scheme; on the dark theme the browser would paint it opaque white
+    // unless its container is light too, which keeps the iframe transparent.
+    <div className="relative min-h-[56px] [color-scheme:light]">
       {!ready && <div className="absolute inset-0 animate-pulse rounded-full bg-[#ffc439]/40" />}
       <div ref={ref} />
     </div>

@@ -101,7 +101,7 @@ function Step({ children }: { children: React.ReactNode }) {
 
 function ModeToggle({ mode, setMode }: { mode: "buy" | "sell"; setMode: (m: "buy" | "sell") => void }) {
   return (
-    <div className="relative flex rounded-full border hairline bg-white/60 p-1" role="tablist">
+    <div className="relative flex rounded-full border hairline bg-card/60 p-1" role="tablist">
       {(["buy", "sell"] as const).map((m) => (
         <button key={m} role="tab" aria-selected={mode === m} onClick={() => setMode(m)} className="relative z-10 h-10 px-5 text-[14px] font-medium">
           {mode === m && <motion.span layoutId="mode-pill" className="absolute inset-0 -z-10 rounded-full bg-ink" transition={{ duration: 0.45, ease: EASE }} />}
@@ -313,7 +313,7 @@ function MarketPanel({ scan }: { scan: Scan }) {
   const pos = (c: number) => `${Math.max(2, Math.min(98, (c / max) * 100))}%`;
   const below = m.belowMarketPct ?? 0;
   return (
-    <div className="rounded-3xl bg-night p-6 text-paper md:p-7">
+    <div className="island rounded-3xl bg-night p-6 text-paper md:p-7">
       <p className="label text-paper/50">Market price · Live from Channel3</p>
       <div className="mt-5 flex items-end gap-6">
         <div>

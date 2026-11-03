@@ -1,26 +1,33 @@
+import type { CSSProperties } from "react";
 import { ICONS } from "./brand-icons";
 
-type Item = { name: string; role: string; icon?: keyof typeof ICONS; mono?: string; color?: string };
+// `dark` is the brand color to use on the dark theme, where the deep brand blues would vanish.
+type Item = { name: string; role: string; icon?: keyof typeof ICONS; mono?: string; color?: string; dark?: string };
 
 const ITEMS: Item[] = [
-  { name: "PayPal", role: "Holds · Payouts", icon: "paypal", color: "#003087" },
+  { name: "PayPal", role: "Holds · Payouts", icon: "paypal", color: "#003087", dark: "#4cb3ff" },
   { name: "Channel3", role: "Market prices", mono: "C3" },
   { name: "Claude", role: "Vision AI", icon: "anthropic" },
   { name: "GPT", role: "Backup AI", icon: "openai" },
   { name: "OpenRouter", role: "AI routing", mono: "OR" },
   { name: "Render", role: "Hosting", icon: "render" },
   { name: "Next.js", role: "Full-stack app", icon: "nextdotjs" },
-  { name: "React", role: "Interface", icon: "react", color: "#0a7ea4" },
-  { name: "TypeScript", role: "Type safety", icon: "typescript", color: "#3178c6" },
-  { name: "Zod", role: "AI output checks", icon: "zod", color: "#3e67b1" },
-  { name: "Tailwind CSS", role: "Styling", icon: "tailwindcss", color: "#0e9ac0" },
+  { name: "React", role: "Interface", icon: "react", color: "#0a7ea4", dark: "#61dafb" },
+  { name: "TypeScript", role: "Type safety", icon: "typescript", color: "#3178c6", dark: "#5c9ce6" },
+  { name: "Zod", role: "AI output checks", icon: "zod", color: "#3e67b1", dark: "#7b9be0" },
+  { name: "Tailwind CSS", role: "Styling", icon: "tailwindcss", color: "#0e9ac0", dark: "#38bdf8" },
   { name: "Motion", role: "Animation", mono: "M" },
 ];
 
 function Mark({ item }: { item: Item }) {
   if (item.icon) {
     return (
-      <svg viewBox="0 0 24 24" className="size-[clamp(26px,2.6vw,36px)] shrink-0" style={{ color: item.color ?? "currentColor" }} aria-hidden>
+      <svg
+        viewBox="0 0 24 24"
+        className="size-[clamp(26px,2.6vw,36px)] shrink-0 text-(--c) dark:text-(--cd)"
+        style={{ "--c": item.color ?? "currentColor", "--cd": item.dark ?? item.color ?? "currentColor" } as CSSProperties}
+        aria-hidden
+      >
         <path d={ICONS[item.icon]} fill="currentColor" />
       </svg>
     );

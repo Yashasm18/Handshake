@@ -157,7 +157,7 @@ function RoleSwitch({ role, onChange }: { role: Role; onChange: (r: Role) => voi
   return (
     <div className="flex items-center gap-3">
       <span className="label hidden text-muted sm:inline">Viewing as</span>
-      <div className="relative flex rounded-full border hairline bg-white/60 p-1">
+      <div className="relative flex rounded-full border hairline bg-card/60 p-1">
         {(["buyer", "seller"] as const).map((r) => (
           <button key={r} onClick={() => onChange(r)} className="relative z-10 h-9 px-4 text-[13px] font-medium capitalize">
             {role === r && <motion.span layoutId="role-pill" className="absolute inset-0 -z-10 rounded-full bg-ink" transition={{ duration: 0.4, ease: EASE }} />}
@@ -190,7 +190,7 @@ function Progress({ stage, released }: { stage: number; released: boolean }) {
 function Panel({ children, tone = "plain" }: { children: ReactNode; tone?: "plain" | "dark" | "alert" | "safe" | "held" }) {
   const tones = {
     plain: "bg-card border hairline",
-    dark: "bg-night text-paper",
+    dark: "island bg-night text-paper",
     alert: "bg-alert-soft",
     safe: "bg-safe-soft",
     held: "bg-held-soft",
@@ -548,7 +548,7 @@ function Ledger({ deal }: { deal: Deal }) {
   ].filter(([, v]) => v) as [string, string][];
   if (!rows.length) return null;
   return (
-    <div className="rounded-[28px] bg-night p-6 text-paper">
+    <div className="island rounded-[28px] bg-night p-6 text-paper">
       <p className="label text-paper/50">PayPal sandbox record</p>
       <dl className="mt-4 space-y-3">
         {rows.map(([k, v]) => (

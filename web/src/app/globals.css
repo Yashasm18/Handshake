@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Theme lives on <html data-theme>, set before first paint by the script in layout.tsx. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @theme {
   --color-paper: #f3f1ec;
   --color-card: #ffffff;
@@ -20,6 +23,30 @@
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Dark mode swaps the tokens, so every bg-paper / text-ink / hairline follows automatically. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-paper: #0f0f0e;
+  --color-card: #191917;
+  --color-ink: #f1eee8;
+  --color-muted: #9b978e;
+  --color-line: #2b2a27;
+  --color-safe: #3fcf8e;
+  --color-safe-soft: #12291e;
+  --color-alert: #ff6b57;
+  --color-alert-soft: #2f1712;
+  --color-held: #e4a94e;
+  --color-held-soft: #2c2312;
+  --color-night: #1b1a18;
+}
+
+/* Islands are always-dark panels (scam strip, trust section, price panel). Their text is written
+   as text-paper, so pin paper/ink to the light values inside them whatever the page theme is. */
+@utility island {
+  --color-paper: #f3f1ec;
+  --color-ink: #111110;
 }
 
 html {
@@ -119,6 +146,13 @@ html.lenis body {
   100% {
     transform: translateY(400%);
   }
+}
+
+/* Theme switch: no cross-fade, the new theme is revealed by a growing circle (see ThemeToggle). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
 }
 
 @media (prefers-reduced-motion: reduce) {

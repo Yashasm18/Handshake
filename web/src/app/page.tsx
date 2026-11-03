@@ -47,7 +47,7 @@ export default function Home() {
         </section>
 
         {/* Scam phrases marquee */}
-        <section id="catches" className="overflow-hidden border-y hairline bg-night py-7 text-paper">
+        <section id="catches" className="overflow-hidden border-y hairline island bg-night py-7 text-paper">
           <div className="flex w-max animate-[marquee_40s_linear_infinite] gap-14 whitespace-nowrap">
             {[...CATCHES, ...CATCHES].map((c, i) => (
               <span key={i} className="display relative text-[clamp(24px,3vw,40px)] text-paper/85">
@@ -81,7 +81,7 @@ export default function Home() {
         </section>
 
         {/* Trust principle */}
-        <section id="trust" className="bg-night px-5 py-28 text-paper md:px-10 md:py-40">
+        <section id="trust" className="island bg-night px-5 py-28 text-paper md:px-10 md:py-40">
           <div className="mx-auto max-w-[1400px]">
             <p className="label mb-10 text-paper/50">Why it&apos;s safe</p>
             <RevealText as="h2" text={"The AI advises.\nCode moves the money."} className="display text-[clamp(44px,8vw,128px)]" />
