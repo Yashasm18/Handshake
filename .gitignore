@@ -16,3 +16,6 @@ coverage/
 
 # private planning notes (strategy, competitor research)
 notes/
+
+# local tooling
+.claude/

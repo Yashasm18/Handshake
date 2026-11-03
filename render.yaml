@@ -1,0 +1,25 @@
+# Render Blueprint: one Node web service runs both the Next.js frontend and its API routes.
+services:
+  - type: web
+    name: handshake
+    runtime: node
+    rootDir: web
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/config
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: PAYPAL_API_BASE
+        value: https://api-m.sandbox.paypal.com
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: SELLER_EMAIL
+        sync: false
+      - key: CHANNEL3_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false

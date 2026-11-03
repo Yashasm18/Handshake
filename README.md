@@ -23,9 +23,28 @@ The AI only recommends. Deterministic code moves money, and only after both peop
 - Payouts v1 (seller disbursement)
 - Per-call `PayPal-Request-Id` idempotency
 
-## Run the sandbox checks
+## Run it locally
+Requires Node 22+.
 ```bash
-cp .env.example .env   # fill in your sandbox keys
+cp .env.example .env          # fill in your PayPal sandbox, Channel3 and OpenRouter keys
+cd web && ln -s ../.env .env.local
+npm install
+npm run dev                   # http://localhost:3000
+```
+
+On a deal page, buyers can pay with a real PayPal sandbox login, or use **"Skip login and pay with PayPal's sandbox test card"** to test the full flow in seconds.
+
+## Deploy
+`render.yaml` is a Render Blueprint: one Node service runs the Next.js frontend and its API routes. Set the secret env vars in the Render dashboard.
+
+## Stack
+- **Next.js 16** (App Router, route handlers) with TypeScript, Tailwind CSS 4, Motion and Lenis
+- **PayPal** Orders v2, Payments v2, Payouts v1 (sandbox)
+- **Channel3** product search for market and replacement-part prices
+- **OpenRouter**: Claude Haiku 5.5, with GPT-6 Luna as automatic fallback, for vision and structured output (validated with Zod)
+
+## Sandbox checks
+```bash
 node scripts/sandbox-test.mjs
 ```
 
