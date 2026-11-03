@@ -7,6 +7,7 @@ npm install
 npm run dev        # http://localhost:3000
 npm test           # Vitest: money rules, negotiation, timers
 npm run lint
+npm run typecheck
 npm run build
 ```
 

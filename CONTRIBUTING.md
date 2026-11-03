@@ -53,7 +53,7 @@ Run these from `web/` (CI runs the same on every pull request):
 
 ```bash
 npm run lint
-npx tsc --noEmit
+npm run typecheck   # generates Next.js route types, then runs tsc
 npm test
 npm run build
 ```
