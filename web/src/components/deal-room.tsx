@@ -203,7 +203,7 @@ function Headline({ eyebrow, title, body, tone }: { eyebrow: string; title: stri
     <>
       <p className={`label ${tone ?? "text-muted"}`}>{eyebrow}</p>
       <h2 className="mt-4 font-display text-[clamp(30px,3.6vw,46px)] font-semibold leading-[1.02] tracking-[-0.035em]">{title}</h2>
-      {body && <div className="mt-4 max-w-[560px] text-[17px] leading-relaxed opacity-75">{body}</div>}
+      {body && <div className="mt-4 max-w-[560px] font-serif text-[17px] leading-relaxed opacity-75 [font-size-adjust:0.52]">{body}</div>}
     </>
   );
 }
@@ -571,7 +571,7 @@ function Activity({ deal }: { deal: Deal }) {
         {[...deal.events].reverse().map((e, i) => (
           <motion.li key={`${e.at}-${i}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="grid grid-cols-[76px_1fr] gap-3 text-[14px]">
             <span className="label pt-0.5 text-muted">{who[e.actor]}</span>
-            <span className="leading-snug">{e.text}</span>
+            <span className="font-serif leading-snug [font-size-adjust:0.52]">{e.text}</span>
           </motion.li>
         ))}
       </ol>

@@ -16,6 +16,7 @@
 
   --font-display: var(--font-inter-tight), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -30,6 +31,16 @@ html {
 
 body {
   font-family: var(--font-sans);
+}
+
+/* Prose reads in the serif; buttons, inputs and nav stay sans. In the base layer so .label,
+   .display and font-* utilities on a <p> still win. */
+@layer base {
+  p {
+    font-family: var(--font-serif);
+    /* Newsreader has a small x-height; scale it to read at the size the layout was designed for. */
+    font-size-adjust: 0.52;
+  }
 }
 
 html.lenis,
