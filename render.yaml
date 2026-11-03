@@ -4,13 +4,20 @@ services:
     name: handshake
     runtime: node
     rootDir: web
-    plan: free
+    plan: starter
     buildCommand: npm ci && npm run build
     startCommand: npm run start
     healthCheckPath: /api/config
+    # Deals live on this disk so they survive redeploys and restarts.
+    disk:
+      name: handshake-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: NODE_VERSION
         value: "22"
+      - key: DATA_DIR
+        value: /var/data
       - key: PAYPAL_API_BASE
         value: https://api-m.sandbox.paypal.com
       - key: PAYPAL_CLIENT_ID

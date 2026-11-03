@@ -1,11 +1,12 @@
 import "server-only";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import type { Deal } from "../types";
 
-// A single JSON file is enough for one Render instance; the seed button rebuilds demo data after a redeploy.
-const FILE = path.join(process.cwd(), ".data", "deals.json");
+// A single JSON file is enough for one Render instance. On Render, DATA_DIR points at a persistent disk
+// so deals survive redeploys; locally it falls back to web/.data.
+const FILE = path.join(process.env.DATA_DIR || path.join(process.cwd(), ".data"), "deals.json");
 
 let deals: Map<string, Deal> | null = null;
 let writing: Promise<void> = Promise.resolve();
@@ -24,7 +25,9 @@ async function load() {
 function persist() {
   writing = writing.then(async () => {
     await mkdir(path.dirname(FILE), { recursive: true });
-    await writeFile(FILE, JSON.stringify([...deals!.values()], null, 2));
+    // Write then rename, so a crash mid-write never leaves a half-written file behind.
+    await writeFile(`${FILE}.tmp`, JSON.stringify([...deals!.values()], null, 2));
+    await rename(`${FILE}.tmp`, FILE);
   });
   return writing;
 }
