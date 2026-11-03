@@ -4,7 +4,7 @@ import type { Deal } from "../types";
 import { usd } from "../types";
 import { median, partComps, searchComps } from "./channel3";
 import { labelMatches, readLabel, reviewClaim } from "./checks";
-import { HttpError, log, withDeal } from "./deals";
+import { HttpError, log, saveDeal, withDeal } from "./deals";
 import { runNegotiation, startNegotiation } from "./negotiate";
 import * as pp from "./paypal";
 
@@ -129,31 +129,41 @@ export const ship = (id: string, input: { label?: string; carrier: string; track
     return { blocked: false, labelCheck };
   });
 
+// Capture, attach tracking, pay the seller. Resumable: each finished step is recorded and saved, so a
+// retry after a failure (say, the payout) picks up where it stopped instead of capturing twice.
 export async function settle(deal: Deal, captureCents: number, note: string) {
   const { paypal } = deal;
   if (!paypal.authorizationId || !paypal.orderId) throw new HttpError(409, "There's no PayPal hold on this deal.");
-  const capture = await pp.captureHold(paypal.authorizationId, captureCents, `HS-${deal.id}`, note);
-  const b = capture.seller_receivable_breakdown;
-  paypal.captureId = capture.id;
-  paypal.capturedCents = dollars(b?.gross_amount.value) || captureCents;
-  paypal.feeCents = dollars(b?.paypal_fee?.value);
-  paypal.netCents = dollars(b?.net_amount.value) || captureCents;
-  const released = deal.priceCents - captureCents;
-  log(deal, "paypal", released > 0 ? `Captured ${usd(captureCents)}. The other ${usd(released)} went back to the buyer automatically.` : `Captured ${usd(captureCents)}.`, capture.id);
+
+  if (!paypal.captureId) {
+    const capture = await pp.captureHold(paypal.authorizationId, captureCents, `HS-${deal.id}`, note);
+    const b = capture.seller_receivable_breakdown;
+    paypal.captureId = capture.id;
+    paypal.capturedCents = dollars(b?.gross_amount.value) || captureCents;
+    paypal.feeCents = dollars(b?.paypal_fee?.value);
+    paypal.netCents = dollars(b?.net_amount.value) || captureCents;
+    const released = deal.priceCents - captureCents;
+    log(deal, "paypal", released > 0 ? `Captured ${usd(captureCents)}. The other ${usd(released)} went back to the buyer automatically.` : `Captured ${usd(captureCents)}.`, capture.id);
+    await saveDeal(deal); // money moved: record it before anything else can fail
+  }
 
   // Tracking can only attach to a capture, so it goes on now.
-  if (deal.shipment?.trackingNumber) {
-    await pp.addTracking(paypal.orderId, capture.id, deal.shipment.trackingNumber, deal.shipment.carrier).then(
+  if (deal.shipment?.trackingNumber && !paypal.trackingAttached) {
+    await pp.addTracking(paypal.orderId, paypal.captureId, deal.shipment.trackingNumber, deal.shipment.carrier).then(
       () => log(deal, "paypal", "Tracking attached to the payment for Seller Protection."),
       () => log(deal, "handshake", "Couldn't attach tracking to PayPal; the payout continues."),
     );
+    paypal.trackingAttached = true;
   }
 
-  const payout = await pp.payoutSeller(deal.id, deal.sellerEmail, paypal.netCents, `Payment for ${deal.title}`);
-  paypal.payoutBatchId = payout.batch_header.payout_batch_id;
-  paypal.payoutCents = paypal.netCents;
+  if (!paypal.payoutBatchId) {
+    const net = paypal.netCents!;
+    const payout = await pp.payoutSeller(deal.id, deal.sellerEmail, net, `Payment for ${deal.title}`);
+    paypal.payoutBatchId = payout.batch_header.payout_batch_id;
+    paypal.payoutCents = net;
+    log(deal, "paypal", `Paid ${deal.sellerName} ${usd(net)} after PayPal's ${usd(paypal.feeCents ?? 0)} fee.`, paypal.payoutBatchId);
+  }
   deal.status = "SETTLED";
-  log(deal, "paypal", `Paid ${deal.sellerName} ${usd(paypal.netCents)} after PayPal's ${usd(paypal.feeCents ?? 0)} fee.`, paypal.payoutBatchId);
 }
 
 export const confirmDelivery = (id: string) =>

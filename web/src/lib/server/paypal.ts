@@ -114,13 +114,14 @@ export type Capture = {
 };
 
 // final_capture releases whatever is left on the hold back to the buyer.
+// One capture per authorization: the request id makes a retried capture return the original instead of a second one.
 export const captureHold = (authorizationId: string, cents: number, invoiceId: string, note: string) =>
-  call<Capture>("POST", `/v2/payments/authorizations/${authorizationId}/capture`, {
-    amount: money(cents),
-    final_capture: true,
-    invoice_id: invoiceId,
-    note_to_payer: note.slice(0, 255),
-  });
+  call<Capture>(
+    "POST",
+    `/v2/payments/authorizations/${authorizationId}/capture`,
+    { amount: money(cents), final_capture: true, invoice_id: invoiceId, note_to_payer: note.slice(0, 255) },
+    `capture-${authorizationId}`,
+  );
 
 // After PayPal's 3-day honor period, a reauthorization re-reserves the funds and returns a new authorization.
 export const reauthorizeHold = (authorizationId: string) =>

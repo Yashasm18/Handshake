@@ -122,6 +122,7 @@ export type Deal = {
     netCents?: number;
     payoutBatchId?: string;
     payoutCents?: number;
+    trackingAttached?: boolean;
     // Server-only: binds "confirm payment" to the browser that opened the PayPal checkout.
     payNonce?: string;
     payStartedAt?: string;

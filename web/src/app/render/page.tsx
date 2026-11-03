@@ -71,7 +71,7 @@ export default function RenderPage() {
             steps={[
               { t: "Ship within 3 days", d: "The seller has three days from payment to ship. If they don't, the PayPal hold is voided and the buyer pays nothing.", tag: "Protects the buyer" },
               { t: "Renew the hold on day 3", d: "PayPal guarantees a hold for three days. Handshake reauthorizes it then, so the money stays reserved while the item travels.", tag: "PayPal reauthorize" },
-              { t: "Respond within 7 days of shipping", d: "If the buyer neither confirms nor reports a problem, payment is captured and the seller is paid. Sellers aren't left waiting forever.", tag: "Protects the seller" },
+              { t: "Respond within 7 days of shipping", d: "If the buyer neither confirms nor reports a problem, payment is captured and the seller is paid, but only when the seller's label photo matched the buyer's PayPal address. A typed tracking number never triggers it.", tag: "Protects the seller" },
               { t: "Settle claims within 3 days", d: "If nobody declines a damage proposal, the code-computed refund settles automatically. A decline sends it to PayPal instead.", tag: "Protects both" },
             ]}
           />
@@ -89,7 +89,7 @@ export default function RenderPage() {
               ["Retries only when they help", "Render retries a failed run with backoff. Only transient failures (a PayPal 5xx, a deploy in progress) throw; a bad request is reported, not retried."],
               ["One sweep per tick", "Each cron tick starts the sweep with an idempotency key, so a retried tick can't start a second one."],
               ["A secret nobody types", "The app and the workflow share a secret that Render generates in a Blueprint environment group. It never appears in code or chat."],
-              ["Logs stay honest", "If a PayPal call fails mid-action, any log line it wrote is rolled back, so a retry doesn't announce the same release twice."],
+              ["Settlement resumes", "Capture, tracking and payout are recorded step by step. If the payout fails, the retry pays the seller without capturing twice."],
               ["Demo speed, same rules", "One setting shrinks days to minutes for demos. The order of events and every safety check stay exactly the same."],
             ].map(([h, p], i) => (
               <FadeIn key={h} delay={(i % 3) * 0.08} className="border-t border-paper/15 pt-6">

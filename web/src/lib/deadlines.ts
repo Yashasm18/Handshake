@@ -37,10 +37,13 @@ export function deadlinesFor(deal: Deal, scale = 1): Deadline[] {
   if (deal.status === "HELD") {
     out.push({ kind: "SHIP_BY", at: t(c.heldAt, "SHIP_BY"), who: "seller", consequence: "the hold is released and the buyer pays nothing" });
   }
-  if ((deal.status === "SHIPPED" || deal.status === "CLAIM_OPEN") && !c.reauthorizedAt) {
+  // Only an uncaptured hold can be renewed (a settlement may have captured and then paused before payout).
+  if ((deal.status === "SHIPPED" || deal.status === "CLAIM_OPEN") && !c.reauthorizedAt && !deal.paypal.captureId) {
     out.push({ kind: "REAUTHORIZE", at: c.reauthorizeAfter ? Date.parse(c.reauthorizeAfter) : t(c.authorizedAt, "REAUTHORIZE"), who: "handshake", consequence: "Handshake renews the PayPal hold" });
   }
-  if (deal.status === "SHIPPED") {
+  // Paying out on silence needs proof the item really went to the buyer: a label photo that matched
+  // their PayPal address. A tracking number typed by the seller isn't enough.
+  if (deal.status === "SHIPPED" && deal.shipment?.labelCheck?.match) {
     out.push({ kind: "AUTO_RELEASE", at: t(c.shippedAt, "AUTO_RELEASE"), who: "buyer", consequence: "payment is released to the seller" });
   }
   if (deal.status === "CLAIM_OPEN" && !deal.claim?.declinedBy) {

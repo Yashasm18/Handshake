@@ -368,7 +368,7 @@ function SellerShip({ deal, act, busy }: ActProps) {
         </motion.div>
       )}
       <div className="mt-6 space-y-4">
-        <PhotoPicker value={label} onChange={setLabel} capture hint="We read the address and tracking number for you." />
+        <PhotoPicker value={label} onChange={setLabel} capture hint="We read the address and tracking number for you. A matching label also lets you be paid automatically if the buyer goes quiet." />
         <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
           <select value={carrier} onChange={(e) => setCarrier(e.target.value)} className="h-14 rounded-2xl border hairline bg-card px-4 text-[16px] outline-none" aria-label="Carrier">
             {CARRIERS.map((c) => <option key={c}>{c}</option>)}

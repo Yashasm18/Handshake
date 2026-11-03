@@ -27,6 +27,7 @@ const { PayPalError } = await import("@/lib/server/paypal");
 
 const T0 = Date.parse("2026-11-01T12:00:00Z");
 const iso = (ms: number) => new Date(ms).toISOString();
+const VERIFIED = { carrier: "UPS", trackingNumber: "1Z", labelCheck: { match: true, read: "", reason: "" } };
 let n = 0;
 function deal(over: Partial<Deal>): Deal {
   return {
@@ -43,8 +44,19 @@ describe("deadlines", () => {
     expect(deadlinesFor(deal({}))).toEqual([expect.objectContaining({ kind: "SHIP_BY", at: T0 + 3 * DAY, who: "seller" })]);
   });
   it("after shipping: renew the hold on day 3 and release 7 days after shipping", () => {
-    const d = deal({ status: "SHIPPED", clock: { heldAt: iso(T0), authorizedAt: iso(T0), shippedAt: iso(T0 + DAY) } });
+    const d = deal({ status: "SHIPPED", shipment: VERIFIED, clock: { heldAt: iso(T0), authorizedAt: iso(T0), shippedAt: iso(T0 + DAY) } });
     expect(deadlinesFor(d).map((x) => [x.kind, x.at])).toEqual([["REAUTHORIZE", T0 + 3 * DAY], ["AUTO_RELEASE", T0 + 8 * DAY]]);
+  });
+  it("never auto-releases a shipment the seller only typed in", () => {
+    const typed = { carrier: "UPS", trackingNumber: "1Z", labelCheck: null };
+    const d = deal({ status: "SHIPPED", shipment: typed, clock: { authorizedAt: iso(T0), shippedAt: iso(T0) } });
+    expect(deadlinesFor(d).map((x) => x.kind)).toEqual(["REAUTHORIZE"]);
+    d.shipment = { ...typed, labelCheck: { match: false, read: "", reason: "" } };
+    expect(deadlinesFor(d).map((x) => x.kind)).toEqual(["REAUTHORIZE"]);
+  });
+  it("doesn't renew a hold that's already captured", () => {
+    const d = deal({ status: "SHIPPED", shipment: VERIFIED, paypal: { orderId: "O", authorizationId: "A", captureId: "CAP" }, clock: { authorizedAt: iso(T0), shippedAt: iso(T0) } });
+    expect(deadlinesFor(d).map((x) => x.kind)).toEqual(["AUTO_RELEASE"]);
   });
   it("a declined claim never auto-settles", () => {
     const d = deal({ status: "CLAIM_OPEN", clock: { authorizedAt: iso(T0), reauthorizedAt: iso(T0), claimAt: iso(T0) } });
@@ -86,7 +98,7 @@ describe("timer actions", () => {
   });
 
   it("concurrent runs of the same deadline move money once", async () => {
-    const d = await saveDeal(deal({ status: "SHIPPED", clock: { authorizedAt: iso(T0), reauthorizedAt: iso(T0), shippedAt: iso(T0) } }));
+    const d = await saveDeal(deal({ status: "SHIPPED", shipment: VERIFIED, clock: { authorizedAt: iso(T0), reauthorizedAt: iso(T0), shippedAt: iso(T0) } }));
     const at = T0 + 7 * DAY + 1;
     const results = await Promise.all([runTimer(d.id, "AUTO_RELEASE", at), runTimer(d.id, "AUTO_RELEASE", at), runTimer(d.id, "AUTO_RELEASE", at)]);
     expect(results.filter((r) => r.outcome === "done")).toHaveLength(1);
@@ -95,7 +107,7 @@ describe("timer actions", () => {
   });
 
   it("renews the hold and stores the new authorization", async () => {
-    const d = await saveDeal(deal({ status: "SHIPPED", clock: { authorizedAt: iso(T0), shippedAt: iso(T0) } }));
+    const d = await saveDeal(deal({ status: "SHIPPED", shipment: VERIFIED, clock: { authorizedAt: iso(T0), shippedAt: iso(T0) } }));
     expect((await runTimer(d.id, "REAUTHORIZE", T0 + 3 * DAY + 1)).outcome).toBe("done");
     const after = (await getDeal(d.id))!;
     expect(after.paypal.authorizationId).toBe("AUTH-NEW");
@@ -116,13 +128,20 @@ describe("timer actions", () => {
     expect((await getDeal(d.id))!.status).toBe("HELD");
   });
 
-  it("a failed release leaves no log behind, so a retry doesn't repeat it", async () => {
-    pp.captureHold.mockRejectedValueOnce(new PayPalError("Server error", 500));
-    const d = await saveDeal(deal({ status: "SHIPPED", clock: { authorizedAt: iso(T0), reauthorizedAt: iso(T0), shippedAt: iso(T0) } }));
+  it("a payout failure resumes without capturing twice", async () => {
+    pp.payoutSeller.mockRejectedValueOnce(new PayPalError("Server error", 500));
+    const d = await saveDeal(deal({ status: "SHIPPED", shipment: VERIFIED, clock: { authorizedAt: iso(T0), reauthorizedAt: iso(T0), shippedAt: iso(T0) } }));
     await expect(runTimer(d.id, "AUTO_RELEASE", T0 + 8 * DAY)).rejects.toThrow();
-    expect((await getDeal(d.id))!.events).toHaveLength(0);
+    const mid = (await getDeal(d.id))!;
+    expect(mid.paypal.captureId).toBe("CAP-1"); // the capture is recorded even though the run failed
+    expect(mid.status).toBe("SHIPPED");
     expect((await runTimer(d.id, "AUTO_RELEASE", T0 + 8 * DAY)).outcome).toBe("done");
-    expect((await getDeal(d.id))!.events.filter((e) => e.text.includes("released automatically"))).toHaveLength(1);
+    expect(pp.captureHold).toHaveBeenCalledTimes(1);
+    expect(pp.payoutSeller).toHaveBeenCalledTimes(2);
+    const after = (await getDeal(d.id))!;
+    expect(after.status).toBe("SETTLED");
+    expect(after.events.filter((e) => e.text.includes("released automatically"))).toHaveLength(1);
+    expect(after.events.filter((e) => e.text.startsWith("Captured"))).toHaveLength(1);
   });
 
   it("lists only what is due", async () => {

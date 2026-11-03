@@ -33,19 +33,18 @@ export async function runTimer(dealId: string, kind: DeadlineKind, now = Date.no
   return withDeal(dealId, async (deal) => {
     const due = dueNow(deal, now, timerScale()).some((t) => t.kind === kind);
     if (!due) return { dealId, kind, outcome: "not-due", detail: `Nothing to do; the deal is ${deal.status}.` };
-    // A failed PayPal call fails the run (the workflow retries it); drop any log lines it wrote so a
-    // retry doesn't repeat them.
-    const logged = deal.events.length;
-    try {
-      return { dealId, kind, ...(await ACTIONS[kind](deal, now)) };
-    } catch (e) {
-      deal.events.length = logged;
-      throw e;
-    }
+    // A failed PayPal call fails the run so the workflow retries it. Completed steps stay recorded
+    // (settle resumes where it stopped), so a retry never repeats a money movement.
+    return { dealId, kind, ...(await ACTIONS[kind](deal, now)) };
   });
 }
 
 type Action = (deal: Deal, now: number) => Promise<Omit<TimerResult, "dealId" | "kind">>;
+
+// Retries re-enter an action; its explanation should still appear only once.
+function logOnce(deal: Deal, text: string) {
+  if (!deal.events.some((e) => e.actor === "handshake" && e.text === text)) log(deal, "handshake", text);
+}
 
 const ACTIONS: Record<DeadlineKind, Action> = {
   async SHIP_BY(deal) {
@@ -73,14 +72,14 @@ const ACTIONS: Record<DeadlineKind, Action> = {
   },
 
   async AUTO_RELEASE(deal) {
-    log(deal, "handshake", `The buyer didn't confirm or report a problem within ${span("AUTO_RELEASE")} of shipping, so payment was released automatically.`);
+    logOnce(deal, `The buyer didn't confirm or report a problem within ${span("AUTO_RELEASE")} of a verified shipment, so payment was released automatically.`);
     await settle(deal, deal.priceCents, "Handshake: released after the inspection window");
     return { outcome: "done", detail: `Captured ${usd(deal.priceCents)}` };
   },
 
   async CLAIM_SETTLE(deal) {
     const claim = deal.claim!;
-    log(deal, "handshake", `Nobody declined the proposal within ${span("CLAIM_SETTLE")}, so it settled automatically.`);
+    logOnce(deal, `Nobody declined the proposal within ${span("CLAIM_SETTLE")}, so it settled automatically.`);
     await settle(deal, claim.captureCents, claim.refundCents ? `Handshake settlement: ${usd(claim.refundCents)} released for ${claim.damagedPart}` : "Handshake: delivered as described");
     return { outcome: "done", detail: `Captured ${usd(claim.captureCents)}` };
   },
