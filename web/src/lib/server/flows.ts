@@ -22,6 +22,12 @@ function expect(deal: Deal, ...statuses: Deal["status"][]) {
   if (!statuses.includes(deal.status)) throw new HttpError(409, "This step isn't available right now. Refresh to see the latest.");
 }
 
+// Once money is captured, the amount is final: no new claim can change it and the hold can't be voided.
+// Only the settlement that captured it may finish (see settle).
+function notCaptured(deal: Deal) {
+  if (deal.paypal.captureId) throw new HttpError(409, "Payment is already being settled. Refresh to see the latest.");
+}
+
 // Buyer clicked the PayPal button: create an AUTHORIZE order for the deal.
 const CHECKOUT_WINDOW_MS = 10 * 60_000;
 
@@ -134,6 +140,10 @@ export const ship = (id: string, input: { label?: string; carrier: string; track
 export async function settle(deal: Deal, captureCents: number, note: string) {
   const { paypal } = deal;
   if (!paypal.authorizationId || !paypal.orderId) throw new HttpError(409, "There's no PayPal hold on this deal.");
+  // Resuming is only allowed for the same amount; a different outcome can't reuse an existing capture.
+  if (paypal.captureId && paypal.capturedCents !== captureCents) {
+    throw new HttpError(409, "This payment was already captured for a different amount. Refresh to see the latest.");
+  }
 
   if (!paypal.captureId) {
     const capture = await pp.captureHold(paypal.authorizationId, captureCents, `HS-${deal.id}`, note);
@@ -177,6 +187,7 @@ export const confirmDelivery = (id: string) =>
 export const openClaim = (id: string, input: { note: string; photo: string }) =>
   withDeal(id, async (deal) => {
     expect(deal, "SHIPPED");
+    notCaptured(deal);
     const review = await reviewClaim({ listing: `${deal.title}, ${deal.condition}`, checklist: deal.checklist, note: input.note, photo: input.photo, listingPhoto: deal.photo });
 
     let partPriceCents: number | null = null;
@@ -236,6 +247,7 @@ export const respondToClaim = (id: string, role: "buyer" | "seller", accept: boo
 export const cancel = (id: string, role: "buyer" | "seller") =>
   withDeal(id, async (deal) => {
     expect(deal, "HELD", "AWAITING_PAYMENT", "NEGOTIATING");
+    notCaptured(deal);
     if (deal.paypal.authorizationId) {
       await pp.voidHold(deal.paypal.authorizationId);
       log(deal, "paypal", "Released the full hold. The buyer paid nothing.");

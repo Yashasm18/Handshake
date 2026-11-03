@@ -24,6 +24,7 @@ vi.mock("@/lib/server/paypal", async (orig) => ({ ...(await orig<typeof import("
 const { runTimer, dueTimers } = await import("@/lib/server/timers");
 const { saveDeal, getDeal } = await import("@/lib/server/deals");
 const { PayPalError } = await import("@/lib/server/paypal");
+const flows = await import("@/lib/server/flows");
 
 const T0 = Date.parse("2026-11-01T12:00:00Z");
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -142,6 +143,18 @@ describe("timer actions", () => {
     expect(after.status).toBe("SETTLED");
     expect(after.events.filter((e) => e.text.includes("released automatically"))).toHaveLength(1);
     expect(after.events.filter((e) => e.text.startsWith("Captured"))).toHaveLength(1);
+  });
+
+  it("after a capture, no claim or cancel can change the outcome", async () => {
+    pp.payoutSeller.mockRejectedValueOnce(new PayPalError("Server error", 500));
+    const d = await saveDeal(deal({ status: "SHIPPED", shipment: VERIFIED, clock: { authorizedAt: iso(T0), reauthorizedAt: iso(T0), shippedAt: iso(T0) } }));
+    await expect(runTimer(d.id, "AUTO_RELEASE", T0 + 8 * DAY)).rejects.toThrow(); // captured, payout pending
+    await expect(flows.openClaim(d.id, { note: "broken", photo: "data:image/png;base64,AA" })).rejects.toThrow(/already being settled/);
+    await expect(flows.settle((await getDeal(d.id))!, 5_000, "different amount")).rejects.toThrow(/different amount/);
+    expect(pp.captureHold).toHaveBeenCalledTimes(1);
+    // The original release can still finish.
+    await flows.confirmDelivery(d.id);
+    expect((await getDeal(d.id))!.status).toBe("SETTLED");
   });
 
   it("lists only what is due", async () => {
