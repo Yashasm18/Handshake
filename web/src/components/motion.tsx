@@ -30,7 +30,8 @@ export function RevealText({
           {line.split(" ").map((word, wi) => {
             const n = i++;
             return (
-              <span key={wi} className="inline-block overflow-hidden pb-[0.08em] align-bottom">
+              // The mask gets room for descenders (g, y) and round overshoots (G, O); negative margins keep the spacing unchanged.
+              <span key={wi} className="-mx-[0.08em] -mb-[0.16em] inline-block overflow-hidden px-[0.08em] pb-[0.24em] align-bottom">
                 <motion.span
                   className="inline-block"
                   initial={{ y: "110%" }}

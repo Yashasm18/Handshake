@@ -80,6 +80,9 @@ export type Deal = {
     netCents?: number;
     payoutBatchId?: string;
     payoutCents?: number;
+    // Server-only: binds "confirm payment" to the browser that opened the PayPal checkout.
+    payNonce?: string;
+    payStartedAt?: string;
     buyerEmail?: string;
   };
   shipTo?: { name?: string; line: string; address?: { address_line_1?: string; postal_code?: string } };

@@ -18,17 +18,14 @@ export function Logo({ className = "" }: { className?: string }) {
 
 export function Nav() {
   const { scrollY } = useScroll();
-  const [hidden, setHidden] = useState(false);
   const [solid, setSolid] = useState(false);
-  useMotionValueEvent(scrollY, "change", (y) => {
-    const prev = scrollY.getPrevious() ?? 0;
-    setHidden(y > prev && y > 200);
-    setSolid(y > 20);
-  });
+  // The bar stays pinned; it only picks up its frosted-glass background once the page moves.
+  useMotionValueEvent(scrollY, "change", (y) => setSolid(y > 20));
   return (
     <motion.header
-      animate={{ y: hidden ? -90 : 0 }}
-      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      initial={{ y: -24, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
       className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${solid ? "bg-paper/80 backdrop-blur-md" : ""}`}
     >
       <nav className="mx-auto flex h-[72px] max-w-[1400px] items-center justify-between px-5 md:px-10">

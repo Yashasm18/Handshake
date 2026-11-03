@@ -27,6 +27,27 @@ export async function requireParty(deal: Deal, party: Party) {
   if (!v[party]) throw new HttpError(403, party === "seller" ? "Only the seller can do this." : "Only the buyer who paid can do this.");
 }
 
+const payCookie = (dealId: string) => `hs_pay_${dealId}`;
+
+// Starting checkout pins the payment to this browser; only it can later turn the approval into a hold.
+export async function issuePayNonce(deal: Deal) {
+  const nonce = newToken();
+  deal.paypal.payNonce = nonce;
+  (await cookies()).set(payCookie(deal.id), nonce, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 3,
+  });
+}
+
+export async function requirePayNonce(deal: Deal) {
+  if (!same((await cookies()).get(payCookie(deal.id))?.value, deal.paypal.payNonce)) {
+    throw new HttpError(403, "Finish the payment in the same browser you started it in.");
+  }
+}
+
 export async function issueToken(deal: Deal, party: Party) {
   const token = newToken();
   if (party === "seller") deal.sellerToken = token;
@@ -49,10 +70,11 @@ export function publicDeal(deal: Deal, viewer: Viewer): DealView {
   const party = viewer.seller || viewer.buyer;
   return {
     ...rest,
-    paypal: { ...rest.paypal, buyerEmail: party ? rest.paypal.buyerEmail : undefined },
+    // PayPal ids are only for the two parties; an outsider holding an order id could try to race the buyer.
+    paypal: party ? { ...rest.paypal, payNonce: undefined } : {},
     shipTo: party ? rest.shipTo : undefined,
     shipment: party ? rest.shipment : rest.shipment && { ...rest.shipment, labelCheck: null },
-    claim: party ? rest.claim : rest.claim && { ...rest.claim, photo: undefined },
+    claim: party ? rest.claim : rest.claim && { ...rest.claim, photo: undefined, note: "" },
     viewer,
   };
 }

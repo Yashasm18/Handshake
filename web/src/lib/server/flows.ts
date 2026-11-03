@@ -20,11 +20,13 @@ function expect(deal: Deal, ...statuses: Deal["status"][]) {
 }
 
 // Buyer clicked the PayPal button: create an AUTHORIZE order for the deal.
-export const startPayment = (id: string) =>
+export const startPayment = (id: string, bindToBrowser: (deal: Deal) => Promise<void>) =>
   withDeal(id, async (deal) => {
     expect(deal, "AWAITING_PAYMENT");
     const order = await pp.createHoldOrder(deal.id, deal.title, deal.priceCents);
     deal.paypal.orderId = order.id;
+    deal.paypal.payStartedAt = new Date().toISOString();
+    await bindToBrowser(deal);
     return { orderId: order.id };
   });
 
@@ -69,7 +71,7 @@ export const ship = (id: string, input: { label?: string; carrier: string; track
       const result = labelMatches(label, deal.shipTo?.address);
       labelCheck = { match: result.match, read: [label.recipient_name, label.street, label.city, label.state, label.postal_code].filter(Boolean).join(", "), reason: result.reason };
       if (!result.match) {
-        log(deal, "handshake", `Stopped a shipment to an address that isn't the buyer's PayPal address (${labelCheck.read}).`);
+        log(deal, "handshake", "Stopped a shipment to an address that isn't the buyer's PayPal-verified address.");
         deal.shipment = { carrier: input.carrier || label.carrier, trackingNumber: input.trackingNumber || label.tracking_number, labelCheck };
         return { blocked: true, labelCheck };
       }
@@ -155,7 +157,7 @@ export const openClaim = (id: string, input: { note: string; photo: string }) =>
       sellerAccepted: false,
     };
     deal.status = "CLAIM_OPEN";
-    log(deal, "buyer", `Reported a problem: "${input.note.slice(0, 140)}"`);
+    log(deal, "buyer", "Reported a problem with a delivery photo.");
     log(deal, "handshake", deal.claim.refundCents ? `Proposed a ${usd(deal.claim.refundCents)} partial refund based on the replacement cost of the ${deal.claim.damagedPart}.` : "Found no difference from the listing. Proposed releasing full payment.");
     return deal;
   });
