@@ -1,11 +1,11 @@
-# Render Blueprint: one Node web service runs both the Next.js frontend and its API routes.
+# Render Blueprint: the web app (frontend + API), plus a workflow and a cron job that enforce deal deadlines.
 services:
   - type: web
     name: handshake
     runtime: node
     rootDir: web
     plan: starter
-    # Tests guard the money rules (part pricing, refund caps, negotiation limits); a failure blocks the deploy.
+    # Tests guard the money rules (part pricing, refund caps, negotiation limits, timers); a failure blocks the deploy.
     buildCommand: npm ci && npm test && npm run build
     startCommand: npm run start
     healthCheckPath: /api/config
@@ -31,3 +31,49 @@ services:
         sync: false
       - key: OPENROUTER_API_KEY
         sync: false
+      # 1 = real days. Set below 1 only for demos (0.0007 ≈ one day per minute).
+      - key: TIMER_SCALE
+        value: "1"
+      - fromGroup: handshake-timers
+
+  # Enforces deadlines: sweepDeals finds deals past a deadline and fans out one enforceDeadline run each,
+  # with retries. The web app re-checks every deadline before it moves money.
+  - type: workflow
+    name: handshake-timers
+    runtime: node
+    region: oregon
+    rootDir: workflows
+    buildCommand: npm ci
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: HANDSHAKE_URL
+        value: https://handshake-5rkw.onrender.com
+      - fromGroup: handshake-timers
+
+  # Workflows don't schedule themselves yet, so this starts one sweep every 5 minutes.
+  - type: cron
+    name: handshake-timer-tick
+    runtime: node
+    region: oregon
+    plan: starter
+    rootDir: workflows
+    schedule: "*/5 * * * *"
+    buildCommand: npm ci
+    startCommand: npm run trigger
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: WORKFLOW_SLUG
+        value: handshake-timers
+      # A Render API key (Account settings → API Keys) so the cron can start workflow runs.
+      - key: RENDER_API_KEY
+        sync: false
+
+envVarGroups:
+  # Shared by the web app and the workflow: proves timer calls come from our own workflow.
+  - name: handshake-timers
+    envVars:
+      - key: TIMERS_SECRET
+        generateValue: true

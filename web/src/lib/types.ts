@@ -57,6 +57,8 @@ export type Claim = {
   captureCents: number;
   buyerAccepted: boolean;
   sellerAccepted: boolean;
+  // A decline stops the automatic settlement; the case goes to PayPal Resolution Center instead.
+  declinedBy?: "buyer" | "seller";
 };
 
 export type Turn = {
@@ -101,6 +103,16 @@ export type Deal = {
   // Server-only: the max a buyer chose for a backed offer, between starting checkout and the hold.
   pendingOfferCents?: number;
   negotiation?: Negotiation;
+  // When each stage started; deadlines (see lib/deadlines.ts) are measured from these.
+  clock?: {
+    heldAt?: string;
+    authorizedAt?: string;
+    reauthorizedAt?: string;
+    // Set when PayPal says it's too soon to reauthorize, so the timer tries again later.
+    reauthorizeAfter?: string;
+    shippedAt?: string;
+    claimAt?: string;
+  };
   paypal: {
     orderId?: string;
     authorizationId?: string;
@@ -125,7 +137,13 @@ export type Deal = {
 };
 
 export type Viewer = { seller: boolean; buyer: boolean };
-export type DealView = Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail" | "pendingOfferCents"> & { viewer: Viewer; acceptsOffers: boolean };
+export type DealView = Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail" | "pendingOfferCents"> & {
+  viewer: Viewer;
+  acceptsOffers: boolean;
+  deadlines: import("./deadlines").Deadline[];
+  // True when deadlines run at demo speed (TIMER_SCALE < 1), so the UI can say so.
+  demoClock: boolean;
+};
 
 export const usd = (cents: number) =>
   (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: cents % 100 ? 2 : 0 });

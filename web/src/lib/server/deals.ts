@@ -36,6 +36,10 @@ function persist() {
 export const newId = () => randomBytes(16).toString("base64url");
 export const newToken = () => randomBytes(32).toString("base64url");
 
+export async function allDeals() {
+  return [...(await load()).values()];
+}
+
 export async function getDeal(id: string) {
   return (await load()).get(id) ?? null;
 }

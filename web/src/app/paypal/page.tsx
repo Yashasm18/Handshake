@@ -48,13 +48,14 @@ export default function PayPalPage() {
 
         <Section
           eyebrow="The deal lifecycle"
-          title={"Six PayPal calls.\nZero trust needed."}
+          title={"Seven PayPal calls.\nZero trust needed."}
           intro="Paying a stranger usually means trusting them first. Handshake puts PayPal in the middle of every step, so neither side has to."
         >
           <Steps
             steps={[
               { t: "Reserve, don't send", d: "The buyer approves a PayPal order with intent AUTHORIZE. The money is held on their account and nothing moves to anyone.", tag: "Orders v2" },
               { t: "Know where it ships", d: "The authorization returns the buyer's PayPal-verified address. The seller's label is checked against it, because shipping elsewhere voids Seller Protection.", tag: "Shipping address" },
+              { t: "Keep it reserved", d: "PayPal guarantees a hold for three days. If the item is still in transit, a Render Workflow reauthorizes it so the funds stay reserved until delivery.", tag: "Reauthorize" },
               { t: "Charge only what's fair", d: "On delivery, Handshake captures the deal price, or less after a damage refund, with final_capture. PayPal releases whatever is left.", tag: "Partial capture" },
               { t: "Prove it shipped", d: "Tracking is attached to the PayPal capture, which is what Seller Protection looks for.", tag: "Order tracking" },
               { t: "Pay the seller", d: "The seller's share goes out through PayPal Payouts, after PayPal's fee, straight to their PayPal account.", tag: "Payouts v1" },
@@ -94,7 +95,8 @@ export default function PayPalPage() {
               { name: "Create order", call: "POST /v2/checkout/orders", why: "intent AUTHORIZE at the deal price, or at the buyer's max for a backed offer." },
               { name: "Authorize", call: "POST /v2/checkout/orders/{id}/authorize", why: "Turns the buyer's approval into a hold and returns their PayPal-verified shipping address." },
               { name: "Capture", call: "POST /v2/payments/authorizations/{id}/capture", why: "Captures the agreed amount, or less after a refund, with final_capture so the rest is released." },
-              { name: "Void", call: "POST /v2/payments/authorizations/{id}/void", why: "Releases the whole hold on cancel or when the agents can't agree." },
+              { name: "Reauthorize", call: "POST /v2/payments/authorizations/{id}/reauthorize", why: "Renews the hold after PayPal's 3-day honor period, run on schedule by a Render Workflow." },
+              { name: "Void", call: "POST /v2/payments/authorizations/{id}/void", why: "Releases the whole hold on cancel, when the agents can't agree, or when the seller misses the shipping deadline." },
               { name: "Add tracking", call: "POST /v2/checkout/orders/{id}/track", why: "Attaches the carrier and tracking number to the capture for Seller Protection." },
               { name: "Payouts", call: "POST /v1/payments/payouts", why: "Sends the seller their net amount after PayPal's fee." },
               { name: "JS SDK Buttons", call: "intent=authorize", why: "PayPal's own checkout window, plus the sandbox test card for judges without a login." },

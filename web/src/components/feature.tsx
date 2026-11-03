@@ -9,6 +9,7 @@ export const UNDER_THE_HOOD = [
   { href: "/agents", label: "Agents" },
   { href: "/paypal", label: "PayPal" },
   { href: "/channel3", label: "Channel3" },
+  { href: "/render", label: "Render" },
 ];
 
 export const REPO = "https://github.com/Yashasm18/HandShake";

@@ -122,6 +122,10 @@ export const captureHold = (authorizationId: string, cents: number, invoiceId: s
     note_to_payer: note.slice(0, 255),
   });
 
+// After PayPal's 3-day honor period, a reauthorization re-reserves the funds and returns a new authorization.
+export const reauthorizeHold = (authorizationId: string) =>
+  call<{ id: string; status: string; expiration_time?: string }>("POST", `/v2/payments/authorizations/${authorizationId}/reauthorize`, {});
+
 export const voidHold = (authorizationId: string) => call<{ status?: string }>("POST", `/v2/payments/authorizations/${authorizationId}/void`, {});
 
 export const addTracking = (orderId: string, captureId: string, trackingNumber: string, carrier: string) =>

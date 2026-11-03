@@ -1,0 +1,22 @@
+{
+  "name": "handshake-timers",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Render Workflow that enforces Handshake deal deadlines, plus the cron trigger that starts it.",
+  "scripts": {
+    "start": "tsx src/tasks.ts",
+    "trigger": "tsx src/trigger.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@renderinc/sdk": "1.7.0",
+    "tsx": "4.23.15"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5",
+    "vitest": "3.2.4"
+  }
+}

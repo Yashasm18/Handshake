@@ -179,6 +179,8 @@ export function resumeIfStalled(deal: Deal) {
 function closeAgreed(deal: Deal, n: Negotiation) {
   deal.priceCents = n.agreedCents!;
   deal.status = "HELD";
+  // The seller's 3 days to ship start when there's an agreed price to ship for.
+  deal.clock = { ...deal.clock, heldAt: new Date().toISOString() };
   const saved = n.askingCents - n.agreedCents!;
   log(deal, "handshake", `Agreed at ${usd(n.agreedCents!)}${saved > 0 ? `, ${usd(saved)} under the asking price` : ""}. Only ${usd(n.agreedCents!)} can ever be charged.`);
 }

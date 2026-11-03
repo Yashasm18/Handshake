@@ -65,6 +65,8 @@ function recordHold(deal: Deal, order: Awaited<ReturnType<typeof pp.authorizeOrd
   deal.paypal.authorizationId = hold.authorizationId;
   deal.paypal.buyerEmail = hold.buyerEmail;
   deal.shipTo = hold.shipTo ? { name: hold.shipTo.name, line: addressLine(hold.shipTo.address), address: hold.shipTo.address } : undefined;
+  const now = new Date().toISOString();
+  deal.clock = { heldAt: now, authorizedAt: now };
   // A backed offer goes to the agents first; its amount is the buyer's secret, so the log never says it.
   if (deal.pendingOfferCents != null) {
     log(deal, "paypal", "The buyer's offer is backed by a PayPal hold. Nothing has been charged yet.", hold.authorizationId);
@@ -122,11 +124,12 @@ export const ship = (id: string, input: { label?: string; carrier: string; track
     if (!input.trackingNumber) throw new HttpError(400, "Add a tracking number or a photo of the label.");
     deal.shipment = { carrier: carrierCode(input.carrier), trackingNumber: input.trackingNumber.replace(/\s/g, ""), labelCheck };
     deal.status = "SHIPPED";
+    deal.clock = { ...deal.clock, shippedAt: new Date().toISOString() };
     log(deal, "seller", `Shipped with ${deal.shipment.carrier}, tracking ${deal.shipment.trackingNumber}.`);
     return { blocked: false, labelCheck };
   });
 
-async function settle(deal: Deal, captureCents: number, note: string) {
+export async function settle(deal: Deal, captureCents: number, note: string) {
   const { paypal } = deal;
   if (!paypal.authorizationId || !paypal.orderId) throw new HttpError(409, "There's no PayPal hold on this deal.");
   const capture = await pp.captureHold(paypal.authorizationId, captureCents, `HS-${deal.id}`, note);
@@ -196,6 +199,7 @@ export const openClaim = (id: string, input: { note: string; photo: string }) =>
       sellerAccepted: false,
     };
     deal.status = "CLAIM_OPEN";
+    deal.clock = { ...deal.clock, claimAt: new Date().toISOString() };
     log(deal, "buyer", "Reported a problem with a delivery photo.");
     log(deal, "handshake", deal.claim.refundCents ? `Proposed a ${usd(deal.claim.refundCents)} partial refund based on the replacement cost of the ${deal.claim.damagedPart}.` : "Found no difference from the listing. Proposed releasing full payment.");
     return deal;
@@ -206,6 +210,7 @@ export const respondToClaim = (id: string, role: "buyer" | "seller", accept: boo
     expect(deal, "CLAIM_OPEN");
     const claim = deal.claim!;
     if (!accept) {
+      claim.declinedBy ??= role;
       log(deal, role, "Declined the proposal. The case can go to PayPal Resolution Center.");
       return deal;
     }

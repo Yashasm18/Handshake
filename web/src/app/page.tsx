@@ -85,11 +85,12 @@ export default function Home() {
         {/* Under the hood: one page per partner technology */}
         <section className="mx-auto max-w-[1400px] px-5 pb-8 md:px-10">
           <p className="label mb-8 text-muted">Under the hood</p>
-          <div className="grid gap-5 md:grid-cols-3">
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
             {[
               { href: "/agents", k: "Agents", n: "0", t: "times an agent crossed its owner's limit, even under prompt-injection attacks." },
-              { href: "/paypal", k: "PayPal", n: "6", t: "PayPal calls take a deal from hold to payout, with nothing charged until it arrives." },
+              { href: "/paypal", k: "PayPal", n: "7", t: "PayPal calls take a deal from hold to payout, with nothing charged until it arrives." },
               { href: "/channel3", k: "Channel3", n: "25k", t: "stores priced live to catch bait, set a fair range and price damaged parts." },
+              { href: "/render", k: "Render", n: "4", t: "deadlines enforced by a Render Workflow, so no deal can stall." },
             ].map((c, i) => (
               <FadeIn key={c.href} delay={i * 0.08}>
                 <Link href={c.href} className="group flex h-full flex-col rounded-[28px] border hairline bg-card p-7 transition-colors hover:border-ink/30">

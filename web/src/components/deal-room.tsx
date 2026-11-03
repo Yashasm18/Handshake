@@ -10,6 +10,7 @@ import { Arrow, Button } from "./chrome";
 import { PhotoPicker } from "./check-flow";
 import { EASE } from "./motion";
 import { PayPalButton } from "./paypal-button";
+import { DealClock, DeadlineNotice } from "./deadline";
 import { Headline, Panel } from "./deal-ui";
 import { negotiatedFrom, NegotiationLive, NegotiationRecap, NoDealNotice, OfferForm } from "./negotiation";
 
@@ -142,6 +143,7 @@ export function DealRoom() {
               )}
             </motion.div>
           </AnimatePresence>
+          {role && <DeadlineNotice deal={deal} role={role} />}
           {error && (
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 rounded-2xl bg-alert-soft px-5 py-4 text-[15px] text-alert" role="alert">
               {error}
@@ -150,6 +152,7 @@ export function DealRoom() {
         </div>
         <aside className="space-y-6">
           {role && <NegotiationRecap deal={deal} role={role} />}
+          {role && <DealClock deal={deal} />}
           <DealFacts deal={deal} />
           <Ledger deal={deal} />
           <Activity deal={deal} />

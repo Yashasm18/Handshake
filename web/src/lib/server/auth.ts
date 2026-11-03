@@ -1,7 +1,9 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { timingSafeEqual } from "node:crypto";
+import { deadlinesFor } from "../deadlines";
 import type { Deal, DealView, Viewer } from "../types";
+import { timerScale } from "./timers";
 import { HttpError, newToken } from "./deals";
 
 type Party = "seller" | "buyer";
@@ -84,6 +86,8 @@ export function publicDeal(deal: Deal, viewer: Viewer): DealView {
     ...rest,
     floorCents: viewer.seller ? rest.floorCents : undefined,
     acceptsOffers: rest.floorCents != null,
+    deadlines: deadlinesFor(deal, timerScale()),
+    demoClock: timerScale() < 1,
     negotiation: party ? negotiation : negotiation && { ...negotiation, turns: [] },
     // PayPal ids are only for the two parties; an outsider holding an order id could try to race the buyer.
     paypal: party ? { ...rest.paypal, payNonce: undefined } : {},
