@@ -2,6 +2,9 @@ import { Arrow, Button, Nav } from "@/components/chrome";
 import { FadeIn, RevealText } from "@/components/motion";
 import { HowItWorks } from "@/components/how-it-works";
 import { BuiltWith } from "@/components/built-with";
+import { Footer } from "@/components/feature";
+import { NegotiationDemo } from "@/components/negotiation-demo";
+import Link from "next/link";
 
 const CATCHES = [
   "“Send it Friends & Family, saves us both the fee”",
@@ -32,7 +35,7 @@ export default function Home() {
           <div className="mt-12 grid gap-10 md:mt-16 md:grid-cols-[1fr_auto] md:items-end">
             <div className="animate-fade-up" style={{ animationDelay: "0.35s" }}>
               <p className="max-w-[520px] text-[18px] leading-relaxed text-muted md:text-[20px]">
-                Paste the chat. Handshake checks it for scam tricks and compares the price against 25,000 stores. Then PayPal holds the money until the item really arrives.
+                Paste the chat. Handshake checks it for scam tricks and real prices from 25,000 stores, lets AI agents negotiate a fair deal, and PayPal holds the money until the item really arrives.
               </p>
             </div>
             <div className="animate-fade-up flex flex-wrap gap-3" style={{ animationDelay: "0.45s" }}>
@@ -59,6 +62,48 @@ export default function Home() {
         </section>
 
         <HowItWorks />
+
+        {/* Agents, shown not told */}
+        <section className="mx-auto grid max-w-[1400px] gap-12 px-5 py-24 md:grid-cols-[0.9fr_1.1fr] md:items-center md:px-10 md:py-36">
+          <div>
+            <p className="label mb-8 text-muted">New · Agent negotiation</p>
+            <RevealText as="h2" text={"Two agents.\nOne fair price."} className="display text-[clamp(44px,6.5vw,104px)]" />
+            <FadeIn>
+              <p className="mt-8 max-w-[480px] text-[18px] leading-relaxed text-muted">
+                Set a secret max, and PayPal holds it so the seller knows you&apos;re serious. Your agent haggles with theirs using real market prices. Code makes sure neither one crosses a limit.
+              </p>
+              <Button href="/agents" variant="ghost" className="mt-10">
+                How the agents work <Arrow />
+              </Button>
+            </FadeIn>
+          </div>
+          <FadeIn>
+            <NegotiationDemo compact />
+          </FadeIn>
+        </section>
+
+        {/* Under the hood: one page per partner technology */}
+        <section className="mx-auto max-w-[1400px] px-5 pb-8 md:px-10">
+          <p className="label mb-8 text-muted">Under the hood</p>
+          <div className="grid gap-5 md:grid-cols-3">
+            {[
+              { href: "/agents", k: "Agents", n: "0", t: "times an agent crossed its owner's limit, even under prompt-injection attacks." },
+              { href: "/paypal", k: "PayPal", n: "6", t: "PayPal calls take a deal from hold to payout, with nothing charged until it arrives." },
+              { href: "/channel3", k: "Channel3", n: "25k", t: "stores priced live to catch bait, set a fair range and price damaged parts." },
+            ].map((c, i) => (
+              <FadeIn key={c.href} delay={i * 0.08}>
+                <Link href={c.href} className="group flex h-full flex-col rounded-[28px] border hairline bg-card p-7 transition-colors hover:border-ink/30">
+                  <span className="flex items-center justify-between">
+                    <span className="label text-muted">{c.k}</span>
+                    <Arrow className="text-muted transition-colors group-hover:text-ink" />
+                  </span>
+                  <span className="display mt-10 text-[clamp(56px,6vw,88px)]">{c.n}</span>
+                  <span className="mt-4 max-w-[300px] text-[16px] leading-snug text-muted">{c.t}</span>
+                </Link>
+              </FadeIn>
+            ))}
+          </div>
+        </section>
 
         <BuiltWith />
 
@@ -110,12 +155,7 @@ export default function Home() {
           </FadeIn>
         </section>
       </main>
-      <footer className="border-t hairline">
-        <div className="mx-auto flex max-w-[1400px] flex-col justify-between gap-4 px-5 py-10 text-[14px] text-muted md:flex-row md:px-10">
-          <p>Handshake · Built for the PayPal AI Hackathon. Runs on the PayPal sandbox: no real money moves.</p>
-          <p>Payments by PayPal · Prices by Channel3</p>
-        </div>
-      </footer>
+      <Footer />
     </>
   );
 }

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { motion, useMotionValueEvent, useScroll } from "motion/react";
-import { useState, useSyncExternalStore, type ComponentProps, type MouseEvent } from "react";
+import { Suspense, useState, useSyncExternalStore, type ComponentProps, type MouseEvent } from "react";
 
 export function Logo({ className = "" }: { className?: string }) {
   return (
@@ -16,6 +17,29 @@ export function Logo({ className = "" }: { className?: string }) {
   );
 }
 
+const LINKS = [
+  { href: "/agents", label: "Agents" },
+  { href: "/paypal", label: "PayPal" },
+  { href: "/channel3", label: "Channel3" },
+];
+
+function ActiveNavLinks() {
+  return <NavLinks path={usePathname()} />;
+}
+
+function NavLinks({ path }: { path: string | null }) {
+  return (
+    <div className="hidden items-center gap-8 text-[15px] md:flex">
+      {LINKS.map((l) => (
+        <Link key={l.href} href={l.href} aria-current={path === l.href ? "page" : undefined} className={`relative transition-colors hover:text-ink ${path === l.href ? "text-ink" : "text-muted"}`}>
+          {l.label}
+          {path === l.href && <motion.span layoutId="nav-dot" className="absolute -bottom-2 left-1/2 size-1 -translate-x-1/2 rounded-full bg-ink" />}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 export function Nav() {
   const { scrollY } = useScroll();
   const [solid, setSolid] = useState(false);
@@ -25,11 +49,10 @@ export function Nav() {
     <motion.header className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${solid ? "bg-paper/80 backdrop-blur-md" : ""}`}>
       <nav className="mx-auto flex h-[72px] max-w-[1400px] items-center justify-between px-5 md:px-10">
         <Logo />
-        <div className="hidden items-center gap-8 text-[15px] text-muted md:flex">
-          <Link href="/#how" className="transition-colors hover:text-ink">How it works</Link>
-          <Link href="/#catches" className="transition-colors hover:text-ink">What it catches</Link>
-          <Link href="/#trust" className="transition-colors hover:text-ink">Why it&apos;s safe</Link>
-        </div>
+        {/* Reading the URL needs a Suspense boundary on dynamic routes; the fallback is the same links, unhighlighted. */}
+        <Suspense fallback={<NavLinks path={null} />}>
+          <ActiveNavLinks />
+        </Suspense>
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <Button href="/check" size="sm">Check a deal</Button>

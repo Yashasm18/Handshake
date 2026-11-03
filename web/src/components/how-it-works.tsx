@@ -16,6 +16,11 @@ const STEPS = [
     tag: "Channel3 · 100M products",
   },
   {
+    t: "Let agents haggle",
+    d: "Want a better price? Back an offer with a PayPal hold and your AI agent negotiates with the seller's agent. Neither can go past the limits you set.",
+    tag: "AI agents · Negotiation",
+  },
+  {
     t: "PayPal holds the money",
     d: "The buyer pays into a PayPal hold. The seller can see it's real, and nothing is charged until the item shows up as described.",
     tag: "PayPal · Authorize",
@@ -38,7 +43,7 @@ export function HowItWorks() {
     <section id="how" className="mx-auto max-w-[1400px] px-5 pb-4 pt-28 md:px-10 md:pb-8 md:pt-40">
       <div className="mb-14 flex items-end justify-between gap-6">
         <h2 className="display text-[clamp(40px,6vw,88px)]">How it works</h2>
-        <p className="label hidden text-muted md:block">Five steps · Under two minutes</p>
+        <p className="label hidden text-muted md:block">Six steps · Minutes, not weeks</p>
       </div>
       <ol className="border-t hairline">
         {STEPS.map((s, i) => {
