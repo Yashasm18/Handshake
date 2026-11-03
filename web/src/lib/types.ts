@@ -36,6 +36,8 @@ export type Scan = {
 
 export type DealStatus =
   | "AWAITING_PAYMENT"
+  // A buyer's offer is backed by a PayPal hold at their max while the two agents negotiate.
+  | "NEGOTIATING"
   | "HELD"
   | "SHIPPED"
   | "CLAIM_OPEN"
@@ -57,6 +59,29 @@ export type Claim = {
   sellerAccepted: boolean;
 };
 
+export type Turn = {
+  by: "buyer" | "seller";
+  offerCents: number;
+  message: string;
+  at: string;
+  // Set when code had to pull the agent's number back inside its owner's limits.
+  clamped?: boolean;
+};
+
+export type Negotiation = {
+  status: "RUNNING" | "AGREED" | "NO_DEAL";
+  askingCents: number;
+  // Buyer-only secret: the hold amount and the most their agent may offer.
+  maxCents?: number;
+  // Fair price band for this item in this condition, computed in code from retail comps.
+  fair: { lowCents: number; highCents: number } | null;
+  turns: Turn[];
+  agreedCents?: number;
+  // How the deal closed: an agent accepted, offers crossed, or code split the remaining gap.
+  closedBy?: "buyer" | "seller" | "referee";
+  startedAt: string;
+};
+
 export type Deal = {
   id: string;
   createdAt: string;
@@ -71,6 +96,11 @@ export type Deal = {
   scan: Scan | null;
   status: DealStatus;
   demo: boolean;
+  // Seller-only secret: the lowest price their agent may accept. Set means the deal takes offers.
+  floorCents?: number;
+  // Server-only: the max a buyer chose for a backed offer, between starting checkout and the hold.
+  pendingOfferCents?: number;
+  negotiation?: Negotiation;
   paypal: {
     orderId?: string;
     authorizationId?: string;
@@ -95,7 +125,7 @@ export type Deal = {
 };
 
 export type Viewer = { seller: boolean; buyer: boolean };
-export type DealView = Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail"> & { viewer: Viewer };
+export type DealView = Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail" | "pendingOfferCents"> & { viewer: Viewer; acceptsOffers: boolean };
 
 export const usd = (cents: number) =>
   (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: cents % 100 ? 2 : 0 });

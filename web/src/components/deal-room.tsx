@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/client";
 import type { DealView as Deal } from "@/lib/types";
 import { usd } from "@/lib/types";
@@ -10,6 +10,8 @@ import { Arrow, Button } from "./chrome";
 import { PhotoPicker } from "./check-flow";
 import { EASE } from "./motion";
 import { PayPalButton } from "./paypal-button";
+import { Headline, Panel } from "./deal-ui";
+import { negotiatedFrom, NegotiationLive, NegotiationRecap, NoDealNotice, OfferForm } from "./negotiation";
 
 type Role = "buyer" | "seller";
 
@@ -24,6 +26,7 @@ function stageIndex(d: Deal) {
   switch (d.status) {
     case "AWAITING_PAYMENT":
       return -1;
+    case "NEGOTIATING":
     case "HELD":
       return 0;
     case "SHIPPED":
@@ -54,15 +57,16 @@ export function DealRoom() {
     }
   }, [id]);
 
-  // Light polling keeps buyer and seller screens in sync without websockets.
+  // Light polling keeps buyer and seller screens in sync without websockets; faster while agents talk.
+  const live = deal?.status === "NEGOTIATING";
   useEffect(() => {
     const first = setTimeout(refresh, 0);
-    const t = setInterval(() => { if (document.visibilityState === "visible") refresh(); }, 2500);
+    const t = setInterval(() => { if (document.visibilityState === "visible") refresh(); }, live ? 900 : 2500);
     return () => {
       clearTimeout(first);
       clearInterval(t);
     };
-  }, [refresh]);
+  }, [refresh, live]);
 
   const act = useCallback(
     async (action: string, body: unknown = {}) => {
@@ -117,6 +121,7 @@ export function DealRoom() {
           {deal.title}
         </motion.h1>
         <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, ease: EASE, delay: 0.1 }} className="md:text-right">
+          {negotiatedFrom(deal) != null && <p className="text-[18px] text-muted line-through decoration-1 md:text-right">{usd(negotiatedFrom(deal)!)}</p>}
           <p className="display text-[clamp(40px,5vw,72px)]">{usd(deal.priceCents)}</p>
           <p className="text-[15px] text-muted">Sold by {deal.sellerName}</p>
         </motion.div>
@@ -144,6 +149,7 @@ export function DealRoom() {
           )}
         </div>
         <aside className="space-y-6">
+          {role && <NegotiationRecap deal={deal} role={role} />}
           <DealFacts deal={deal} />
           <Ledger deal={deal} />
           <Activity deal={deal} />
@@ -187,27 +193,6 @@ function Progress({ stage, released }: { stage: number; released: boolean }) {
   );
 }
 
-function Panel({ children, tone = "plain" }: { children: ReactNode; tone?: "plain" | "dark" | "alert" | "safe" | "held" }) {
-  const tones = {
-    plain: "bg-card border hairline",
-    dark: "island bg-night text-paper",
-    alert: "bg-alert-soft",
-    safe: "bg-safe-soft",
-    held: "bg-held-soft",
-  };
-  return <div className={`rounded-[28px] p-6 md:p-9 ${tones[tone]}`}>{children}</div>;
-}
-
-function Headline({ eyebrow, title, body, tone }: { eyebrow: string; title: string; body?: ReactNode; tone?: string }) {
-  return (
-    <>
-      <p className={`label ${tone ?? "text-muted"}`}>{eyebrow}</p>
-      <h2 className="mt-4 font-display text-[clamp(30px,3.6vw,46px)] font-semibold leading-[1.02] tracking-[-0.035em]">{title}</h2>
-      {body && <div className="mt-4 max-w-[560px] font-serif text-[17px] leading-relaxed opacity-75 [font-size-adjust:0.52]">{body}</div>}
-    </>
-  );
-}
-
 type ActProps = {
   deal: Deal;
   role: Role;
@@ -223,6 +208,8 @@ function ActionCard(p: ActProps) {
   switch (deal.status) {
     case "AWAITING_PAYMENT":
       return role === "buyer" ? <BuyerPay {...p} /> : <SellerWaitingPayment {...p} />;
+    case "NEGOTIATING":
+      return <NegotiationLive deal={deal} role={role} />;
     case "HELD":
       return role === "seller" ? <SellerShip {...p} /> : <BuyerWaitingShip {...p} />;
     case "SHIPPED":
@@ -245,30 +232,60 @@ function ActionCard(p: ActProps) {
   }
 }
 
-function BuyerPay({ deal, act, busy, onHeld, onPayError }: ActProps) {
+function BuyerPay(p: ActProps) {
+  const { deal, act, busy, onHeld, onPayError } = p;
+  const [mode, setMode] = useState<"pay" | "offer">("pay");
+  const offer = deal.acceptsOffers && mode === "offer";
   return (
     <Panel>
+      <NoDealNotice deal={deal} />
+      {deal.acceptsOffers && (
+        <div className="mb-7 inline-flex rounded-full border hairline bg-paper p-1" role="tablist">
+          {(["pay", "offer"] as const).map((m) => (
+            <button key={m} role="tab" aria-selected={mode === m} onClick={() => setMode(m)} className="relative z-10 h-10 px-5 text-[14px] font-medium">
+              {mode === m && <motion.span layoutId="pay-mode" className="absolute inset-0 -z-10 rounded-full bg-ink" transition={{ duration: 0.4, ease: EASE }} />}
+              <span className={mode === m ? "text-paper" : "text-muted"}>{m === "pay" ? `Pay ${usd(deal.priceCents)}` : "Make an offer"}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <Headline
-        eyebrow="Pay safely"
-        title={`Pay ${usd(deal.priceCents)} into a PayPal hold`}
-        body={<>PayPal reserves the money but doesn&apos;t send it. {deal.sellerName} can see it&apos;s real, and you&apos;re only charged once the item arrives as described.</>}
+        eyebrow={offer ? "Agent negotiation" : "Pay safely"}
+        title={offer ? "Let your agent negotiate" : `Pay ${usd(deal.priceCents)} into a PayPal hold`}
+        body={
+          offer ? (
+            <>Set your secret max. Your AI agent haggles with {deal.sellerName}&apos;s agent using real market prices, and it can never go above your number.</>
+          ) : (
+            <>PayPal reserves the money but doesn&apos;t send it. {deal.sellerName} can see it&apos;s real, and you&apos;re only charged once the item arrives as described.</>
+          )
+        }
       />
-      <ul className="mt-6 space-y-2 text-[15px]">
-        {["Not charged until delivery is confirmed", "Damaged? Settle with a partial refund in minutes", "Seller never ships? The hold is released in full"].map((t) => (
-          <li key={t} className="flex items-center gap-3">
-            <span className="flex size-5 items-center justify-center rounded-full bg-safe-soft text-safe">
-              <svg viewBox="0 0 12 12" className="size-3" aria-hidden><path d="M2.5 6.5l2.2 2.2 4.8-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
-            </span>
-            {t}
-          </li>
-        ))}
-      </ul>
-      <div className="mt-8 max-w-[420px]">
-        <PayPalButton dealId={deal.id} onHeld={onHeld} onError={onPayError} />
-        <button onClick={() => act("test-card")} disabled={!!busy} className="mt-4 w-full text-center text-[13px] text-muted underline-offset-4 hover:text-ink hover:underline disabled:opacity-50">
-          {busy === "test-card" ? "Placing hold…" : "Judging? Skip login and pay with PayPal's sandbox test card"}
-        </button>
-      </div>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div key={offer ? "offer" : "pay"} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35, ease: EASE }} className="mt-6">
+          {offer ? (
+            <OfferForm deal={deal} act={act} busy={busy} onHeld={onHeld} onPayError={onPayError} />
+          ) : (
+            <>
+              <ul className="space-y-2 text-[15px]">
+                {["Not charged until delivery is confirmed", "Damaged? Settle with a partial refund in minutes", "Seller never ships? The hold is released in full"].map((t) => (
+                  <li key={t} className="flex items-center gap-3">
+                    <span className="flex size-5 items-center justify-center rounded-full bg-safe-soft text-safe">
+                      <svg viewBox="0 0 12 12" className="size-3" aria-hidden><path d="M2.5 6.5l2.2 2.2 4.8-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+                    </span>
+                    {t}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-8 max-w-[420px]">
+                <PayPalButton dealId={deal.id} onHeld={onHeld} onError={onPayError} />
+                <button onClick={() => act("test-card")} disabled={!!busy} className="mt-4 w-full text-center text-[13px] text-muted underline-offset-4 hover:text-ink hover:underline disabled:opacity-50">
+                  {busy === "test-card" ? "Placing hold…" : "Judging? Skip login and pay with PayPal's sandbox test card"}
+                </button>
+              </div>
+            </>
+          )}
+        </motion.div>
+      </AnimatePresence>
     </Panel>
   );
 }
@@ -293,6 +310,11 @@ function SellerWaitingPayment({ deal, act, busy }: ActProps) {
           {copied ? "Copied" : "Copy link"}
         </Button>
       </div>
+      {deal.floorCents != null && (
+        <p className="mt-6 text-[15px] text-paper/70">
+          Open to offers. Your agent negotiates for you and never accepts less than <span className="font-semibold text-paper">{usd(deal.floorCents)}</span>. Only you can see that number.
+        </p>
+      )}
       <p className="mt-6 flex items-center gap-3 text-[15px] text-paper/60">
         <span className="relative flex size-2.5">
           <span className="absolute inline-flex size-full animate-ping rounded-full bg-held opacity-75" />

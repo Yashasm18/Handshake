@@ -67,13 +67,24 @@ export async function issueToken(deal: Deal, party: Party) {
 
 // Strangers holding the link see the item and its status, not who is involved or where it ships.
 export function publicDeal(deal: Deal, viewer: Viewer): DealView {
-  const rest: Partial<Deal> & Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail"> = { ...deal };
+  const rest: Partial<Deal> & Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail" | "pendingOfferCents"> = { ...deal };
+  delete rest.pendingOfferCents;
   delete rest.sellerToken;
   delete rest.buyerToken;
   delete rest.sellerEmail;
   const party = viewer.seller || viewer.buyer;
+  // Each side's limit is visible only to that side: the floor to the seller, the max to the buyer.
+  // "Clamped" means an offer sits exactly at its owner's limit, so only that owner may see it.
+  const negotiation = rest.negotiation && {
+    ...rest.negotiation,
+    maxCents: viewer.buyer ? rest.negotiation.maxCents : undefined,
+    turns: rest.negotiation.turns.map((t) => (viewer[t.by] ? t : { ...t, clamped: undefined })),
+  };
   return {
     ...rest,
+    floorCents: viewer.seller ? rest.floorCents : undefined,
+    acceptsOffers: rest.floorCents != null,
+    negotiation: party ? negotiation : negotiation && { ...negotiation, turns: [] },
     // PayPal ids are only for the two parties; an outsider holding an order id could try to race the buyer.
     paypal: party ? { ...rest.paypal, payNonce: undefined } : {},
     shipTo: party ? rest.shipTo : undefined,

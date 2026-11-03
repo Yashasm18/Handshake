@@ -3,6 +3,7 @@ import type { Deal } from "../types";
 import { usd } from "../types";
 import { labelMatches, marketFor, readLabel, reviewClaim } from "./checks";
 import { HttpError, log, withDeal } from "./deals";
+import { runNegotiation, startNegotiation } from "./negotiate";
 import * as pp from "./paypal";
 
 const dollars = (v?: string) => Math.round(Number(v ?? 0) * 100);
@@ -22,11 +23,21 @@ function expect(deal: Deal, ...statuses: Deal["status"][]) {
 // Buyer clicked the PayPal button: create an AUTHORIZE order for the deal.
 const CHECKOUT_WINDOW_MS = 10 * 60_000;
 
+// A backed offer holds the buyer's max; it only makes sense below the asking price and on a deal that takes offers.
+function offerAmount(deal: Deal, offerCents?: number) {
+  if (offerCents == null) return undefined;
+  if (deal.floorCents == null) throw new HttpError(400, "This seller isn't taking offers.");
+  if (offerCents >= deal.priceCents) throw new HttpError(400, `That's at or above the asking price. Just pay ${usd(deal.priceCents)}.`);
+  if (offerCents < deal.priceCents * 0.3) throw new HttpError(400, "That offer is too low to send. Try something closer to the asking price.");
+  return Math.round(offerCents / 100) * 100;
+}
+
 // One browser owns checkout for 10 minutes from when it FIRST opened it. Reopening keeps the
 // original window (it can't be extended), so nobody can lock a deal indefinitely.
 export const startPayment = (
   id: string,
   browser: { ownsCheckout: (deal: Deal) => Promise<boolean>; claimCheckout: (deal: Deal) => Promise<void> },
+  offerCents?: number,
 ) =>
   withDeal(id, async (deal) => {
     expect(deal, "AWAITING_PAYMENT");
@@ -34,8 +45,10 @@ export const startPayment = (
     const pending = Date.now() - started < CHECKOUT_WINDOW_MS;
     const mine = pending && (await browser.ownsCheckout(deal));
     if (pending && !mine) throw new HttpError(409, "Someone is already paying for this deal. Try again in a few minutes.");
-    const order = await pp.createHoldOrder(deal.id, deal.title, deal.priceCents);
+    const offer = offerAmount(deal, offerCents);
+    const order = await pp.createHoldOrder(deal.id, deal.title, offer ?? deal.priceCents);
     deal.paypal.orderId = order.id;
+    deal.pendingOfferCents = offer;
     if (!mine) {
       deal.paypal.payStartedAt = new Date().toISOString();
       await browser.claimCheckout(deal);
@@ -50,9 +63,20 @@ function recordHold(deal: Deal, order: Awaited<ReturnType<typeof pp.authorizeOrd
   deal.paypal.authorizationId = hold.authorizationId;
   deal.paypal.buyerEmail = hold.buyerEmail;
   deal.shipTo = hold.shipTo ? { name: hold.shipTo.name, line: addressLine(hold.shipTo.address), address: hold.shipTo.address } : undefined;
+  // A backed offer goes to the agents first; its amount is the buyer's secret, so the log never says it.
+  if (deal.pendingOfferCents != null) {
+    log(deal, "paypal", "The buyer's offer is backed by a PayPal hold. Nothing has been charged yet.", hold.authorizationId);
+    startNegotiation(deal);
+    return;
+  }
   deal.status = "HELD";
   log(deal, "paypal", `${usd(deal.priceCents)} is held by PayPal. Nothing has been charged yet.`, hold.authorizationId);
 }
+
+const kickOff = (deal: Deal) => {
+  if (deal.status === "NEGOTIATING") runNegotiation(deal.id);
+  return deal;
+};
 
 // becomeBuyer runs inside the deal lock, so exactly one browser ends up holding the buyer credential.
 type BecomeBuyer = (deal: Deal) => Promise<void>;
@@ -64,16 +88,18 @@ export const confirmPayment = (id: string, orderId: string, becomeBuyer: BecomeB
     recordHold(deal, await pp.authorizeOrder(orderId));
     await becomeBuyer(deal);
     return deal;
-  });
+  }).then(kickOff);
 
 // Judge mode: fund with PayPal's sandbox test card so the flow runs without a login.
-export const fundWithTestCard = (id: string, becomeBuyer: BecomeBuyer) =>
+export const fundWithTestCard = (id: string, becomeBuyer: BecomeBuyer, offerCents?: number) =>
   withDeal(id, async (deal) => {
     expect(deal, "AWAITING_PAYMENT");
-    recordHold(deal, await pp.createTestCardHold(deal.id, deal.title, deal.priceCents));
+    const offer = offerAmount(deal, offerCents);
+    deal.pendingOfferCents = offer;
+    recordHold(deal, await pp.createTestCardHold(deal.id, deal.title, offer ?? deal.priceCents));
     await becomeBuyer(deal);
     return deal;
-  });
+  }).then(kickOff);
 
 export const ship = (id: string, input: { label?: string; carrier: string; trackingNumber: string }) =>
   withDeal(id, async (deal) => {
@@ -194,11 +220,12 @@ export const respondToClaim = (id: string, role: "buyer" | "seller", accept: boo
 
 export const cancel = (id: string, role: "buyer" | "seller") =>
   withDeal(id, async (deal) => {
-    expect(deal, "HELD", "AWAITING_PAYMENT");
+    expect(deal, "HELD", "AWAITING_PAYMENT", "NEGOTIATING");
     if (deal.paypal.authorizationId) {
       await pp.voidHold(deal.paypal.authorizationId);
-      log(deal, "paypal", `Released the full ${usd(deal.priceCents)} hold. The buyer paid nothing.`);
+      log(deal, "paypal", "Released the full hold. The buyer paid nothing.");
     }
+    if (deal.negotiation?.status === "RUNNING") deal.negotiation.status = "NO_DEAL";
     deal.status = "RELEASED";
     log(deal, role, "Cancelled the deal before shipping.");
     return deal;

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { issueToken, publicDeal } from "@/lib/server/auth";
-import { log, newId, saveDeal } from "@/lib/server/deals";
+import { HttpError, log, newId, saveDeal } from "@/lib/server/deals";
 import { handle } from "@/lib/server/http";
 import type { Deal, Scan } from "@/lib/types";
 import { usd } from "@/lib/types";
@@ -54,11 +54,14 @@ const Body = z.object({
   photo: z.string().startsWith("data:image/").max(2_000_000).optional(),
   sellerName: z.string().min(1).max(60),
   scan: ScanSchema.nullable().default(null),
+  // Optional and private: the lowest price the seller's agent may accept. Setting it opens the deal to offers.
+  floorCents: z.number().int().min(100).max(1_000_000).optional(),
 });
 
 export async function POST(req: Request) {
   return handle(async () => {
     const b = Body.parse(await req.json());
+    if (b.floorCents != null && b.floorCents > b.priceCents) throw new HttpError(400, "Your lowest price can't be above the asking price.");
     const now = new Date().toISOString();
     const deal: Deal = {
       id: newId(),
@@ -72,7 +75,7 @@ export async function POST(req: Request) {
       paypal: {},
       events: [],
     };
-    log(deal, "seller", `Created a protected deal for ${b.title} at ${usd(b.priceCents)}.`);
+    log(deal, "seller", `Created a protected deal for ${b.title} at ${usd(b.priceCents)}${b.floorCents != null ? ". Open to PayPal-backed offers" : ""}.`);
     await issueToken(deal, "seller");
     await saveDeal(deal);
     return publicDeal(deal, { seller: true, buyer: false });

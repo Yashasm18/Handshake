@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, compressImage } from "@/lib/client";
 import type { Deal, Scan } from "@/lib/types";
 import { usd } from "@/lib/types";
+import { fairBand } from "@/lib/fair";
 import { Arrow, Button } from "./chrome";
 import { EASE, RevealText } from "./motion";
 
@@ -372,14 +373,19 @@ function CreateDeal({ scan }: { scan: Scan }) {
   const [name, setName] = useState("");
   const [checklist, setChecklist] = useState(scan.checklist.join("\n"));
   const [photo, setPhoto] = useState<string | null>(null);
+  const [offers, setOffers] = useState(true);
+  const [floor, setFloor] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fair = fairBand(scan.condition, scan.market);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const cents = Math.round(Number(price) * 100);
     if (!name.trim()) return setError("Add your first name so the buyer knows who they're dealing with.");
     if (!cents || cents < 100) return setError("Enter a price of at least $1.");
+    const floorCents = offers ? Math.round(Number(floor) * 100) : undefined;
+    if (offers && (!floorCents || floorCents > cents)) return setError("Set the lowest price your agent may accept, at or below your asking price.");
     setBusy(true);
     setError(null);
     try {
@@ -391,6 +397,7 @@ function CreateDeal({ scan }: { scan: Scan }) {
         photo: photo ?? undefined,
         sellerName: name.trim(),
         scan,
+        floorCents,
       });
       router.push(`/d/${deal.id}?as=seller`);
     } catch (err) {
@@ -423,6 +430,7 @@ function CreateDeal({ scan }: { scan: Scan }) {
           <span className="label text-muted">Condition promises · one per line</span>
           <textarea className={`${field} resize-none`} rows={4} value={checklist} onChange={(e) => setChecklist(e.target.value)} />
         </label>
+        <OffersField on={offers} setOn={setOffers} floor={floor} setFloor={setFloor} fair={fair} field={field} />
         <div className="grid gap-2">
           <span className="label text-muted">Photo of the item · recommended</span>
           <PhotoPicker value={photo} onChange={setPhoto} hint="Used to compare against the buyer's delivery photo if there's a problem." />
@@ -433,6 +441,33 @@ function CreateDeal({ scan }: { scan: Scan }) {
         {busy ? "Creating…" : "Create deal link"} {!busy && <Arrow />}
       </Button>
     </form>
+  );
+}
+
+// Turning offers on hands the haggling to the seller's agent, which never goes below this private floor.
+function OffersField(p: { on: boolean; setOn: (v: boolean) => void; floor: string; setFloor: (v: string) => void; fair: ReturnType<typeof fairBand>; field: string }) {
+  return (
+    <div className="rounded-3xl border hairline bg-card p-5">
+      <label className="flex cursor-pointer items-start justify-between gap-6">
+        <span>
+          <span className="block font-display text-[19px] font-semibold tracking-tight">Let my agent take offers</span>
+          <span className="mt-1 block text-[15px] text-muted">Buyers can make PayPal-backed offers. Your agent negotiates for you, even while you&apos;re offline.</span>
+        </span>
+        <input type="checkbox" checked={p.on} onChange={(e) => p.setOn(e.target.checked)} className="peer sr-only" />
+        <span aria-hidden className="relative mt-1 h-7 w-12 shrink-0 rounded-full bg-ink/15 transition-colors peer-checked:bg-safe peer-focus-visible:ring-2 peer-focus-visible:ring-ink/40 after:absolute after:left-1 after:top-1 after:size-5 after:rounded-full after:bg-paper after:shadow after:transition-transform peer-checked:after:translate-x-5" />
+      </label>
+      <AnimatePresence initial={false}>
+        {p.on && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.4, ease: EASE }} className="overflow-hidden">
+            <label className="mt-5 grid gap-2">
+              <span className="label text-muted">Lowest you&apos;d take (USD) · only you and your agent see this</span>
+              <input className={p.field} inputMode="decimal" value={p.floor} onChange={(e) => p.setFloor(e.target.value.replace(/[^0-9.]/g, ""))} placeholder={p.fair ? String(Math.round(p.fair.lowCents / 100)) : "190"} />
+            </label>
+            {p.fair && <p className="mt-3 text-[14px] text-muted">Similar items in this condition usually sell for {usd(p.fair.lowCents)}–{usd(p.fair.highCents)}, based on retail prices from Channel3.</p>}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 

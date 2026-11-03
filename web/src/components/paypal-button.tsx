@@ -30,8 +30,14 @@ function loadSdk(clientId: string) {
 }
 
 // The buyer approves in PayPal's own window; our server then turns the approval into a hold.
-export function PayPalButton({ dealId, onHeld, onError }: { dealId: string; onHeld: () => void; onError: (m: string) => void }) {
+// With offerCents set, the hold is a backed offer at the buyer's max instead of the asking price.
+export function PayPalButton({ dealId, onHeld, onError, offerCents }: { dealId: string; onHeld: () => void; onError: (m: string) => void; offerCents?: number }) {
   const ref = useRef<HTMLDivElement>(null);
+  // Read at click time, so typing a new max doesn't re-render PayPal's buttons.
+  const offer = useRef(offerCents);
+  useEffect(() => {
+    offer.current = offerCents;
+  }, [offerCents]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -44,12 +50,12 @@ export function PayPalButton({ dealId, onHeld, onError }: { dealId: string; onHe
         if (cancelled || !ref.current) return;
         const b = paypal.Buttons({
           style: { layout: "vertical", shape: "pill", color: "gold", label: "pay", height: 52 },
-          createOrder: async () => (await api<{ orderId: string }>(`/api/deals/${dealId}/pay`, {})).orderId,
+          createOrder: async () => (await api<{ orderId: string }>(`/api/deals/${dealId}/pay`, { offerCents: offer.current })).orderId,
           onApprove: async ({ orderID }) => {
             await api(`/api/deals/${dealId}/confirm-payment`, { orderId: orderID });
             onHeld();
           },
-          onError: () => onError("PayPal couldn't complete that. Try again."),
+          onError: (err) => onError(err instanceof Error && err.message ? err.message : "PayPal couldn't complete that. Try again."),
         });
         buttons = b;
         await b.render(ref.current);
