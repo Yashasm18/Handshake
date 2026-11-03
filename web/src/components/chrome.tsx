@@ -22,12 +22,7 @@ export function Nav() {
   // The bar stays pinned; it only picks up its frosted-glass background once the page moves.
   useMotionValueEvent(scrollY, "change", (y) => setSolid(y > 20));
   return (
-    <motion.header
-      initial={{ y: -24, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${solid ? "bg-paper/80 backdrop-blur-md" : ""}`}
-    >
+    <motion.header className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${solid ? "bg-paper/80 backdrop-blur-md" : ""}`}>
       <nav className="mx-auto flex h-[72px] max-w-[1400px] items-center justify-between px-5 md:px-10">
         <Logo />
         <div className="hidden items-center gap-8 text-[15px] text-muted md:flex">

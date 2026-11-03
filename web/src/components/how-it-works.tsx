@@ -35,7 +35,7 @@ const STEPS = [
 export function HowItWorks() {
   const [open, setOpen] = useState(0);
   return (
-    <section id="how" className="mx-auto max-w-[1400px] px-5 py-28 md:px-10 md:py-40">
+    <section id="how" className="mx-auto max-w-[1400px] px-5 pb-4 pt-28 md:px-10 md:pb-8 md:pt-40">
       <div className="mb-14 flex items-end justify-between gap-6">
         <h2 className="display text-[clamp(40px,6vw,88px)]">How it works</h2>
         <p className="label hidden text-muted md:block">Five steps · Under two minutes</p>

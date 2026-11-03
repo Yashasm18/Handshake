@@ -72,6 +72,35 @@ html.lenis body {
   }
 }
 
+/* Above-the-fold motion runs in CSS so it starts on first paint, before any JavaScript loads. */
+@keyframes word-rise {
+  from {
+    transform: translateY(110%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility animate-word-rise {
+  animation: word-rise 0.8s var(--ease-out-expo) both;
+}
+
+@utility animate-fade-up {
+  animation: fade-up 0.8s var(--ease-out-expo) both;
+}
+
 @keyframes scan {
   0% {
     transform: translateY(-100%);

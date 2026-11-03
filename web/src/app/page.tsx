@@ -1,7 +1,7 @@
 import { Arrow, Button, Nav } from "@/components/chrome";
 import { FadeIn, RevealText } from "@/components/motion";
-import { Preloader } from "@/components/preloader";
 import { HowItWorks } from "@/components/how-it-works";
+import { BuiltWith } from "@/components/built-with";
 
 const CATCHES = [
   "“Send it Friends & Family, saves us both the fee”",
@@ -15,35 +15,34 @@ const CATCHES = [
 export default function Home() {
   return (
     <>
-      <Preloader />
       <Nav />
       <main>
         {/* Hero */}
         <section className="mx-auto flex min-h-[92dvh] max-w-[1400px] flex-col justify-end px-5 pb-14 pt-32 md:px-10 md:pb-20">
-          <FadeIn delay={2.4} y={10}>
-            <p className="label mb-8 flex items-center gap-2 text-muted">
-              <span className="size-1.5 rounded-full bg-safe" /> For anyone buying or selling with a stranger
-            </p>
-          </FadeIn>
+          <p className="label animate-fade-up mb-8 flex items-center gap-2 text-muted">
+            <span className="size-1.5 rounded-full bg-safe" /> For anyone buying or selling with a stranger
+          </p>
           <RevealText
             text={"Buy from strangers.\nKeep your money."}
             className="display text-[clamp(52px,10.5vw,168px)]"
-            delay={2.5}
+            delay={0.05}
+            stagger={0.05}
+            immediate
           />
           <div className="mt-12 grid gap-10 md:mt-16 md:grid-cols-[1fr_auto] md:items-end">
-            <FadeIn delay={3.0}>
+            <div className="animate-fade-up" style={{ animationDelay: "0.35s" }}>
               <p className="max-w-[520px] text-[18px] leading-relaxed text-muted md:text-[20px]">
                 Paste the chat. Handshake checks it for scam tricks and compares the price against 25,000 stores. Then PayPal holds the money until the item really arrives.
               </p>
-            </FadeIn>
-            <FadeIn delay={3.15} className="flex flex-wrap gap-3">
+            </div>
+            <div className="animate-fade-up flex flex-wrap gap-3" style={{ animationDelay: "0.45s" }}>
               <Button href="/check" size="lg">
                 Check a deal <Arrow />
               </Button>
               <Button href="/check?mode=sell" size="lg" variant="ghost">
                 I&apos;m selling
               </Button>
-            </FadeIn>
+            </div>
           </div>
         </section>
 
@@ -61,8 +60,10 @@ export default function Home() {
 
         <HowItWorks />
 
+        <BuiltWith />
+
         {/* Problem, in numbers */}
-        <section className="mx-auto max-w-[1400px] px-5 py-28 md:px-10 md:py-40">
+        <section className="mx-auto max-w-[1400px] px-5 pb-28 pt-8 md:px-10 md:pb-40 md:pt-12">
           <p className="label mb-10 text-muted">The problem</p>
           <div className="grid gap-px overflow-hidden rounded-3xl border hairline bg-line md:grid-cols-3">
             {[

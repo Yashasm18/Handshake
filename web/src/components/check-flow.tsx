@@ -58,8 +58,10 @@ export function CheckFlow() {
           <Step key="input">
             <RevealText
               as="h1"
+              key={mode}
               text={mode === "buy" ? "Paste the deal.\nWe'll check it." : "Selling something?\nMake it safe to buy."}
               className="display text-[clamp(44px,7.5vw,104px)]"
+              immediate
             />
             <p className="mt-6 max-w-[560px] text-[18px] leading-relaxed text-muted">
               {mode === "buy"

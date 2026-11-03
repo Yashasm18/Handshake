@@ -20,13 +20,26 @@ function expect(deal: Deal, ...statuses: Deal["status"][]) {
 }
 
 // Buyer clicked the PayPal button: create an AUTHORIZE order for the deal.
-export const startPayment = (id: string, bindToBrowser: (deal: Deal) => Promise<void>) =>
+const CHECKOUT_WINDOW_MS = 10 * 60_000;
+
+// One browser owns checkout for 10 minutes from when it FIRST opened it. Reopening keeps the
+// original window (it can't be extended), so nobody can lock a deal indefinitely.
+export const startPayment = (
+  id: string,
+  browser: { ownsCheckout: (deal: Deal) => Promise<boolean>; claimCheckout: (deal: Deal) => Promise<void> },
+) =>
   withDeal(id, async (deal) => {
     expect(deal, "AWAITING_PAYMENT");
+    const started = deal.paypal.payStartedAt ? Date.parse(deal.paypal.payStartedAt) : 0;
+    const pending = Date.now() - started < CHECKOUT_WINDOW_MS;
+    const mine = pending && (await browser.ownsCheckout(deal));
+    if (pending && !mine) throw new HttpError(409, "Someone is already paying for this deal. Try again in a few minutes.");
     const order = await pp.createHoldOrder(deal.id, deal.title, deal.priceCents);
     deal.paypal.orderId = order.id;
-    deal.paypal.payStartedAt = new Date().toISOString();
-    await bindToBrowser(deal);
+    if (!mine) {
+      deal.paypal.payStartedAt = new Date().toISOString();
+      await browser.claimCheckout(deal);
+    }
     return { orderId: order.id };
   });
 

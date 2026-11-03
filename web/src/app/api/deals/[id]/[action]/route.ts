@@ -1,6 +1,6 @@
 import { z } from "zod";
 import * as flows from "@/lib/server/flows";
-import { issuePayNonce, issueToken, publicDeal, requireParty, requirePayNonce, viewerOf } from "@/lib/server/auth";
+import { holdsPayNonce, issuePayNonce, issueToken, publicDeal, requireParty, requirePayNonce, viewerOf } from "@/lib/server/auth";
 import { getDeal, HttpError } from "@/lib/server/deals";
 import { handle } from "@/lib/server/http";
 import type { Deal } from "@/lib/types";
@@ -17,12 +17,7 @@ const testCardEnabled = () =>
 // where a body names a role (respond, cancel) the caller must actually hold it.
 const actions: Record<string, (deal: Deal, body: unknown) => Promise<unknown>> = {
   // Anyone with the link may start paying; the browser that starts checkout is the only one that can finish it.
-  pay: async (d) => {
-    // Don't let a second browser replace a checkout someone else opened in the last 10 minutes.
-    const pending = d.paypal.payStartedAt && Date.now() - Date.parse(d.paypal.payStartedAt) < 10 * 60_000;
-    if (pending) await requirePayNonce(d).catch(() => { throw new HttpError(409, "Someone is already paying for this deal. Try again in a few minutes."); });
-    return flows.startPayment(d.id, issuePayNonce);
-  },
+  pay: (d) => flows.startPayment(d.id, { ownsCheckout: holdsPayNonce, claimCheckout: issuePayNonce }),
   "confirm-payment": async (d, b) => {
     await requirePayNonce(d);
     return flows.confirmPayment(d.id, z.object({ orderId: z.string().min(5) }).parse(b).orderId, asBuyer);

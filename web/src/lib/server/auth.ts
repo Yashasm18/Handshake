@@ -42,8 +42,12 @@ export async function issuePayNonce(deal: Deal) {
   });
 }
 
+export async function holdsPayNonce(deal: Deal) {
+  return same((await cookies()).get(payCookie(deal.id))?.value, deal.paypal.payNonce);
+}
+
 export async function requirePayNonce(deal: Deal) {
-  if (!same((await cookies()).get(payCookie(deal.id))?.value, deal.paypal.payNonce)) {
+  if (!(await holdsPayNonce(deal))) {
     throw new HttpError(403, "Finish the payment in the same browser you started it in.");
   }
 }
