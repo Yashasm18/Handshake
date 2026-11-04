@@ -154,12 +154,12 @@ Full threat model and the issues we've found and fixed: **[SECURITY.md](SECURITY
 
 ## Tests and CI
 
-Handshake is tested two ways: **159 automated tests** that run on every push and deploy, and **33 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel, Elastic and the AI models with real images and real listings.
+Handshake is tested two ways: **161 automated tests** that run on every push and deploy, and **33 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel, Elastic and the AI models with real images and real listings.
 
 | Area | Automated | Live on the sandbox | What it proves |
 |---|---:|---:|---|
 | Deal flow and settlement | 14 | 3 | Holds, captures, payouts and voids happen once, for the right amount, only in the right state |
-| Meet in person | 11 | 6 | Only the seller can show a handover code and only the buyer can use it; codes expire, work once and lock after 5 wrong tries; the seller never sees the buyer's address |
+| Meet in person | 13 | 6 | Only the seller can show a handover code and only the buyer can use it; codes expire, work once and lock after 5 wrong tries; the seller never sees the buyer's address |
 | Refunds and pricing | 26 | 3 | Refunds come from real part prices, are capped by verdict, and refund plus capture always equals the price |
 | Agent negotiation | 20 | 3 | Agents never cross a secret limit, never leak it, and PayPal captures exactly the agreed price |
 | Privacy and access | 9 | 3 | Strangers and the wrong party get 403; addresses, PayPal ids and limits stay with the people allowed to see them |

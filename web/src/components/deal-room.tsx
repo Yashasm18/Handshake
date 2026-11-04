@@ -355,6 +355,8 @@ function BuyerWaitingShip({ deal, act, busy }: ActProps) {
 // ---------- Meet in person ----------
 
 type Handover = { code: string; token: string; expiresAt: string };
+// After an interrupted payout, asking for a code finishes the payment instead.
+type HandoverResult = Handover | { settled: true };
 
 // The handover link the buyer's phone camera opens. The token travels in the fragment, so it never
 // reaches a server log; the buyer's page reads it and asks before releasing anything.
@@ -390,8 +392,8 @@ function SellerMeet({ deal, act, busy }: ActProps) {
   const left = useCountdown(handover?.expiresAt);
   const expired = !!handover && left === 0;
   async function show() {
-    const r = (await act("meet-code")) as Handover | undefined;
-    if (r?.code) setHandover(r);
+    const r = (await act("meet-code")) as HandoverResult | undefined;
+    if (r && "code" in r) setHandover(r);
   }
   return (
     <Panel>

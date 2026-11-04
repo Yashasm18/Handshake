@@ -115,6 +115,8 @@ export const fundWithTestCard = (id: string, becomeBuyer: BecomeBuyer, offerCent
 export const ship = (id: string, input: { label?: string; carrier: string; trackingNumber: string }) =>
   withDeal(id, async (deal) => {
     expect(deal, "HELD");
+    // An in-person deal is only ever completed with the buyer's handover code.
+    if (deal.handoff === "meet") throw new HttpError(400, "This deal is handed over in person, not shipped.");
     let labelCheck: NonNullable<Deal["shipment"]>["labelCheck"] = null;
     if (input.label) {
       const label = await readLabel(input.label);
@@ -258,13 +260,25 @@ const sameHash = (a: string, b: string) => a.length === b.length && timingSafeEq
 function expectMeetup(deal: Deal) {
   expect(deal, "HELD");
   if (deal.handoff !== "meet") throw new HttpError(400, "This deal is shipped, not handed over in person.");
-  notCaptured(deal);
 }
 
+// The buyer already confirmed and PayPal captured, but the payout didn't finish (a PayPal hiccup).
+// Either party's next step finishes it: settle skips the capture it already recorded, so money never
+// moves twice, and the amount can't change.
+const capturedAtMeetup = (deal: Deal) => !!deal.paypal.captureId;
+const finishHandover = (deal: Deal) => settle(deal, deal.priceCents, "Handshake: handed over in person");
+
 // Seller: show a fresh handover code. Each new code replaces the last one.
+// A fresh code, or, after an interrupted payout, the finished settlement.
+export type HandoverStart = { code: string; token: string; expiresAt: string } | { settled: true };
+
 export const startHandover = (id: string) =>
-  withDeal(id, async (deal) => {
+  withDeal(id, async (deal): Promise<HandoverStart> => {
     expectMeetup(deal);
+    if (capturedAtMeetup(deal)) {
+      await finishHandover(deal);
+      return { settled: true };
+    }
     const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
     const token = randomBytes(18).toString("base64url");
     const expiresAt = new Date(Date.now() + HANDOVER_MS).toISOString();
@@ -279,6 +293,10 @@ export const startHandover = (id: string) =>
 export const confirmHandover = (id: string, input: { code?: string; token?: string }) =>
   withDeal(id, async (deal) => {
     expectMeetup(deal);
+    if (capturedAtMeetup(deal)) {
+      await finishHandover(deal);
+      return deal;
+    }
     const m = deal.meetup;
     if (!m) throw new HttpError(409, `Ask ${deal.sellerName} to show the handover code first.`);
     if (Date.parse(m.expiresAt) <= Date.now()) throw new HttpError(409, `That code has expired. Ask ${deal.sellerName} to show a new one.`);
@@ -294,7 +312,7 @@ export const confirmHandover = (id: string, input: { code?: string; token?: stri
     }
     deal.meetup = undefined;
     log(deal, "buyer", `Checked the item in person and confirmed the handover with ${deal.sellerName}'s code.`);
-    await settle(deal, deal.priceCents, "Handshake: handed over in person");
+    await finishHandover(deal);
     return deal;
   });
 

@@ -50,7 +50,8 @@ The demo runs on the **PayPal sandbox**: no real money moves. Please test only w
 - **The seller is paid before letting go.** The buyer releases the payment with a code only the seller's screen shows, so the seller sees PayPal's confirmation, not a screenshot.
 - **Codes are one-time and short-lived.** A 6-digit code and a QR token, valid for 5 minutes, used once, replaced by any newer code, and stored only as hashes.
 - **Guessing is capped.** 5 wrong tries lock the code until the seller shows a new one; only the buyer who paid can try at all.
-- **No address for in-person deals.** The seller never sees where the buyer lives.
+- **No address for in-person deals.** The seller never sees where the buyer lives, and an in-person deal can't be marked as shipped.
+- **Captured means final.** If the payout fails after the meetup capture, no deadline or cancellation can touch the money; the next step by either party finishes the payout without capturing again.
 - **The token never reaches a log.** The QR link carries it after `#`, which browsers don't send to servers, and the page removes it from the address bar.
 
 ### Scam memory (Elastic)
@@ -93,6 +94,7 @@ We review every change that touches money or AI. Findings so far, all fixed with
 | Memory | Matching on whole listings made an honest listing for the same product "sound like" a stored scam | Only the scan's red-flag quotes are matched by meaning; product words are left out |
 | Memory | One fake message could have branded an innocent seller's phone number a known scam | Details and photos are confirmed only by two distinct witnesses, counted across messages |
 | Memory | Resending a public seed script word for word could attach an innocent person's photo to a confirmed record; automatic saves could warn about a phone number nobody reported | Seeds and buyers' records use separate ids; repeats never add photos or details; details and photos count only from reported records; IPv6 grouped by /48 |
+| Meetup | A seller could mark an in-person deal as shipped; a payout failure after the meetup capture could leave a deal captured but unpaid, with a void deadline still running | In-person deals refuse shipping; captured deals have no void deadlines and either party's next step resumes the payout |
 
 ## Supported versions
 

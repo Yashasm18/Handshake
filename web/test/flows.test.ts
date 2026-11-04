@@ -234,10 +234,15 @@ describe("cancelling", () => {
 
 describe("meeting in person", () => {
   const meetDeal = () => heldDeal({ handoff: "meet" });
+  const showCode = async (id: string) => {
+    const r = await flows.startHandover(id);
+    if (!("code" in r)) throw new Error("expected a handover code");
+    return r;
+  };
 
   it("the buyer's handover code captures the full price and pays the seller, with no shipping", async () => {
     const id = await meetDeal();
-    const { code, token, expiresAt } = await flows.startHandover(id);
+    const { code, token, expiresAt } = await showCode(id);
     expect(code).toMatch(/^\d{6}$/);
     expect(token.length).toBeGreaterThanOrEqual(16);
     expect(Date.parse(expiresAt) - Date.now()).toBeLessThanOrEqual(flows.HANDOVER_MS);
@@ -251,13 +256,13 @@ describe("meeting in person", () => {
 
   it("the scanned QR token works the same way", async () => {
     const id = await meetDeal();
-    const { token } = await flows.startHandover(id);
+    const { token } = await showCode(id);
     expect((await flows.confirmHandover(id, { token })).status).toBe("SETTLED");
   });
 
   it("a code works once", async () => {
     const id = await meetDeal();
-    const { code } = await flows.startHandover(id);
+    const { code } = await showCode(id);
     await flows.confirmHandover(id, { code });
     await expect(flows.confirmHandover(id, { code })).rejects.toMatchObject({ status: 409 });
     expect(pp.captureHold).toHaveBeenCalledTimes(1);
@@ -265,20 +270,20 @@ describe("meeting in person", () => {
 
   it("wrong codes are counted, and after 5 even the right code is refused until the seller shows a new one", async () => {
     const id = await meetDeal();
-    const { code } = await flows.startHandover(id);
+    const { code } = await showCode(id);
     const wrong = code === "000000" ? "000001" : "000000";
     for (let i = 0; i < flows.HANDOVER_TRIES; i++) await expect(flows.confirmHandover(id, { code: wrong })).rejects.toMatchObject({ status: 400 });
     expect((await getDeal(id))!.meetup!.attempts).toBe(flows.HANDOVER_TRIES);
     await expect(flows.confirmHandover(id, { code })).rejects.toMatchObject({ status: 429 });
-    const fresh = await flows.startHandover(id);
+    const fresh = await showCode(id);
     expect((await flows.confirmHandover(id, { code: fresh.code })).status).toBe("SETTLED");
     expect(pp.captureHold).toHaveBeenCalledTimes(1);
   });
 
   it("a new code replaces the old one", async () => {
     const id = await meetDeal();
-    const first = await flows.startHandover(id);
-    const second = await flows.startHandover(id);
+    const first = await showCode(id);
+    const second = await showCode(id);
     if (first.code !== second.code) await expect(flows.confirmHandover(id, { code: first.code })).rejects.toMatchObject({ status: 400 });
     await expect(flows.confirmHandover(id, { token: first.token })).rejects.toMatchObject({ status: 400 });
     expect((await flows.confirmHandover(id, { token: second.token })).status).toBe("SETTLED");
@@ -286,7 +291,7 @@ describe("meeting in person", () => {
 
   it("an expired code is refused and moves no money", async () => {
     const id = await meetDeal();
-    const { code } = await flows.startHandover(id);
+    const { code } = await showCode(id);
     const deal = (await getDeal(id))!;
     deal.meetup!.expiresAt = new Date(Date.now() - 1000).toISOString();
     await saveDeal(deal);
@@ -302,10 +307,32 @@ describe("meeting in person", () => {
 
   it("only hashes of the code are stored", async () => {
     const id = await meetDeal();
-    const { code, token } = await flows.startHandover(id);
+    const { code, token } = await showCode(id);
     const stored = JSON.stringify((await getDeal(id))!.meetup);
     expect(stored).not.toContain(code);
     expect(stored).not.toContain(token);
+  });
+
+  it("an in-person deal can't be shipped around the handover code", async () => {
+    await expect(flows.ship(await meetDeal(), { carrier: "UPS", trackingNumber: "1Z" })).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("if the payout fails after the capture, the next step finishes it without capturing twice", async () => {
+    const id = await meetDeal();
+    const { code } = await showCode(id);
+    pp.payoutSeller.mockRejectedValueOnce(new Error("PayPal down"));
+    await expect(flows.confirmHandover(id, { code })).rejects.toThrow("PayPal down");
+    const stuck = (await getDeal(id))!;
+    expect(stuck).toMatchObject({ status: "HELD", paypal: { captureId: "CAP-T" } });
+    // Captured money can't be voided by a deadline, or by walking away.
+    const { deadlinesFor } = await import("@/lib/deadlines");
+    expect(deadlinesFor(stuck)).toEqual([]);
+    await expect(flows.cancel(id, "buyer")).rejects.toMatchObject({ status: 409 });
+    // The seller's next tap (or the buyer's) finishes the payout.
+    expect(await flows.startHandover(id)).toEqual({ settled: true });
+    expect((await getDeal(id))!.status).toBe("SETTLED");
+    expect(pp.captureHold).toHaveBeenCalledTimes(1);
+    expect(pp.payoutSeller).toHaveBeenCalledTimes(2);
   });
 
   it("walking away voids the whole hold", async () => {

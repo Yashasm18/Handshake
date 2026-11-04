@@ -36,7 +36,8 @@ export function deadlinesFor(deal: Deal, scale = 1): Deadline[] {
   const t = (iso: string | undefined, kind: DeadlineKind) => (iso ? Date.parse(iso) + RULES[kind] * scale : NaN);
   const out: Deadline[] = [];
 
-  if (deal.status === "HELD") {
+  // Once money is captured it can't be released by a deadline; only the settlement can finish.
+  if (deal.status === "HELD" && !deal.paypal.captureId) {
     const kind = deal.handoff === "meet" ? "MEET_BY" : "SHIP_BY";
     out.push({ kind, at: t(c.heldAt, kind), who: kind === "MEET_BY" ? "both" : "seller", consequence: "the hold is released and the buyer pays nothing" });
   }
