@@ -146,7 +146,10 @@ describe("PayPal client: retries can't move money twice", () => {
 
 describe("internal timer API", () => {
   const req = (auth?: string) => new Request("http://x/api/internal/timers", { headers: auth ? { authorization: auth } : {} });
-  afterEach(() => { delete process.env.TIMERS_SECRET; });
+  // Render sets a real TIMERS_SECRET during builds; each test controls its own and restores the original.
+  const original = process.env.TIMERS_SECRET;
+  beforeEach(() => { delete process.env.TIMERS_SECRET; });
+  afterEach(() => { if (original === undefined) delete process.env.TIMERS_SECRET; else process.env.TIMERS_SECRET = original; });
 
   it("doesn't exist when no secret is configured", async () => {
     const { GET } = await import("@/app/api/internal/timers/route");
