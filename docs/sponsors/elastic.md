@@ -38,12 +38,12 @@ Code: [`memory.ts`](../../web/src/lib/server/memory.ts) (index, searches, rules,
 3. **Code weighs the evidence**:
    - **Known scam:** details or a photo **confirmed** by two different people (or from the seed set). This counts as strong evidence and makes the deal high risk.
    - **Warning:** a single sighting, or similar wording. It shows up but can't make a deal high risk on its own.
-4. **High-risk scans are remembered automatically.** A buyer can also click **Report this seller as a scam**. The same message seen again bumps its count instead of adding a duplicate (`_update` with upsert).
+4. **High-risk scans are remembered automatically** (their tactics help match future scams; their contact details and photos count only once someone reports them). A buyer can also click **Report this seller as a scam**. The same message seen again bumps its count instead of adding a duplicate (`_update` with upsert).
 5. The verdict shows a **Scam memory** panel listing every match, why it matched, how often it was seen, and when.
 
 ## Built so it can't be abused
 
-- **Two witnesses to convict.** Pasting an innocent seller's phone number into a fake scam once doesn't brand them. Details and photos only count as a known scam after buyers from two different networks reported them. Automatic saves warn but never count as witnesses, neighbouring addresses (the same IPv4 /24 or IPv6 /64) count as one, and witnesses are stored only as keyed hashes. Without accounts, someone with many different networks could still fake witnesses, so a match only ever warns: it never blocks anyone or moves money.
+- **Two witnesses to convict.** Pasting an innocent seller's phone number into a fake scam once doesn't brand them. Details and photos only count as a known scam after buyers from two different networks reported them. Contact details and photos only count from records a buyer reported, so an automatic save warns nobody about a person; neighbouring addresses (the same IPv4 /24 or IPv6 /48) count as one; and witnesses are stored only as keyed hashes. Without accounts, someone with many different networks could still fake witnesses, so a match only ever warns: it never blocks anyone or moves money.
 - **Reports point at real scans.** A report names a scan Handshake ran in the last 30 minutes, which must have found warning signs, and only the person who ran it can report it. Nobody can submit their own text to memory, and each visitor's report counts once.
 - **Only the seller's side.** The buyer's messages, address and identity are never stored. Buyers see only enough of a detail to recognize it, such as "a phone number ending 0199".
 - **Memory never blocks a check.** If Elasticsearch is slow or unreachable, the check still runs without it.
@@ -81,7 +81,7 @@ Live end-to-end scenarios against Elastic, all passing (see [docs/TESTING.md](..
 - Reports of low-risk checks or unknown scans are refused.
 - A stock-photo listing reported once is recognized by its photo when another buyer opens it.
 
-**19 automated tests** cover fingerprints, the matching rules, the two-witness rule, reports and privacy.
+**21 automated tests** cover fingerprints, the matching rules, the two-witness rule, reports and privacy.
 
 ## What we liked
 

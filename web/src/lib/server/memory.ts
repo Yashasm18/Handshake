@@ -126,7 +126,7 @@ export function describeIndicator(i: string) {
   return "the same contact details";
 }
 
-// Addresses in the same IPv4 /24 or IPv6 /64 count as one witness, so hopping between neighbouring
+// Addresses in the same IPv4 /24 or IPv6 /48 count as one witness, so hopping between neighbouring
 // addresses doesn't make a second person.
 export function networkOf(visitor: string) {
   if (/^\d{1,3}(\.\d{1,3}){3}$/.test(visitor)) return visitor.split(".").slice(0, 3).join(".") + ".0/24";
@@ -134,7 +134,7 @@ export function networkOf(visitor: string) {
     const [head, tail = ""] = visitor.toLowerCase().split("::");
     const groups = head.split(":").filter(Boolean);
     const full = tail ? [...groups, ...Array(8 - groups.length - tail.split(":").length).fill("0"), ...tail.split(":")] : groups;
-    return full.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, "")).join(":") + "::/64";
+    return full.slice(0, 3).map((g) => g.replace(/^0+(?=.)/, "")).join(":") + "::/48";
   }
   return visitor;
 }
@@ -144,7 +144,10 @@ export const witnessOf = (visitor: string) =>
   createHmac("sha256", `${process.env.ELASTIC_API_KEY ?? ""}:witness`).update(networkOf(visitor)).digest("hex").slice(0, 24);
 
 const normalize = (t: string) => t.toLowerCase().replace(/\s+/g, " ").trim();
-export const fingerprintId = (text: string) => createHash("sha256").update(normalize(text)).digest("hex").slice(0, 32);
+// Seed scripts and buyers' scans live in separate id spaces: the seeds are public in the repo, so
+// resending one word for word must never add to (or inherit the standing of) a seed record.
+export const fingerprintId = (text: string, space: "seed" | "user" = "user") =>
+  createHash("sha256").update(`${space}:${normalize(text)}`).digest("hex").slice(0, 32);
 
 // ---------- Recall: has Handshake seen this before? ----------
 
@@ -208,16 +211,20 @@ export async function recall(input: { text: string; photos?: number[][] }): Prom
     if (detail && !m.details.includes(detail)) m.details.push(detail);
     matches.set(h._id, m);
   };
-  for (const h of byDetails.hits.hits) for (const i of h._source.indicators ?? []) if (indicators.includes(i)) add(h, "SAME_DETAILS", describeIndicator(i));
+  // Contact details and photos are about a person, so they only count from records a buyer reported
+  // (or the seed set). A high-risk scan saved automatically still helps match tactics, but its
+  // details and photos warn nobody until someone reports it.
+  const vouched = (h: Hit) => (h._source.sources ?? []).includes("seed") || (h._source.witnesses ?? []).length > 0;
+  for (const h of byDetails.hits.hits.filter(vouched)) for (const i of h._source.indicators ?? []) if (indicators.includes(i)) add(h, "SAME_DETAILS", describeIndicator(i));
   // A detail is confirmed once two different people met it, even in different messages: count the
   // distinct witnesses across every stored scam that shares it.
   for (const i of indicators) {
-    const sharing = byDetails.hits.hits.filter((h) => (h._source.indicators ?? []).includes(i));
+    const sharing = byDetails.hits.hits.filter(vouched).filter((h) => (h._source.indicators ?? []).includes(i));
     const people = new Set(sharing.flatMap((h) => h._source.witnesses ?? []));
     if (people.size >= 2) for (const h of sharing) matches.get(h._id)!.confirmed = true;
   }
   for (const h of byWording.hits.hits) add(h, "SIMILAR_WORDING");
-  for (const r of byPhoto) for (const h of r.hits.hits) add(h, "SAME_PHOTO");
+  for (const r of byPhoto) for (const h of r.hits.hits.filter(vouched)) add(h, "SAME_PHOTO");
 
   const order = { SAME_DETAILS: 0, SAME_PHOTO: 1, SIMILAR_WORDING: 2 } as const;
   const rank = (m: MemoryMatch) => Math.min(...m.kinds.map((k) => order[k]));
@@ -289,9 +296,10 @@ export async function remember(f: Fingerprint & { source: "scan" | "report" | "s
   if (!memoryEnabled() || (!tactics && !indicators.length && !photos.length)) return null;
   await ensureIndex();
   const now = new Date().toISOString();
-  const id = fingerprintId(f.sellerText || tactics);
+  const id = fingerprintId(f.sellerText || tactics, f.source === "seed" ? "seed" : "user");
   const flags = [...new Set(f.flags)].slice(0, 12);
-  // Upsert: the same message seen again bumps its count instead of adding a duplicate.
+  // Upsert: the same message seen again bumps its count instead of adding a duplicate. A repeat only
+  // adds a sighting and a witness; it never attaches new photos or details to an existing record.
   // A high-risk scan saves itself in the background while its buyer may report it a moment later:
   // both upsert the same document, so Elasticsearch retries the loser instead of failing it.
   await es("POST", `/${memoryIndex()}/_update/${id}?refresh=true&retry_on_conflict=5`, {
@@ -313,9 +321,8 @@ export async function remember(f: Fingerprint & { source: "scan" | "report" | "s
       source: `ctx._source.seen += 1; ctx._source.lastSeen = params.now;
         if (!ctx._source.sources.contains(params.source)) { ctx._source.sources.add(params.source); }
         if (params.witness != null && !ctx._source.witnesses.contains(params.witness) && ctx._source.witnesses.size() < 50) { ctx._source.witnesses.add(params.witness); }
-        for (f in params.flags) { if (!ctx._source.flags.contains(f)) { ctx._source.flags.add(f); } }
-        if (ctx._source.photos.size() == 0 && params.photos.size() > 0) { ctx._source.photos = params.photos; }`,
-      params: { now, source: f.source, flags, photos, witness: f.witness ?? null },
+        for (f in params.flags) { if (!ctx._source.flags.contains(f)) { ctx._source.flags.add(f); } }`,
+      params: { now, source: f.source, flags, witness: f.witness ?? null },
     },
   });
   return id;

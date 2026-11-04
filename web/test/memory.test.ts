@@ -50,11 +50,15 @@ describe("fingerprints: contact and payment details, found in code", () => {
     expect(witnessOf("1.2.4.4")).not.toBe(witnessOf("1.2.3.4"));
   });
 
-  it("neighbouring addresses are one witness: IPv4 /24 and IPv6 /64", () => {
+  it("neighbouring addresses are one witness: IPv4 /24 and IPv6 /48", () => {
     expect(witnessOf("1.2.3.4")).toBe(witnessOf("1.2.3.250"));
-    expect(networkOf("2001:db8:aa:bb:1:2:3:4")).toBe("2001:db8:aa:bb::/64");
-    expect(witnessOf("2001:db8:aa:bb::1")).toBe(witnessOf("2001:db8:aa:bb:ffff::9"));
-    expect(witnessOf("2001:db8:aa:bc::1")).not.toBe(witnessOf("2001:db8:aa:bb::1"));
+    expect(networkOf("2001:db8:aa:bb:1:2:3:4")).toBe("2001:db8:aa::/48");
+    expect(witnessOf("2001:db8:aa:bb::1")).toBe(witnessOf("2001:db8:aa:ffff::9"));
+    expect(witnessOf("2001:db8:ab::1")).not.toBe(witnessOf("2001:db8:aa::1"));
+  });
+
+  it("seed scripts and buyers' scans never share a record, even word for word", () => {
+    expect(fingerprintId("Send as F&F", "seed")).not.toBe(fingerprintId("Send as F&F", "user"));
   });
 });
 
@@ -117,6 +121,17 @@ describe("recall: what Handshake asks Elasticsearch", () => {
     expect(memoryFlags(m)[0].type).toBe("KNOWN_SCAM");
   });
 
+  it("details and photos from a scan nobody reported warn no one", async () => {
+    answer = (c) => {
+      const b = c.body as Record<string, unknown> | undefined;
+      const unvouched = { _id: "auto", _score: 1, _source: { flags: [], seen: 1, lastSeen: "2026-11-04", indicators: ["phone:6505550177"], sources: ["scan"], witnesses: [] } };
+      if (b && ("knn" in b || ("query" in b && (b.query as Record<string, unknown>).terms))) return { hits: { hits: [unvouched], total: { value: 1 } } };
+      return { hits: { hits: [], total: { value: 1 } } };
+    };
+    const m = await recall({ text: "text me 650 555 0177", photos: [[0.1]] });
+    expect(m!.matches).toEqual([]);
+  });
+
   it("stays off without Elastic settings", async () => {
     const url = process.env.ELASTIC_URL;
     delete process.env.ELASTIC_URL;
@@ -132,7 +147,9 @@ describe("remember and report", () => {
   it("upserts one fingerprint per message: tactics for meaning, details for exact matches", async () => {
     await remember({ ...fp, source: "scan", witness: "w1" });
     const up = calls.find((c) => c.path.startsWith("/scams-test/_update/"))!;
-    expect(up.path).toContain(fingerprintId(fp.sellerText));
+    expect(up.path).toContain(fingerprintId(fp.sellerText, "user"));
+    // A repeat never attaches photos to an existing record.
+    expect(JSON.stringify((up.body as { script: unknown }).script)).not.toContain("photos");
     // A scan's own save and its buyer's report can race on the same document.
     expect(up.path).toContain("retry_on_conflict=");
     expect(up.body).toMatchObject({ upsert: { text: "Send F&F", indicators: ["phone:6505550177"], sources: ["scan"], witnesses: ["w1"], seen: 1 } });

@@ -48,7 +48,7 @@ The demo runs on the **PayPal sandbox**: no real money moves. Please test only w
 
 ### Scam memory (Elastic)
 - **Only the seller's side is stored**: the tactics the scan quoted, contact and payment details, and listing photo vectors. Never the buyer's messages, address or identity.
-- **Two witnesses to convict.** Details and photos count as a known scam only after buyers from two different networks reported them (or they come from the seed set), so one fake message can't brand an innocent seller. Automatic saves never count as witnesses. Addresses in the same IPv4 /24 or IPv6 /64 count as one witness, and witnesses are stored only as keyed hashes.
+- **Two witnesses to convict.** Details and photos count as a known scam only after buyers from two different networks reported them (or they come from the seed set), so one fake message can't brand an innocent seller. Automatic saves never count as witnesses. Contact details and photos only count from records a buyer reported (or seeds), so an automatic save warns nobody about a person. Addresses in the same IPv4 /24 or IPv6 /48 count as one witness, and witnesses are stored only as keyed hashes.
 - **Known limit.** Handshake has no accounts, so someone with many genuinely different networks could still fake witnesses. A confirmed match tells a buyer to keep the payment protected; it never blocks anyone or moves money.
 - **Reports point at real scans.** A report names a scan Handshake ran in the last 30 minutes that found warning signs, and only the visitor who ran it can report it; clients can't submit text. One report per visitor per scan, 10 per 10 minutes.
 - **Partial details only.** Buyers see "a phone number ending 0199", not the number.
@@ -85,6 +85,7 @@ We review every change that touches money or AI. Findings so far, all fixed with
 | Links | A public-looking name that resolved to a private address passed the link check | Names are resolved and refused if any address is private, before and after redirects; photo links to bare IPs are skipped |
 | Memory | Matching on whole listings made an honest listing for the same product "sound like" a stored scam | Only the scan's red-flag quotes are matched by meaning; product words are left out |
 | Memory | One fake message could have branded an innocent seller's phone number a known scam | Details and photos are confirmed only by two distinct witnesses, counted across messages |
+| Memory | Resending a public seed script word for word could attach an innocent person's photo to a confirmed record; automatic saves could warn about a phone number nobody reported | Seeds and buyers' records use separate ids; repeats never add photos or details; details and photos count only from reported records; IPv6 grouped by /48 |
 
 ## Supported versions
 

@@ -151,7 +151,7 @@ Full threat model and the issues we've found and fixed: **[SECURITY.md](SECURITY
 
 ## Tests and CI
 
-Handshake is tested two ways: **146 automated tests** that run on every push and deploy, and **27 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel, Elastic and the AI models with real images and real listings.
+Handshake is tested two ways: **148 automated tests** that run on every push and deploy, and **27 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel, Elastic and the AI models with real images and real listings.
 
 | Area | Automated | Live on the sandbox | What it proves |
 |---|---:|---:|---|
@@ -163,7 +163,7 @@ Handshake is tested two ways: **146 automated tests** that run on every push and
 | Deadlines and the Render Workflow | 30 | 1 | Every deadline fires exactly once, survives retries and concurrent runs, and a hold left unshipped is voided on its own |
 | PayPal client | 4 | | Captures and payouts reuse one idempotency key, so a retry can never charge twice |
 | Listing links (Kernel) | 20 | 3 | Only public pages are opened, every browser is closed, and listings using store photos are flagged |
-| Scam memory (Elastic) | 19 | 6 | Reworded scams, reused details and reused photos are recognized; honest listings aren't; nobody can brand a seller with one fake report |
+| Scam memory (Elastic) | 21 | 6 | Reworded scams, reused details and reused photos are recognized; honest listings aren't; nobody can brand a seller with one fake report |
 
 **Every live scenario passes**, and the run found one real privacy bug that is now fixed and covered by a test. Full results, PayPal sandbox ids and how to re-run them: **[docs/TESTING.md](docs/TESTING.md)**.
 

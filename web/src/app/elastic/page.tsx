@@ -120,7 +120,7 @@ export default function ElasticPage() {
             stats={[
               { n: "0.41", t: "reranker score for a reworded Friends & Family scam; honest listings scored below zero.", s: "Jina reranker" },
               { n: "0.98", t: "photo similarity for the same scam photo resized; a different photo scored 0.64.", s: "Jina CLIP" },
-              { n: "19", t: "automated tests for fingerprints, matching rules, witnesses, reports and privacy.", s: "Vitest" },
+              { n: "21", t: "automated tests for fingerprints, matching rules, witnesses, reports and privacy.", s: "Vitest" },
             ]}
           />
         </Section>
