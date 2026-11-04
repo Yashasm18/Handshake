@@ -126,6 +126,10 @@ export type Deal = {
   demo: boolean;
   // Seller-only secret: the lowest price their agent may accept. Set means the deal takes offers.
   floorCents?: number;
+  // How the item changes hands: shipped (the default), or handed over at an in-person meetup.
+  handoff?: "ship" | "meet";
+  // Server-only: the current handover code for a meetup, stored as hashes. Never sent to the browser.
+  meetup?: { codeHash: string; tokenHash: string; expiresAt: string; attempts: number };
   // Server-only: the max a buyer chose for a backed offer, between starting checkout and the hold.
   pendingOfferCents?: number;
   negotiation?: Negotiation;
@@ -164,7 +168,7 @@ export type Deal = {
 };
 
 export type Viewer = { seller: boolean; buyer: boolean };
-export type DealView = Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail" | "pendingOfferCents"> & {
+export type DealView = Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail" | "pendingOfferCents" | "meetup"> & {
   viewer: Viewer;
   acceptsOffers: boolean;
   deadlines: import("./deadlines").Deadline[];

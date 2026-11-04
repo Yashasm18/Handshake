@@ -87,6 +87,7 @@ const Body = z.object({
   scan: ScanSchema.nullable().default(null),
   // Optional and private: the lowest price the seller's agent may accept. Setting it opens the deal to offers.
   floorCents: z.number().int().min(100).max(1_000_000).optional(),
+  handoff: z.enum(["ship", "meet"]).default("ship"),
 });
 
 export async function POST(req: Request) {
@@ -106,7 +107,7 @@ export async function POST(req: Request) {
       paypal: {},
       events: [],
     };
-    log(deal, "seller", `Created a protected deal for ${b.title} at ${usd(b.priceCents)}${b.floorCents != null ? ". Open to PayPal-backed offers" : ""}.`);
+    log(deal, "seller", `Created a protected deal for ${b.title} at ${usd(b.priceCents)}${b.floorCents != null ? ". Open to PayPal-backed offers" : ""}${b.handoff === "meet" ? ". To be handed over in person" : ""}.`);
     await issueToken(deal, "seller");
     await saveDeal(deal);
     return publicDeal(deal, { seller: true, buyer: false });

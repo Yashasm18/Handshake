@@ -65,6 +65,13 @@ describe("privacy: what each person can see", () => {
     expect(publicDeal(deal(), SELLER).events[1].ref).toBe("BATCH-77");
   });
 
+  it("in an in-person deal the seller never sees the buyer's address, and handover codes never leave the server", () => {
+    const meet = { ...deal(), handoff: "meet" as const, meetup: { codeHash: "hash-of-code", tokenHash: "hash-of-token", expiresAt: "", attempts: 0 } };
+    expect(publicDeal(meet, SELLER).shipTo).toBeUndefined();
+    expect(publicDeal(meet, BUYER).shipTo?.line).toContain("1 Main St");
+    for (const viewer of [OUTSIDER, SELLER, BUYER]) expect(JSON.stringify(publicDeal(meet, viewer))).not.toContain("hash-of");
+  });
+
   it("the pending offer amount is never exposed", () => {
     for (const viewer of [OUTSIDER, SELLER, BUYER]) expect(publicDeal(deal(), viewer)).not.toHaveProperty("pendingOfferCents");
   });

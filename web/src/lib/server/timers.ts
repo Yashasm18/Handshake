@@ -54,6 +54,14 @@ const ACTIONS: Record<DeadlineKind, Action> = {
     return { outcome: "done", detail: "Hold voided" };
   },
 
+  async MEET_BY(deal) {
+    if (deal.paypal.authorizationId) await voidHold(deal.paypal.authorizationId);
+    deal.status = "RELEASED";
+    deal.meetup = undefined;
+    log(deal, "handshake", `The meetup didn't happen within ${span("MEET_BY")}, so the hold was released automatically. The buyer paid nothing.`);
+    return { outcome: "done", detail: "Hold voided" };
+  },
+
   async REAUTHORIZE(deal, now) {
     try {
       const fresh = await reauthorizeHold(deal.paypal.authorizationId!);

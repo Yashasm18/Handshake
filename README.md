@@ -62,6 +62,7 @@ Americans lost a record **$15.9B to fraud in 2025**, and online shopping scams a
 | **Scam check** | Paste the chat or a screenshot. AI flags Friends & Family pressure, fake urgency, overpayment and address swaps, quoting the exact words. |
 | **Real-price check** | Live prices from 25,000+ stores. A phone at 64% under retail is flagged as bait. |
 | **PayPal hold** | The buyer's money is a PayPal authorization: reserved, never sent, until the item arrives. |
+| **Meet in person** | For face-to-face deals: the buyer checks the item, then scans the seller's one-time QR code. PayPal captures and pays the seller on the spot, before the item changes hands. No cash, no fake payment screenshots. |
 | **Agent negotiation** | The buyer backs an offer with a hold at a secret max. Two AI agents haggle with real prices, and code keeps both inside their limits. |
 | **Label check** | The seller's shipping label is read and matched to the buyer's PayPal-verified address before anything ships. |
 | **Fair damage refunds** | A photo of the damage, priced from real replacement parts, settles in minutes with a partial capture. |
@@ -92,6 +93,8 @@ flowchart LR
     C --> D["Agents negotiate"]
     C --> E["Ship to verified address"]
     D --> E
+    C --> M["Meet in person:<br/>buyer scans seller's code"]
+    M --> G
     E --> F{"Arrived OK?"}
     F -->|yes| G["Capture + payout"]
     F -->|damaged| H["Partial capture<br/>from part prices"]
@@ -151,11 +154,12 @@ Full threat model and the issues we've found and fixed: **[SECURITY.md](SECURITY
 
 ## Tests and CI
 
-Handshake is tested two ways: **148 automated tests** that run on every push and deploy, and **27 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel, Elastic and the AI models with real images and real listings.
+Handshake is tested two ways: **159 automated tests** that run on every push and deploy, and **33 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel, Elastic and the AI models with real images and real listings.
 
 | Area | Automated | Live on the sandbox | What it proves |
 |---|---:|---:|---|
 | Deal flow and settlement | 14 | 3 | Holds, captures, payouts and voids happen once, for the right amount, only in the right state |
+| Meet in person | 11 | 6 | Only the seller can show a handover code and only the buyer can use it; codes expire, work once and lock after 5 wrong tries; the seller never sees the buyer's address |
 | Refunds and pricing | 26 | 3 | Refunds come from real part prices, are capped by verdict, and refund plus capture always equals the price |
 | Agent negotiation | 20 | 3 | Agents never cross a secret limit, never leak it, and PayPal captures exactly the agreed price |
 | Privacy and access | 9 | 3 | Strangers and the wrong party get 403; addresses, PayPal ids and limits stay with the people allowed to see them |

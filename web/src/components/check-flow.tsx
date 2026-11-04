@@ -502,6 +502,7 @@ function CreateDeal({ scan }: { scan: Scan }) {
   const [photo, setPhoto] = useState<string | null>(null);
   const [offers, setOffers] = useState(true);
   const [floor, setFloor] = useState("");
+  const [handoff, setHandoff] = useState<"ship" | "meet">("ship");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fair = fairBand(scan.condition, scan.market);
@@ -525,6 +526,7 @@ function CreateDeal({ scan }: { scan: Scan }) {
         sellerName: name.trim(),
         scan,
         floorCents,
+        handoff,
       });
       router.push(`/d/${deal.id}?as=seller`);
     } catch (err) {
@@ -557,6 +559,7 @@ function CreateDeal({ scan }: { scan: Scan }) {
           <span className="label text-muted">Condition promises · one per line</span>
           <textarea className={`${field} resize-none`} rows={4} value={checklist} onChange={(e) => setChecklist(e.target.value)} />
         </label>
+        <HandoffField value={handoff} onChange={setHandoff} />
         <OffersField on={offers} setOn={setOffers} floor={floor} setFloor={setFloor} fair={fair} field={field} />
         <div className="grid gap-2">
           <span className="label text-muted">Photo of the item · recommended</span>
@@ -568,6 +571,37 @@ function CreateDeal({ scan }: { scan: Scan }) {
         {busy ? "Creating…" : "Create deal link"} {!busy && <Arrow />}
       </Button>
     </form>
+  );
+}
+
+// How the item changes hands. Meeting in person swaps the label check for a handover code at the meetup.
+function HandoffField({ value, onChange }: { value: "ship" | "meet"; onChange: (v: "ship" | "meet") => void }) {
+  const options = [
+    { v: "ship" as const, t: "Ship it", d: "We check your shipping label against the buyer's PayPal address." },
+    { v: "meet" as const, t: "Meet in person", d: "The buyer checks it, then scans your code. You're paid before you let go of it." },
+  ];
+  return (
+    <div className="grid gap-2" role="radiogroup" aria-label="How it changes hands">
+      <span className="label text-muted">How it changes hands</span>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {options.map((o) => (
+          <button
+            key={o.v}
+            type="button"
+            role="radio"
+            aria-checked={value === o.v}
+            onClick={() => onChange(o.v)}
+            className={`rounded-3xl border p-5 text-left transition-colors ${value === o.v ? "border-ink bg-card" : "hairline bg-card/50 hover:border-ink/30"}`}
+          >
+            <span className="flex items-center gap-2 font-display text-[19px] font-semibold tracking-tight">
+              <span className={`size-3 rounded-full border ${value === o.v ? "border-ink bg-ink" : "border-ink/30"}`} />
+              {o.t}
+            </span>
+            <span className="mt-1 block text-[15px] text-muted">{o.d}</span>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

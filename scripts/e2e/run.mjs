@@ -370,5 +370,79 @@ await scenario("M6", "Scam memory", "A scam listing's photo, reported once, is r
   return { flag: again.json.flags.find((f) => f.type.endsWith("_SCAM"))?.quote, kinds: photo.kinds };
 });
 
+
+// ---------- Meet in person ----------
+const meetDeal = () => paidDeal({ handoff: "meet" });
+
+await scenario("P1", "Meet in person", "At the meetup the buyer types the seller's code: PayPal captures the full price and pays the seller on the spot", async () => {
+  const d = await meetDeal();
+  const code = await d.seller.post(`/api/deals/${d.id}/meet-code`, {});
+  check(code.status === 200 && /^\d{6}$/.test(code.json.code), `code ${code.status} ${JSON.stringify(code.json)}`);
+  const r = await d.buyer.post(`/api/deals/${d.id}/meet-confirm`, { code: code.json.code });
+  check(r.status === 200 && r.json.status === "SETTLED", `confirm ${r.status} ${JSON.stringify(r.json).slice(0, 200)}`);
+  const p = r.json.paypal;
+  check(p.capturedCents === 23_000 && p.payoutBatchId && !p.trackingAttached, JSON.stringify(p));
+  return { capturedUsd: p.capturedCents / 100, feeUsd: p.feeCents / 100, paidToSellerUsd: p.payoutCents / 100, capture: p.captureId, payoutBatch: p.payoutBatchId };
+});
+
+await scenario("P2", "Meet in person", "The QR path: the scanned handover token releases the payment the same way", async () => {
+  const d = await meetDeal();
+  const code = await d.seller.post(`/api/deals/${d.id}/meet-code`, {});
+  const r = await d.buyer.post(`/api/deals/${d.id}/meet-confirm`, { token: code.json.token });
+  check(r.json.status === "SETTLED", `${r.status} ${r.json.status}`);
+  return { status: r.json.status, capture: r.json.paypal.captureId };
+});
+
+await scenario("P3", "Meet in person", "Only the seller can show a code and only the buyer can use it; 5 wrong codes lock it until a new one", async () => {
+  const d = await meetDeal();
+  const stranger = new Browser("stranger");
+  const out = {
+    strangerGetsCode: (await stranger.post(`/api/deals/${d.id}/meet-code`, {})).status,
+    buyerGetsCode: (await d.buyer.post(`/api/deals/${d.id}/meet-code`, {})).status,
+  };
+  const { code } = (await d.seller.post(`/api/deals/${d.id}/meet-code`, {})).json;
+  out.sellerConfirms = (await d.seller.post(`/api/deals/${d.id}/meet-confirm`, { code })).status;
+  out.strangerConfirms = (await stranger.post(`/api/deals/${d.id}/meet-confirm`, { code })).status;
+  const wrong = code === "000000" ? "000001" : "000000";
+  const tries = [];
+  for (let i = 0; i < 5; i++) tries.push((await d.buyer.post(`/api/deals/${d.id}/meet-confirm`, { code: wrong })).status);
+  out.wrongTries = tries.join(",");
+  out.rightCodeAfterLock = (await d.buyer.post(`/api/deals/${d.id}/meet-confirm`, { code })).status;
+  const fresh = (await d.seller.post(`/api/deals/${d.id}/meet-code`, {})).json.code;
+  out.newCodeWorks = (await d.buyer.post(`/api/deals/${d.id}/meet-confirm`, { code: fresh })).json.status;
+  check(out.strangerGetsCode === 403 && out.buyerGetsCode === 403 && out.sellerConfirms === 403 && out.strangerConfirms === 403, JSON.stringify(out));
+  check(out.wrongTries === "400,400,400,400,400" && out.rightCodeAfterLock === 429 && out.newCodeWorks === "SETTLED", JSON.stringify(out));
+  return out;
+});
+
+await scenario("P4", "Meet in person", "In an in-person deal the seller never sees the buyer's home address", async () => {
+  const d = await meetDeal();
+  const seller = (await d.seller.get(`/api/deals/${d.id}`)).json;
+  const buyer = (await d.buyer.get(`/api/deals/${d.id}`)).json;
+  check(!seller.shipTo && !JSON.stringify(seller).includes("2211"), "seller saw the address");
+  check(buyer.shipTo?.line?.includes("2211"), "buyer lost their own address");
+  return { sellerSeesAddress: false, buyerSeesOwnAddress: true };
+});
+
+await scenario("P5", "Meet in person", "The buyer walks away at the meetup: the whole hold is voided", async () => {
+  const d = await meetDeal();
+  await d.seller.post(`/api/deals/${d.id}/meet-code`, {});
+  const r = await d.buyer.post(`/api/deals/${d.id}/cancel`, { role: "buyer" });
+  check(r.json.status === "RELEASED" && r.json.events.some((e) => e.text.includes("Released the full hold")), `${r.status} ${r.json.status}`);
+  return { status: r.json.status };
+});
+
+await scenario("P6", "Meet in person", "Nobody shows up: the meet-by deadline voids the hold on its own", async () => {
+  const d = await meetDeal();
+  const auth = { authorization: `Bearer ${TIMERS_SECRET}` };
+  await sleep(56_000);
+  const due = (await new Browser("wf").req("GET", "/api/internal/timers", undefined, auth)).json.due.filter((x) => x.dealId === d.id);
+  check(due.some((x) => x.kind === "MEET_BY"), `not due: ${JSON.stringify(due)}`);
+  const run = await new Browser("wf").req("POST", "/api/internal/timers", { dealId: d.id, kind: "MEET_BY" }, auth);
+  const v = (await d.seller.get(`/api/deals/${d.id}`)).json;
+  check(v.status === "RELEASED", `status ${v.status}`);
+  return { run: run.json.outcome, status: v.status };
+});
+
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n${passed}/${results.length} passed`);

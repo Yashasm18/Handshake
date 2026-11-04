@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import { refundFor } from "../refund";
 import type { Deal } from "../types";
 import { usd } from "../types";
@@ -244,6 +245,59 @@ export const respondToClaim = (id: string, role: "buyer" | "seller", accept: boo
     return deal;
   });
 
+// ---------- In-person handover ----------
+// At a meetup the buyer checks the item, then confirms with a code only the seller's screen shows: a QR
+// (scanned with the buyer's phone camera) or the same handover as 6 digits. PayPal captures and pays the
+// seller there and then, so the seller sees "Paid" before letting go of the item. The code is short-lived
+// and single-use, wrong guesses are capped per code, and only the buyer who paid can use it.
+export const HANDOVER_MS = 5 * 60_000;
+export const HANDOVER_TRIES = 5;
+const handoverHash = (dealId: string, secret: string) => createHash("sha256").update(`${dealId}:handover:${secret}`).digest("hex");
+const sameHash = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+
+function expectMeetup(deal: Deal) {
+  expect(deal, "HELD");
+  if (deal.handoff !== "meet") throw new HttpError(400, "This deal is shipped, not handed over in person.");
+  notCaptured(deal);
+}
+
+// Seller: show a fresh handover code. Each new code replaces the last one.
+export const startHandover = (id: string) =>
+  withDeal(id, async (deal) => {
+    expectMeetup(deal);
+    const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+    const token = randomBytes(18).toString("base64url");
+    const expiresAt = new Date(Date.now() + HANDOVER_MS).toISOString();
+    deal.meetup = { codeHash: handoverHash(deal.id, code), tokenHash: handoverHash(deal.id, token), expiresAt, attempts: 0 };
+    if (!deal.events.some((e) => e.actor === "seller" && e.text.startsWith("Showed the handover code"))) {
+      log(deal, "seller", "Showed the handover code at the meetup.");
+    }
+    return { code, token, expiresAt };
+  });
+
+// Buyer: confirm the handover with the scanned token or the typed code. Captures the full price.
+export const confirmHandover = (id: string, input: { code?: string; token?: string }) =>
+  withDeal(id, async (deal) => {
+    expectMeetup(deal);
+    const m = deal.meetup;
+    if (!m) throw new HttpError(409, `Ask ${deal.sellerName} to show the handover code first.`);
+    if (Date.parse(m.expiresAt) <= Date.now()) throw new HttpError(409, `That code has expired. Ask ${deal.sellerName} to show a new one.`);
+    if (m.attempts >= HANDOVER_TRIES) throw new HttpError(429, `Too many wrong codes. Ask ${deal.sellerName} to show a new one.`);
+    const given = input.token ? handoverHash(deal.id, input.token) : input.code ? handoverHash(deal.id, input.code) : "";
+    const ok = !!given && (sameHash(given, m.tokenHash) || sameHash(given, m.codeHash));
+    if (!ok) {
+      // The lock only saves on success, so record the wrong guess before refusing it.
+      m.attempts += 1;
+      await saveDeal(deal);
+      const left = HANDOVER_TRIES - m.attempts;
+      throw new HttpError(400, left > 0 ? `That code doesn't match. ${left} ${left === 1 ? "try" : "tries"} left.` : `That code doesn't match. Ask ${deal.sellerName} to show a new one.`);
+    }
+    deal.meetup = undefined;
+    log(deal, "buyer", `Checked the item in person and confirmed the handover with ${deal.sellerName}'s code.`);
+    await settle(deal, deal.priceCents, "Handshake: handed over in person");
+    return deal;
+  });
+
 export const cancel = (id: string, role: "buyer" | "seller") =>
   withDeal(id, async (deal) => {
     expect(deal, "HELD", "AWAITING_PAYMENT", "NEGOTIATING");
@@ -253,6 +307,7 @@ export const cancel = (id: string, role: "buyer" | "seller") =>
       log(deal, "paypal", "Released the full hold. The buyer paid nothing.");
     }
     if (deal.negotiation?.status === "RUNNING") deal.negotiation.status = "NO_DEAL";
+    deal.meetup = undefined;
     deal.status = "RELEASED";
     log(deal, role, "Cancelled the deal before shipping.");
     return deal;

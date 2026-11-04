@@ -44,7 +44,8 @@ stateDiagram-v2
     NEGOTIATING --> HELD: agents agree
     NEGOTIATING --> AWAITING_PAYMENT: no deal, hold voided
     HELD --> SHIPPED: label checked, tracking added
-    HELD --> RELEASED: cancelled, or seller misses ship-by
+    HELD --> RELEASED: cancelled, or seller misses ship-by (or meet-by)
+    HELD --> SETTLED: met in person, buyer used the handover code
     SHIPPED --> SETTLED: buyer confirms, or verified silence
     SHIPPED --> CLAIM_OPEN: buyer reports damage
     CLAIM_OPEN --> SETTLED: both accept, or nobody declines

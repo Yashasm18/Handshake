@@ -9,6 +9,8 @@ export const DAY = 24 * 60 * 60 * 1000;
 export const RULES = {
   // The seller has 3 days from payment to ship, or the buyer's hold is released.
   SHIP_BY: 3 * DAY,
+  // For an in-person deal, the same 3 days to meet and hand it over.
+  MEET_BY: 3 * DAY,
   // PayPal honors an authorization for 3 days; renewing then keeps the funds reserved during shipping.
   REAUTHORIZE: 3 * DAY,
   // After shipping, the buyer has 7 days to confirm or report a problem before payment releases.
@@ -35,7 +37,8 @@ export function deadlinesFor(deal: Deal, scale = 1): Deadline[] {
   const out: Deadline[] = [];
 
   if (deal.status === "HELD") {
-    out.push({ kind: "SHIP_BY", at: t(c.heldAt, "SHIP_BY"), who: "seller", consequence: "the hold is released and the buyer pays nothing" });
+    const kind = deal.handoff === "meet" ? "MEET_BY" : "SHIP_BY";
+    out.push({ kind, at: t(c.heldAt, kind), who: kind === "MEET_BY" ? "both" : "seller", consequence: "the hold is released and the buyer pays nothing" });
   }
   // Only an uncaptured hold can be renewed (a settlement may have captured and then paused before payout).
   if ((deal.status === "SHIPPED" || deal.status === "CLAIM_OPEN") && !c.reauthorizedAt && !deal.paypal.captureId) {

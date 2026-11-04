@@ -69,8 +69,9 @@ export async function issueToken(deal: Deal, party: Party) {
 
 // Strangers holding the link see the item and its status, not who is involved or where it ships.
 export function publicDeal(deal: Deal, viewer: Viewer): DealView {
-  const rest: Partial<Deal> & Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail" | "pendingOfferCents"> = { ...deal };
+  const rest: Partial<Deal> & Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail" | "pendingOfferCents" | "meetup"> = { ...deal };
   delete rest.pendingOfferCents;
+  delete rest.meetup;
   delete rest.sellerToken;
   delete rest.buyerToken;
   delete rest.sellerEmail;
@@ -91,7 +92,8 @@ export function publicDeal(deal: Deal, viewer: Viewer): DealView {
     negotiation: party ? negotiation : negotiation && { ...negotiation, turns: [] },
     // PayPal ids are only for the two parties; an outsider holding an order id could try to race the buyer.
     paypal: party ? { ...rest.paypal, payNonce: undefined } : {},
-    shipTo: party ? rest.shipTo : undefined,
+    // An in-person deal needs no address: the seller never sees where the buyer lives.
+    shipTo: viewer.buyer || (viewer.seller && deal.handoff !== "meet") ? rest.shipTo : undefined,
     shipment: party ? rest.shipment : rest.shipment && { ...rest.shipment, labelCheck: null },
     claim: party ? rest.claim : rest.claim && { ...rest.claim, photo: undefined, note: "" },
     // Log entries cite PayPal ids (authorization, capture, payout batch); like the ids above, only the parties see them.

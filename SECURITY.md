@@ -46,6 +46,13 @@ The demo runs on the **PayPal sandbox**: no real money moves. Please test only w
 - **Links are data, not code.** The URL reaches the browser script as a JSON string literal.
 - **Bounded cost.** Each browser has a 60-second ceiling and is always deleted. One visitor can open 8 links per 10 minutes, identified by Cloudflare's CF-Connecting-IP, or else the address our proxy appends, never one a client can supply; all visitors together can open 120, with at most 4 at once.
 
+### Meeting in person
+- **The seller is paid before letting go.** The buyer releases the payment with a code only the seller's screen shows, so the seller sees PayPal's confirmation, not a screenshot.
+- **Codes are one-time and short-lived.** A 6-digit code and a QR token, valid for 5 minutes, used once, replaced by any newer code, and stored only as hashes.
+- **Guessing is capped.** 5 wrong tries lock the code until the seller shows a new one; only the buyer who paid can try at all.
+- **No address for in-person deals.** The seller never sees where the buyer lives.
+- **The token never reaches a log.** The QR link carries it after `#`, which browsers don't send to servers, and the page removes it from the address bar.
+
 ### Scam memory (Elastic)
 - **Only the seller's side is stored**: the tactics the scan quoted, contact and payment details, and listing photo vectors. Never the buyer's messages, address or identity.
 - **Two witnesses to convict.** Details and photos count as a known scam only after buyers from two different networks reported them (or they come from the seed set), so one fake message can't brand an innocent seller. Automatic saves never count as witnesses. Contact details and photos only count from records a buyer reported (or seeds), so an automatic save warns nobody about a person. Addresses in the same IPv4 /24 or IPv6 /48 count as one witness, and witnesses are stored only as keyed hashes.

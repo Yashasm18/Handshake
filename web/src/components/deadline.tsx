@@ -24,6 +24,10 @@ function sentence(d: Deadline, role: Role, seller: string, left: string) {
       return role === "seller"
         ? `Ship within ${left}, or the hold is released and the buyer pays nothing.`
         : `${seller} has ${left} to ship. If they don't, your money is released automatically.`;
+    case "MEET_BY":
+      return role === "seller"
+        ? `Meet and hand it over within ${left}, or the hold is released and the buyer pays nothing.`
+        : `If you and ${seller} don't meet within ${left}, your money is released automatically.`;
     case "AUTO_RELEASE":
       return role === "buyer"
         ? `Confirm or report a problem within ${left}. After that, payment releases to ${seller} automatically.`
@@ -61,6 +65,7 @@ export function DeadlineNotice({ deal, role }: { deal: Deal; role: Role }) {
 
 const TITLES: Record<Deadline["kind"], string> = {
   SHIP_BY: "Ship by",
+  MEET_BY: "Meet by",
   REAUTHORIZE: "Renew PayPal hold",
   AUTO_RELEASE: "Buyer responds by",
   CLAIM_SETTLE: "Claim settles",

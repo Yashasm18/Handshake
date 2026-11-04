@@ -73,6 +73,7 @@ sequenceDiagram
 ## What we liked
 
 - **Authorize-then-capture is exactly the shape of a safe deal.** A hold that the seller can see but can't touch is the whole product, and PayPal gives it to us as a primitive.
+- **One hold, two ways to hand over.** The same authorization covers a shipped deal and a face-to-face meetup: at the meetup the buyer confirms with the seller's one-time code, and Handshake captures and pays out on the spot.
 - **Partial capture with `final_capture`.** Damage refunds become one call: capture what's fair, and PayPal returns the rest without a separate refund flow.
 - **Verified shipping address on the authorization.** It lets us stop the "ship it to my cousin instead" scam before the item leaves.
 - **A sandbox that behaves like production**, including the honor-period rule on reauthorization, which caught a real edge case in our timers.

@@ -46,6 +46,16 @@ const actions: Record<string, (deal: Deal, body: unknown) => Promise<unknown>> =
     await requireParty(d, role);
     return flows.respondToClaim(d.id, role, accept);
   },
+  // In-person handover: only the seller can show a code, only the buyer who paid can use it.
+  "meet-code": async (d) => {
+    await requireParty(d, "seller");
+    return flows.startHandover(d.id);
+  },
+  "meet-confirm": async (d, b) => {
+    await requireParty(d, "buyer");
+    const input = z.object({ code: z.string().regex(/^\d{6}$/).optional(), token: z.string().min(16).max(64).optional() }).refine((x) => x.code || x.token).parse(b);
+    return flows.confirmHandover(d.id, input);
+  },
   cancel: async (d, b) => {
     const { role } = z.object({ role: Role }).parse(b);
     await requireParty(d, role);

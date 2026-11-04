@@ -10,12 +10,12 @@
 
 Handshake moves other people's money, so every rule that touches it is tested twice:
 
-1. **Automated tests (148).** They run on every push in GitHub Actions and again on Render before every deploy. External services are replaced with fakes, so these tests check *our* rules: amounts, limits, states, retries and who can see what.
-2. **Live end-to-end scenarios (27).** A script drives a running Handshake server through real deals on the **PayPal sandbox**, with live **Channel3** prices, **Kernel** cloud browsers reading real listings, **Elastic** scam memory, and the real **AI models** reading real images. These check that everything works together.
+1. **Automated tests (159).** They run on every push in GitHub Actions and again on Render before every deploy. External services are replaced with fakes, so these tests check *our* rules: amounts, limits, states, retries and who can see what.
+2. **Live end-to-end scenarios (33).** A script drives a running Handshake server through real deals on the **PayPal sandbox**, with live **Channel3** prices, **Kernel** cloud browsers reading real listings, **Elastic** scam memory, and the real **AI models** reading real images. These check that everything works together.
 
 | | Automated | Live |
 |---|---|---|
-| Count | 148 tests | 27 scenarios |
+| Count | 159 tests | 33 scenarios |
 | Runs | Every push and every deploy | Before each release, and on demand |
 | PayPal, Channel3, Kernel, Elastic, AI | Faked | Real (PayPal sandbox) |
 | Result | All pass | All pass |
@@ -23,15 +23,15 @@ Handshake moves other people's money, so every rule that touches it is tested tw
 ## Automated tests
 
 ```bash
-npm --prefix web test         # 140 tests
+npm --prefix web test         # 151 tests
 npm --prefix workflows test   # 8 tests
 ```
 
 | Suite | Tests | What it covers |
 |---|---:|---|
-| [`flows.test.ts`](../web/test/flows.test.ts) | 19 | The deal state machine: paying with the test card, backed offers, shipping with a label photo, confirming delivery, damage claims, both-sides acceptance and cancelling. Checks the exact PayPal calls and amounts, and that each step is refused in the wrong state. |
-| [`timers.test.ts`](../web/test/timers.test.ts) | 18 | Every deadline: when it's due, what it does, that it does nothing the second time, that a failed payout resumes without capturing twice, and that three simultaneous runs move money once. |
-| [`security.test.ts`](../web/test/security.test.ts) | 17 | What a stranger, the buyer and the seller can each see; the label address check; PayPal idempotency keys and error details; the secret-guarded timer API. |
+| [`flows.test.ts`](../web/test/flows.test.ts) | 28 | The deal state machine: paying with the test card, backed offers, shipping with a label photo, confirming delivery, damage claims, both-sides acceptance, cancelling, and meeting in person (handover codes that work once, expire, lock after 5 wrong tries and are stored only as hashes). Checks the exact PayPal calls and amounts, and that each step is refused in the wrong state. |
+| [`timers.test.ts`](../web/test/timers.test.ts) | 19 | Every deadline: when it's due, what it does, that it does nothing the second time, that a failed payout resumes without capturing twice, and that three simultaneous runs move money once. |
+| [`security.test.ts`](../web/test/security.test.ts) | 18 | What a stranger, the buyer and the seller can each see; the label address check; PayPal idempotency keys and error details; the secret-guarded timer API. |
 | [`negotiation.test.ts`](../web/test/negotiation.test.ts) | 20 | The referee that clamps every agent offer to its owner's limit, moves in steps and blocks early accepts, and the filter that rejects any message revealing a limit in digits or words. |
 | [`money.test.ts`](../web/test/money.test.ts) | 16 | Refund caps (including a sweep of 72 price and part combinations where refund plus capture must always equal the price), the fair price band, market medians and the deadline clock. |
 | [`pricing.test.ts`](../web/test/pricing.test.ts) | 9 | Damaged-part pricing built on the real Channel3 results from a bug we fixed: a $50 Joy-Con must never be priced from $300 consoles. |
@@ -53,7 +53,7 @@ Each bug was reverted after the check.
 
 ## Live end-to-end scenarios
 
-Run on November 4, 2026 against a local Handshake server connected to the PayPal sandbox, Channel3, Kernel, Elastic and Claude via OpenRouter. Deadlines were shortened with `TIMER_SCALE=0.0002`, so three days passed in about 52 seconds. **All 27 passed.** In the full run, C1 lacked its local damage photo and M4 ran while the witness rule was being tightened; both passed when re-run against the final code.
+Run on November 4, 2026 against a local Handshake server connected to the PayPal sandbox, Channel3, Kernel, Elastic and Claude via OpenRouter. Deadlines were shortened with `TIMER_SCALE=0.0002`, so three days passed in about 52 seconds. **All 33 passed.** In the full run, C1 lacked its local damage photo and M4 ran while the witness rule was being tightened; both passed when re-run against the final code.
 
 The images were drawn for the test by [`make-images.py`](../scripts/e2e/make-images.py), apart from the damage photo, which is a real photo of a damaged Switch.
 
@@ -136,6 +136,21 @@ Against a separate test index seeded with the 24 starting scam scripts. Each run
 | M4 | Buyer A reports a scam; buyer B meets the same phone number in a different message and also reports it; buyer C meets it again | **Pass.** After one report, buyer B is **warned** (medium risk, "Uses the same phone number"). After a second report from a different network, buyer C sees a **known scam** (high risk) |
 | M5 | Reporting a check that found nothing wrong, and a scan id that doesn't exist | **Pass.** Refused (400, 404). Reporting someone else's scan is also refused (404) |
 | M6 | Buyer A reports the stock-photo AirPods listing; buyer B opens the same link | **Pass.** "A photo here was used in a scam listing Handshake has seen", matched by Jina CLIP |
+
+### Meet in person
+
+Real PayPal sandbox deals handed over at a meetup.
+
+| # | Scenario | Result |
+|---|---|---|
+| P1 | The buyer checks the item and types the seller's 6-digit code | **Pass.** $230 captured, $6.45 fee, **$223.55 paid to the seller on the spot**, no shipping or tracking |
+| P2 | The buyer scans the seller's QR code instead | **Pass.** Settled the same way |
+| P3 | A stranger or the buyer asks for a code; the seller or a stranger tries to use one; 5 wrong codes | **Pass.** All refused (403); wrong codes 400 ×5, then even the right code is refused (429) until the seller shows a new one, which works |
+| P4 | Who sees the buyer's address in an in-person deal | **Pass.** The buyer does; the seller never does |
+| P5 | The buyer walks away at the meetup | **Pass.** The whole hold is voided |
+| P6 | Nobody shows up | **Pass.** The meet-by deadline voided the hold on its own |
+
+The QR code was also checked in the browser: decoded with the browser's own QR reader, it opens the deal with the one-time handover token, and the buyer's page asks before releasing anything.
 
 ### Self-enforcing deadlines
 

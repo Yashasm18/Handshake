@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import qrcode from "qrcode-generator";
 import { api } from "@/lib/client";
 import type { DealView as Deal } from "@/lib/types";
 import { usd } from "@/lib/types";
@@ -20,6 +21,13 @@ const STAGES = [
   { key: "held", label: "Paid into hold" },
   { key: "shipped", label: "Shipped" },
   { key: "delivered", label: "Checked on arrival" },
+  { key: "settled", label: "Settled" },
+] as const;
+
+const MEET_STAGES = [
+  { key: "held", label: "Paid into hold" },
+  { key: "met", label: "Met in person" },
+  { key: "checked", label: "Checked at the meetup" },
   { key: "settled", label: "Settled" },
 ] as const;
 
@@ -128,7 +136,7 @@ export function DealRoom() {
         </motion.div>
       </div>
 
-      <Progress stage={stage} released={deal.status === "RELEASED"} />
+      <Progress stage={stage} released={deal.status === "RELEASED"} stages={deal.handoff === "meet" ? MEET_STAGES : STAGES} />
 
       <div className="mt-12 grid gap-8 lg:grid-cols-[1.35fr_1fr]">
         <div>
@@ -178,10 +186,10 @@ function RoleSwitch({ role, onChange }: { role: Role; onChange: (r: Role) => voi
   );
 }
 
-function Progress({ stage, released }: { stage: number; released: boolean }) {
+function Progress({ stage, released, stages = STAGES }: { stage: number; released: boolean; stages?: readonly { key: string; label: string }[] }) {
   return (
     <div className="mt-12 grid grid-cols-4 gap-2 md:gap-3">
-      {STAGES.map((s, i) => {
+      {stages.map((s, i) => {
         const done = !released && i <= stage;
         return (
           <div key={s.key}>
@@ -214,6 +222,7 @@ function ActionCard(p: ActProps) {
     case "NEGOTIATING":
       return <NegotiationLive deal={deal} role={role} />;
     case "HELD":
+      if (deal.handoff === "meet") return role === "seller" ? <SellerMeet {...p} /> : <BuyerMeet {...p} />;
       return role === "seller" ? <SellerShip {...p} /> : <BuyerWaitingShip {...p} />;
     case "SHIPPED":
       return role === "buyer" ? <BuyerInspect {...p} /> : (
@@ -340,6 +349,166 @@ function BuyerWaitingShip({ deal, act, busy }: ActProps) {
         {busy === "cancel" ? "Releasing…" : "Cancel and release my money"}
       </Button>
     </Panel>
+  );
+}
+
+// ---------- Meet in person ----------
+
+type Handover = { code: string; token: string; expiresAt: string };
+
+// The handover link the buyer's phone camera opens. The token travels in the fragment, so it never
+// reaches a server log; the buyer's page reads it and asks before releasing anything.
+const handoverUrl = (dealId: string, token: string) => `${window.location.origin}/d/${dealId}#handover=${token}`;
+
+function QrCode({ text }: { text: string }) {
+  const qr = qrcode(0, "M");
+  qr.addData(text);
+  qr.make();
+  const n = qr.getModuleCount();
+  const cells: string[] = [];
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) cells.push(`M${c} ${r}h1v1h-1z`);
+  return (
+    <svg viewBox={`-2 -2 ${n + 4} ${n + 4}`} className="size-full" role="img" aria-label="Handover QR code" shapeRendering="crispEdges">
+      <rect x="-2" y="-2" width={n + 4} height={n + 4} fill="#ffffff" />
+      <path d={cells.join("")} fill="#111110" />
+    </svg>
+  );
+}
+
+function useCountdown(until?: string) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!until) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [until]);
+  return until ? Math.max(0, Date.parse(until) - now) : 0;
+}
+
+function SellerMeet({ deal, act, busy }: ActProps) {
+  const [handover, setHandover] = useState<Handover | null>(null);
+  const left = useCountdown(handover?.expiresAt);
+  const expired = !!handover && left === 0;
+  async function show() {
+    const r = (await act("meet-code")) as Handover | undefined;
+    if (r?.code) setHandover(r);
+  }
+  return (
+    <Panel>
+      <Headline
+        eyebrow="Step 2 · Meet"
+        title={`${usd(deal.priceCents)} is held for you. Meet to hand it over.`}
+        body="Let the buyer check it first. When they're happy, show them this code. Their payment is captured the moment they scan it, so you're paid before you let go of the item."
+      />
+      {!handover || expired ? (
+        <div className="mt-8">
+          <Button size="lg" disabled={!!busy} onClick={show}>
+            {busy === "meet-code" ? "Making a code…" : expired ? "Show a new code" : "Show handover code"} {!busy && <Arrow />}
+          </Button>
+          {expired && <p className="mt-3 text-[14px] text-muted">That code expired. Codes last 5 minutes and work once.</p>}
+        </div>
+      ) : (
+        <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5, ease: EASE }} className="mt-8 grid gap-6 sm:grid-cols-[220px_1fr] sm:items-center">
+          <div className="aspect-square w-[220px] overflow-hidden rounded-3xl bg-white p-2">
+            <QrCode text={handoverUrl(deal.id, handover.token)} />
+          </div>
+          <div>
+            <p className="label text-muted">Or they type</p>
+            <p className="mt-2 whitespace-nowrap font-mono text-[clamp(30px,4vw,44px)] font-medium tracking-[0.12em] tabular-nums">{handover.code.slice(0, 3)} {handover.code.slice(3)}</p>
+            <p className="mt-3 text-[15px] text-muted">The buyer scans this with their phone camera. Works once · expires in <span className="font-mono tabular-nums">{Math.floor(left / 60000)}:{String(Math.floor((left % 60000) / 1000)).padStart(2, "0")}</span></p>
+            <button onClick={show} disabled={!!busy} className="mt-4 text-[14px] text-muted underline-offset-4 hover:text-ink hover:underline">New code</button>
+          </div>
+        </motion.div>
+      )}
+      <MeetSafety />
+    </Panel>
+  );
+}
+
+function BuyerMeet({ deal, act, busy }: ActProps) {
+  const [code, setCode] = useState("");
+  // Arriving from the seller's QR code: read the token once, then ask before releasing anything.
+  const [token, setToken] = useState<string | null>(() => (typeof window === "undefined" ? null : (window.location.hash.match(/handover=([\w-]{16,64})/)?.[1] ?? null)));
+  // Take it out of the address bar so it isn't bookmarked or shared, and catch a scan that lands on a page
+  // the buyer already has open (only the fragment changes, so there's no fresh load). Safe to run twice.
+  useEffect(() => {
+    const take = () => {
+      const t = window.location.hash.match(/handover=([\w-]{16,64})/)?.[1];
+      if (!t) return;
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+      setToken(t);
+    };
+    take();
+    window.addEventListener("hashchange", take);
+    return () => window.removeEventListener("hashchange", take);
+  }, []);
+  const release = (body: { code?: string; token?: string }) => act("meet-confirm", body);
+  return (
+    <Panel tone="held">
+      <Headline
+        eyebrow="Held by PayPal"
+        title={`${usd(deal.priceCents)} is held. Meet ${deal.sellerName} and check it.`}
+        body={`Nothing moves until you're happy. Check it against what ${deal.sellerName} promised, then scan their handover code with your phone camera, or type it here.`}
+      />
+      {deal.checklist.length > 0 && (
+        <ul className="mt-6 space-y-2">
+          {deal.checklist.map((c) => (
+            <li key={c} className="flex gap-3 rounded-2xl bg-card px-4 py-3 text-[15px]">
+              <span aria-hidden className="text-muted">○</span>
+              {c}
+            </li>
+          ))}
+        </ul>
+      )}
+      {token ? (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-8 rounded-3xl bg-card p-6">
+          <p className="label text-safe">● {deal.sellerName}&apos;s code scanned</p>
+          <p className="mt-2 font-display text-[22px] font-semibold tracking-tight">Happy with it? This pays {deal.sellerName} {usd(deal.priceCents)} now.</p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Button size="lg" disabled={!!busy} onClick={() => release({ token })}>
+              {busy === "meet-confirm" ? "Paying…" : `Release ${usd(deal.priceCents)} to ${deal.sellerName}`}
+            </Button>
+            <Button size="lg" variant="ghost" disabled={!!busy} onClick={() => setToken(null)}>Not yet</Button>
+          </div>
+        </motion.div>
+      ) : (
+        <form
+          className="mt-8 flex flex-wrap items-end gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (code.length === 6) release({ code });
+          }}
+        >
+          <label className="grid gap-2">
+            <span className="label text-muted">{deal.sellerName}&apos;s handover code</span>
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="000000"
+              className="h-14 w-[200px] rounded-2xl border hairline bg-card px-5 font-mono text-[24px] tracking-[0.2em] outline-none focus:border-ink/40"
+              aria-label="Handover code"
+            />
+          </label>
+          <Button size="lg" disabled={!!busy || code.length !== 6}>
+            {busy === "meet-confirm" ? "Paying…" : `Release ${usd(deal.priceCents)}`}
+          </Button>
+        </form>
+      )}
+      <Button variant="ghost" className="mt-6" disabled={!!busy} onClick={() => act("cancel", { role: "buyer" })}>
+        {busy === "cancel" ? "Releasing…" : "Walk away and release my money"}
+      </Button>
+      <MeetSafety />
+    </Panel>
+  );
+}
+
+function MeetSafety() {
+  return (
+    <p className="mt-8 border-t hairline pt-5 text-[14px] text-muted">
+      Meet somewhere public and busy. Many police stations have a safe exchange zone. Never hand over the item, or pay, outside this page.
+    </p>
   );
 }
 
@@ -510,7 +679,15 @@ function Settled({ deal, role }: ActProps) {
         eyebrow="Settled"
         tone="text-safe"
         title={role === "buyer" ? (released > 0 ? `Done. ${usd(released)} came back to you.` : "Done. Enjoy it.") : `You've been paid ${usd(pp.payoutCents ?? 0)}.`}
-        body={role === "buyer" ? "No dispute, no waiting. The unused part of the hold was released automatically." : "Sent to your PayPal account. Tracking is attached to the payment for Seller Protection."}
+        body={
+          role === "buyer"
+            ? deal.handoff === "meet"
+              ? "Handed over in person. You paid only after you'd checked it."
+              : "No dispute, no waiting. The unused part of the hold was released automatically."
+            : deal.handoff === "meet"
+              ? "Sent to your PayPal account the moment the buyer confirmed. Now hand it over."
+              : "Sent to your PayPal account. Tracking is attached to the payment for Seller Protection."
+        }
       />
       <dl className="mt-8 space-y-3 rounded-2xl bg-card p-6 text-[16px]">
         <Line k="Held" v={usd(deal.priceCents)} />

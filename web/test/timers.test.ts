@@ -86,6 +86,17 @@ describe("timer actions", () => {
     expect((await getDeal(d.id))!.status).toBe("RELEASED");
   });
 
+  it("an in-person deal has a meet-by deadline instead, and voids the hold once if nobody meets", async () => {
+    const d = await saveDeal(deal({ handoff: "meet" }));
+    expect(deadlinesFor(d).map((x) => [x.kind, x.at, x.who])).toEqual([["MEET_BY", T0 + 3 * DAY, "both"]]);
+    const at = T0 + 3 * DAY + 1;
+    expect((await runTimer(d.id, "SHIP_BY", at)).outcome).toBe("not-due");
+    expect((await runTimer(d.id, "MEET_BY", at)).outcome).toBe("done");
+    expect((await runTimer(d.id, "MEET_BY", at)).outcome).toBe("not-due");
+    expect(pp.voidHold).toHaveBeenCalledTimes(1);
+    expect((await getDeal(d.id))!.status).toBe("RELEASED");
+  });
+
   it("does nothing before the deadline", async () => {
     const d = await saveDeal(deal({}));
     expect((await runTimer(d.id, "SHIP_BY", T0 + DAY)).outcome).toBe("not-due");
