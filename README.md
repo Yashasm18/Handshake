@@ -41,7 +41,7 @@ Agents negotiate a fair price, and every deadline enforces itself.
 
 <br>
 
-[Live demo](https://handshake-5rkw.onrender.com) · [Try it in 60 seconds](#try-it-in-60-seconds) · [How it works](#how-it-works) · [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md)
+[Live demo](https://handshake-5rkw.onrender.com) · [Watch it work (2 min)](https://handshake-5rkw.onrender.com/#see-how) · [Try it in 60 seconds](#try-it-in-60-seconds) · [How it works](#how-it-works) · [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md)
 
 </div>
 
@@ -208,6 +208,7 @@ web/                 Next.js app: pages, API routes, PayPal, Channel3 and AI cli
   src/lib/server/    flows (state machine), paypal, negotiate, timers, checks
   test/              Vitest suites for every money rule
 workflows/           Render Workflow tasks and the cron trigger
+video/               The narrated "See how it works" video (Remotion)
 docs/                Architecture and partner write-ups
 scripts/             One-off PayPal sandbox checks
 render.yaml          Render Blueprint

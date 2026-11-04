@@ -1,0 +1,22 @@
+{
+  "name": "handshake-video",
+  "private": true,
+  "type": "module",
+  "description": "The 'See how it works' video: a real deal recorded from both sides, narrated, composed with Remotion.",
+  "scripts": {
+    "record": "node scripts/record.mjs",
+    "voice": "node scripts/voice.mjs",
+    "render": "remotion render src/index.jsx HowItWorks out/how-it-works.mp4"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.534",
+    "@remotion/cli": "4.0.534",
+    "@remotion/google-fonts": "4.0.534",
+    "@remotion/renderer": "4.0.534",
+    "kokoro-js": "1.2.1",
+    "playwright-core": "1.64.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "remotion": "4.0.534"
+  }
+}

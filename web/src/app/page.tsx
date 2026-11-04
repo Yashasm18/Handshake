@@ -1,4 +1,5 @@
 import { Arrow, Button, Nav } from "@/components/chrome";
+import { WatchDeal } from "@/components/watch-deal";
 import { FadeIn, RevealText } from "@/components/motion";
 import { HowItWorks } from "@/components/how-it-works";
 import { BuiltWith } from "@/components/built-with";
@@ -45,6 +46,10 @@ export default function Home() {
               <Button href="/check?mode=sell" size="lg" variant="ghost">
                 I&apos;m selling
               </Button>
+              <Button href="#see-how" size="lg" variant="ghost">
+                <svg viewBox="0 0 24 24" className="size-4" aria-hidden><path d="M7 4.5v15l12-7.5z" fill="currentColor" /></svg>
+                Watch how it works
+              </Button>
             </div>
           </div>
         </section>
@@ -60,6 +65,8 @@ export default function Home() {
             ))}
           </div>
         </section>
+
+        <WatchDeal />
 
         <HowItWorks />
 
