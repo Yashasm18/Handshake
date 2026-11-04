@@ -39,33 +39,33 @@ Agents negotiate a fair price, and every deadline enforces itself.
 
 <br>
 
-[Live demo](https://handshake-5rkw.onrender.com) · [Try it in 60 seconds](#-try-it-in-60-seconds) · [How it works](#-how-it-works) · [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md)
+[Live demo](https://handshake-5rkw.onrender.com) · [Try it in 60 seconds](#try-it-in-60-seconds) · [How it works](#how-it-works) · [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md)
 
 </div>
 
 ---
 
-## 🧩 The problem
+## The problem
 
 Americans lost a record **$15.9B to fraud in 2025**, and online shopping scams are the **#2** most reported kind. Buying from a stranger on Marketplace, WhatsApp or Reddit usually ends one of three ways: you pay with *Friends & Family* and get **zero protection**, the item never arrives, or it arrives broken and you fight a 30-day dispute.
 
 **Handshake** is a protected deal room for buying and selling physical goods with people you don't know.
 
-## ✨ What it does
+## What it does
 
-| | Feature | How |
-|---|---|---|
-| 🔍 | **Scam check** | Paste the chat or a screenshot. AI flags Friends & Family pressure, fake urgency, overpayment and address swaps, quoting the exact words. |
-| 🏷️ | **Real-price check** | Live prices from 25,000+ stores. A phone at 64% under retail is flagged as bait. |
-| 🔒 | **PayPal hold** | The buyer's money is a PayPal authorization: reserved, never sent, until the item arrives. |
-| 🤝 | **Agent negotiation** | The buyer backs an offer with a hold at a secret max. Two AI agents haggle with real prices, and code keeps both inside their limits. |
-| 📦 | **Label check** | The seller's shipping label is read and matched to the buyer's PayPal-verified address before anything ships. |
-| 🛠️ | **Fair damage refunds** | A photo of the damage, priced from real replacement parts, settles in minutes with a partial capture. |
-| ⏱️ | **Self-enforcing deadlines** | No shipment in 3 days? Released. Buyer silent after a verified delivery? Paid. Run by a Render Workflow. |
+| Feature | How |
+|---|---|
+| **Scam check** | Paste the chat or a screenshot. AI flags Friends & Family pressure, fake urgency, overpayment and address swaps, quoting the exact words. |
+| **Real-price check** | Live prices from 25,000+ stores. A phone at 64% under retail is flagged as bait. |
+| **PayPal hold** | The buyer's money is a PayPal authorization: reserved, never sent, until the item arrives. |
+| **Agent negotiation** | The buyer backs an offer with a hold at a secret max. Two AI agents haggle with real prices, and code keeps both inside their limits. |
+| **Label check** | The seller's shipping label is read and matched to the buyer's PayPal-verified address before anything ships. |
+| **Fair damage refunds** | A photo of the damage, priced from real replacement parts, settles in minutes with a partial capture. |
+| **Self-enforcing deadlines** | No shipment in 3 days? Released. Buyer silent after a verified delivery? Paid. Run by a Render Workflow. |
 
 > **The AI advises. Code moves the money.** Models read, argue and suggest; every amount, limit and refund is computed in code, tested, and paid through PayPal.
 
-## 🚀 Try it in 60 seconds
+## Try it in 60 seconds
 
 Everything runs on the **PayPal sandbox**: no real money moves.
 
@@ -79,23 +79,23 @@ Everything runs on the **PayPal sandbox**: no real money moves.
 
 The **PayPal sandbox record** on the deal page shows the real order, authorization, capture and payout ids.
 
-## ⚙️ How it works
+## How it works
 
 ```mermaid
 flowchart LR
-    A["📋 Paste the deal"] --> B["🔍 AI scam check<br/>+ Channel3 prices"]
-    B --> C["🔒 PayPal hold<br/>(or backed offer)"]
-    C --> D["🤝 Agents negotiate"]
-    C --> E["📦 Ship to verified address"]
+    A["Paste the deal"] --> B["AI scam check<br/>+ Channel3 prices"]
+    B --> C["PayPal hold<br/>(or backed offer)"]
+    C --> D["Agents negotiate"]
+    C --> E["Ship to verified address"]
     D --> E
     E --> F{"Arrived OK?"}
-    F -->|yes| G["✅ Capture + payout"]
-    F -->|damaged| H["🛠️ Partial capture<br/>from part prices"]
+    F -->|yes| G["Capture + payout"]
+    F -->|damaged| H["Partial capture<br/>from part prices"]
 ```
 
 Deadlines run underneath every step, enforced by a [Render Workflow](docs/sponsors/render.md). The full state machine, data flow and design rules are in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
-## 🤝 Built with our partners
+## Built with our partners
 
 Each partner powers a different part of a safe deal. Click through for exactly what we used, how it works inside Handshake, what we liked, and credits.
 
@@ -126,7 +126,7 @@ Each partner powers a different part of a safe deal. Click through for exactly w
   </tr>
 </table>
 
-## 🛡️ Safety by design
+## Safety by design
 
 - **Holds, not payments.** Handshake never holds funds; PayPal does.
 - **Code-computed money.** Refunds are capped by verdict and can never exceed what was paid.
@@ -136,7 +136,7 @@ Each partner powers a different part of a safe deal. Click through for exactly w
 
 Full threat model and the issues we've found and fixed: **[SECURITY.md](SECURITY.md)**.
 
-## 🧪 Tests and CI
+## Tests and CI
 
 **52 tests** cover the rules that move money: part pricing (built on real Channel3 results), refund caps, negotiation limits and leak filters, and every deadline, including exactly-once behavior under retries and concurrent runs.
 
@@ -149,7 +149,7 @@ npm --prefix web test
 npm --prefix workflows test
 ```
 
-## 💻 Run it locally
+## Run it locally
 
 Requires **Node 22+** and free sandbox keys for PayPal, Channel3 and OpenRouter.
 
@@ -164,11 +164,11 @@ npm run dev                   # http://localhost:3000
 
 Tip: set `TIMER_SCALE=0.0007` in `.env` to make a day pass in about a minute when trying the deadlines.
 
-## ☁️ Deploy
+## Deploy
 
 [`render.yaml`](render.yaml) is a Render Blueprint for the whole system: the web service with its disk, the deadline workflow, the cron job, and a generated shared secret. Connect the repo as a Blueprint, add the secrets it asks for, and add a Render API key to the cron job.
 
-## 📁 Project structure
+## Project structure
 
 ```
 web/                 Next.js app: pages, API routes, PayPal, Channel3 and AI clients
@@ -180,11 +180,11 @@ scripts/             One-off PayPal sandbox checks
 render.yaml          Render Blueprint
 ```
 
-## 🤲 Contributing
+## Contributing
 
 Contributions are welcome. Please read **[CONTRIBUTING.md](CONTRIBUTING.md)** for setup, the ground rules for money-moving code, and the pull request checklist. Security issues go through **[SECURITY.md](SECURITY.md)**.
 
-## 📜 License
+## License
 
 [MIT](LICENSE) © Yashas M
 
