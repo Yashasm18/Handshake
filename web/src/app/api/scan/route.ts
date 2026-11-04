@@ -3,6 +3,7 @@ import { HttpError } from "@/lib/server/deals";
 import { scanDeal } from "@/lib/server/checks";
 import { handle } from "@/lib/server/http";
 import { assertPublicHost, linkOnly, listingUrl, readListing } from "@/lib/server/kernel";
+import { visitorOf } from "@/lib/server/visitor";
 
 const Body = z.object({
   text: z.string().max(8000).optional(),
@@ -19,20 +20,10 @@ const recent = new Map<string, number[]>();
 let everyone: number[] = [];
 let open = 0;
 
-// Render runs behind Cloudflare, which always overwrites CF-Connecting-IP with the address it saw.
-// Without it, use the last X-Forwarded-For entry, the one our proxy appended; earlier entries are
-// whatever the client sent. Even a faked identity stays inside the global cap and in-flight limit.
-function visitor(req: Request) {
-  const edge = req.headers.get("cf-connecting-ip")?.trim();
-  if (edge) return edge;
-  const hops = req.headers.get("x-forwarded-for")?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
-  return hops.at(-1) ?? "local";
-}
-
 function takeLinkSlot(req: Request) {
   const now = Date.now();
   const fresh = (ts: number[]) => ts.filter((t) => now - t < WINDOW_MS);
-  const who = visitor(req);
+  const who = visitorOf(req);
   const hits = fresh(recent.get(who) ?? []);
   everyone = fresh(everyone);
   if (hits.length >= LINKS_PER_VISITOR) throw new HttpError(429, "That's a lot of links in a few minutes. Wait a little, or paste the listing text instead.");
@@ -74,12 +65,12 @@ export async function POST(req: Request) {
       }
       try {
         const listing = await readListing(url);
-        return await scanDeal({ listing, imageDataUrl: body.image, text: body.url ? body.text : undefined });
+        return await scanDeal({ listing, imageDataUrl: body.image, text: body.url ? body.text : undefined, visitor: visitorOf(req) });
       } finally {
         slot.release();
       }
     }
     if (!body.text?.trim() && !body.image) throw new z.ZodError([]);
-    return scanDeal({ text: body.text, imageDataUrl: body.image });
+    return scanDeal({ text: body.text, imageDataUrl: body.image, visitor: visitorOf(req) });
   });
 }

@@ -11,7 +11,7 @@ They only ever talk to `api-m.sandbox.paypal.com`; no real money moves.
 
 ## Live end-to-end scenarios
 
-[`e2e/run.mjs`](e2e/run.mjs) drives a running Handshake server through 21 real scenarios: scam checks on a chat screenshot, pasted listing links read by Kernel (including one using a store photo), full sandbox deals, label photos (including one that tries to talk the AI into a match), damage photos, access control, agent negotiation and a deadline that fires on its own. Results and the latest run are in [docs/TESTING.md](../docs/TESTING.md).
+[`e2e/run.mjs`](e2e/run.mjs) drives a running Handshake server through 27 real scenarios: scam checks on a chat screenshot, pasted listing links read by Kernel (including one using a store photo), scam memory in Elastic (reworded scams, reused details, the two-report rule and reused photos), full sandbox deals, label photos (including one that tries to talk the AI into a match), damage photos, access control, agent negotiation and a deadline that fires on its own. Results and the latest run are in [docs/TESTING.md](../docs/TESTING.md).
 
 ```bash
 TIMERS_SECRET=e2e-local-secret TIMER_SCALE=0.0002 npm --prefix web run dev   # in one terminal

@@ -24,6 +24,7 @@ Agents negotiate a fair price, and every deadline enforces itself.
 [![Channel3](https://img.shields.io/badge/Channel3-111110?style=flat-square)](docs/sponsors/channel3.md)
 [![Render](https://img.shields.io/badge/Render-46E3B7?style=flat-square&logo=render&logoColor=black)](docs/sponsors/render.md)
 [![Kernel](https://img.shields.io/badge/Kernel-111110?style=flat-square)](docs/sponsors/kernel.md)
+[![Elastic](https://img.shields.io/badge/Elastic-005571?style=flat-square&logo=elastic&logoColor=white)](docs/sponsors/elastic.md)
 
 **Built with**
 
@@ -57,6 +58,7 @@ Americans lost a record **$15.9B to fraud in 2025**, and online shopping scams a
 | Feature | How |
 |---|---|
 | **Paste a link** | Paste a Marketplace, Craigslist or OfferUp link. A Kernel cloud browser reads the listing and checks whether its photos are the seller's own or copied from a store. |
+| **Scam memory** | Every scam Handshake catches is remembered in Elasticsearch. A new chat with the same tactics, contact details or photo is recognized, even reworded, and buyers can report scams with one click. |
 | **Scam check** | Paste the chat or a screenshot. AI flags Friends & Family pressure, fake urgency, overpayment and address swaps, quoting the exact words. |
 | **Real-price check** | Live prices from 25,000+ stores. A phone at 64% under retail is flagged as bait. |
 | **PayPal hold** | The buyer's money is a PayPal authorization: reserved, never sent, until the item arrives. |
@@ -85,7 +87,7 @@ The **PayPal sandbox record** on the deal page shows the real order, authorizati
 
 ```mermaid
 flowchart LR
-    A["Paste the deal<br/>or a link (Kernel)"] --> B["AI scam check<br/>+ Channel3 prices<br/>+ photo check"]
+    A["Paste the deal<br/>or a link (Kernel)"] --> B["AI scam check<br/>+ Channel3 prices<br/>+ scam memory (Elastic)"]
     B --> C["PayPal hold<br/>(or backed offer)"]
     C --> D["Agents negotiate"]
     C --> E["Ship to verified address"]
@@ -126,6 +128,13 @@ Each partner powers a different part of a safe deal. Click through for exactly w
       <a href="docs/sponsors/kernel.md"><b>How Handshake uses Kernel →</b></a>
     </td>
   </tr>
+  <tr>
+    <td colspan="2" valign="top">
+      <h3><a href="docs/sponsors/elastic.md">Elastic</a></h3>
+      <b>A memory for scams.</b> Elasticsearch remembers every scam Handshake catches. Jina embeddings and the Jina reranker match the same tactics in new words, exact search catches reused phone numbers and Cash App tags, and Jina CLIP recognizes reused photos.<br><br>
+      <a href="docs/sponsors/elastic.md"><b>How Handshake uses Elastic →</b></a>
+    </td>
+  </tr>
 </table>
 
 The AI layer (Claude, routed through OpenRouter, with every answer checked by Zod) reads chats, labels and photos and runs the negotiating agents. How it's kept in check is in **[docs/AI.md](docs/AI.md)**.
@@ -142,7 +151,7 @@ Full threat model and the issues we've found and fixed: **[SECURITY.md](SECURITY
 
 ## Tests and CI
 
-Handshake is tested two ways: **127 automated tests** that run on every push and deploy, and **21 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel and the AI models with real images and real listings.
+Handshake is tested two ways: **146 automated tests** that run on every push and deploy, and **27 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel, Elastic and the AI models with real images and real listings.
 
 | Area | Automated | Live on the sandbox | What it proves |
 |---|---:|---:|---|
@@ -154,6 +163,7 @@ Handshake is tested two ways: **127 automated tests** that run on every push and
 | Deadlines and the Render Workflow | 30 | 1 | Every deadline fires exactly once, survives retries and concurrent runs, and a hold left unshipped is voided on its own |
 | PayPal client | 4 | | Captures and payouts reuse one idempotency key, so a retry can never charge twice |
 | Listing links (Kernel) | 20 | 3 | Only public pages are opened, every browser is closed, and listings using store photos are flagged |
+| Scam memory (Elastic) | 19 | 6 | Reworded scams, reused details and reused photos are recognized; honest listings aren't; nobody can brand a seller with one fake report |
 
 **Every live scenario passes**, and the run found one real privacy bug that is now fixed and covered by a test. Full results, PayPal sandbox ids and how to re-run them: **[docs/TESTING.md](docs/TESTING.md)**.
 
@@ -168,7 +178,7 @@ npm --prefix workflows test
 
 ## Run it locally
 
-Requires **Node 22+** and free keys for the PayPal sandbox, Channel3, OpenRouter and (for pasted links) Kernel.
+Requires **Node 22+** and free keys for the PayPal sandbox, Channel3, OpenRouter, and optionally Kernel (pasted links) and Elastic (scam memory).
 
 ```bash
 git clone https://github.com/Yashasm18/HandShake.git
@@ -178,6 +188,8 @@ cd web && ln -s ../.env .env.local
 npm install
 npm run dev                   # http://localhost:3000
 ```
+
+To start scam memory with the common scam scripts: `cd web && npx tsx --conditions=react-server scripts/seed-memory.mts`.
 
 Tip: set `TIMER_SCALE=0.0007` in `.env` to make a day pass in about a minute when trying the deadlines.
 

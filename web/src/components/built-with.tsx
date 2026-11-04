@@ -19,6 +19,7 @@ const ITEMS: Item[] = [
   { name: "PayPal", role: "Holds · Payouts", icon: "paypal", color: "#003087", dark: "#4cb3ff" },
   { name: "Channel3", role: "Market prices", wordmark: { light: "/brands/channel3-light.svg", dark: "/brands/channel3-dark.svg" } },
   { name: "Kernel", role: "Cloud browsers", mark: "/brands/kernel.svg" },
+  { name: "Elastic", role: "Scam memory", mark: "/brands/elastic.svg" },
   { name: "Claude", role: "Vision AI", icon: "anthropic" },
   { name: "GPT", role: "Backup AI", icon: "openai" },
   { name: "OpenRouter", role: "AI routing", mono: "OR" },

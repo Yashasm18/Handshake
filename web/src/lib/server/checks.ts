@@ -2,7 +2,9 @@ import "server-only";
 import { z } from "zod";
 import { image, structured, text, untrusted } from "./ai";
 import { itemComps, median, searchComps } from "./channel3";
+import { randomBytes } from "node:crypto";
 import type { ListingPage } from "./kernel";
+import { embedPhotos, holdForReport, memoryFlags, recall, remember, witnessOf } from "./memory";
 import type { Flag, ListingPhoto, Market, Scan } from "../types";
 
 export const SUSPICIOUS_BELOW_RETAIL_PCT = 55;
@@ -17,6 +19,9 @@ const ScanSchema = z.strictObject({
   search_query: z.string().describe("Query to find this exact new or refurbished item in a store catalog"),
   red_flags: z.array(z.strictObject({ type: z.enum(FLAG_TYPES), quote: z.string(), explanation: z.string() })),
   summary: z.string().describe("One calm sentence for the buyer. Do not mention price comparisons."),
+  seller_text: z
+    .string()
+    .describe("Everything the seller or the listing says, copied verbatim, messages joined with new lines. Leave out the buyer's own messages and any of the buyer's personal details. Empty if there is none."),
 });
 
 const SCAN_SYSTEM = `You are Handshake's deal analyst for person-to-person sales of physical goods (Facebook Marketplace, WhatsApp, Reddit, Instagram).
@@ -33,14 +38,23 @@ export const listingEvidence = (l: ListingPage, extra?: string) =>
     .filter(Boolean)
     .join("\n\n");
 
-export async function scanDeal(input: { text?: string; imageDataUrl?: string; listing?: ListingPage }): Promise<Scan> {
+export async function scanDeal(input: { text?: string; imageDataUrl?: string; listing?: ListingPage; visitor?: string }): Promise<Scan> {
   const evidence = input.listing ? listingEvidence(input.listing, input.text) : input.text?.trim() || "(see screenshot)";
   const parts = [text(untrusted(input.listing ? "LISTING PAGE" : "LISTING AND CHAT", evidence))];
   if (input.imageDataUrl) parts.push(image(input.imageDataUrl));
   const ai = await structured({ name: "deal_scan", schema: ScanSchema, system: SCAN_SYSTEM, user: parts });
 
   const priceCents = ai.listed_price_usd ? Math.round(ai.listed_price_usd * 100) : null;
-  const market = await marketFor(ai.search_query, priceCents).catch(() => null);
+  const sellerText = ai.seller_text.slice(0, 4000);
+  // Market prices and scam memory are independent, so they run together. Memory never blocks a scan.
+  const [market, { memory, vectors }] = await Promise.all([
+    marketFor(ai.search_query, priceCents).catch(() => null),
+    (async () => {
+      const vectors = await embedPhotos((input.listing?.photos ?? []).map((p) => p.dataUrl)).catch(() => [] as number[][]);
+      const memory = await recall({ text: sellerText, photos: vectors }).catch((e) => (console.error("memory", e), null));
+      return { memory, vectors };
+    })(),
+  ]);
   const flags: Flag[] = [...ai.red_flags];
 
   // The seller's photos, compared with the store's photos of the same product.
@@ -60,12 +74,25 @@ export async function scanDeal(input: { text?: string; imageDataUrl?: string; li
     });
   }
 
+  const own = flags.map((f) => f.type);
+  flags.unshift(...memoryFlags(memory));
+
   // Risk is a rule, not a vibe: deterministic from the evidence we can show.
-  const severe = flags.some((f) => ["FRIENDS_AND_FAMILY", "PHISHING_LINK", "FAKE_INVOICE", "OVERPAYMENT", "PRICE_TOO_LOW"].includes(f.type));
+  const severe = flags.some((f) => ["FRIENDS_AND_FAMILY", "PHISHING_LINK", "FAKE_INVOICE", "OVERPAYMENT", "PRICE_TOO_LOW", "KNOWN_SCAM"].includes(f.type));
   const risk = severe || flags.length >= 3 ? "HIGH" : flags.length ? "MEDIUM" : "LOW";
 
+  // What memory would keep: the seller's side only, the tactics the scan quoted, and photo vectors.
+  const id = randomBytes(12).toString("base64url");
+  const fingerprint = { sellerText, tactics: ai.red_flags.map((f) => f.quote), flags: own, risk, item: ai.item, host: input.listing?.host, photos: vectors };
+  holdForReport(id, fingerprint, input.visitor ? witnessOf(input.visitor) : undefined);
+  // High-risk scans are remembered automatically, so the next buyer who meets this scam is warned. Only
+  // an explicit report adds a witness, so automatic saves can warn but never confirm on their own.
+  if (risk === "HIGH") {
+    remember({ ...fingerprint, source: "scan" }).catch((e) => console.error("memory", e));
+  }
+
   const source = input.listing ? { url: input.listing.url, host: input.listing.host, photos } : null;
-  return { item: ai.item, priceCents, condition: ai.condition, checklist: ai.checklist.slice(0, 4), flags, risk, summary: ai.summary, market, source };
+  return { id, item: ai.item, priceCents, condition: ai.condition, checklist: ai.checklist.slice(0, 4), flags, risk, summary: ai.summary, market, source, memory };
 }
 
 const PhotoSchema = z.strictObject({

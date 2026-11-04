@@ -16,7 +16,7 @@ const ScanSchema: z.ZodType<Scan> = z.strictObject({
   flags: z
     .array(
       z.strictObject({
-        type: z.enum(["FRIENDS_AND_FAMILY", "URGENCY", "OFF_PLATFORM", "OVERPAYMENT", "ADDRESS_CHANGE", "PHISHING_LINK", "FAKE_INVOICE", "MANIPULATION", "PRICE_TOO_LOW", "STOCK_PHOTO"]),
+        type: z.enum(["FRIENDS_AND_FAMILY", "URGENCY", "OFF_PLATFORM", "OVERPAYMENT", "ADDRESS_CHANGE", "PHISHING_LINK", "FAKE_INVOICE", "MANIPULATION", "PRICE_TOO_LOW", "STOCK_PHOTO", "KNOWN_SCAM", "SIMILAR_SCAM"]),
         quote: str(400),
         explanation: str(400),
       }),
@@ -44,6 +44,27 @@ const ScanSchema: z.ZodType<Scan> = z.strictObject({
         .max(8),
     })
     .nullable(),
+  id: str(40).optional(),
+  memory: z
+    .strictObject({
+      size: z.number().int().min(0),
+      matches: z
+        .array(
+          z.strictObject({
+            id: str(64),
+            kinds: z.array(z.enum(["SAME_DETAILS", "SIMILAR_WORDING", "SAME_PHOTO"])).max(3),
+            details: z.array(str(200)).max(10),
+            flags: z.array(str(40)).max(12),
+            seen: z.number().int().min(0),
+            lastSeen: str(40),
+            reported: z.boolean(),
+            confirmed: z.boolean(),
+          }),
+        )
+        .max(5),
+    })
+    .nullable()
+    .optional(),
   source: z
     .strictObject({
       url: z.url({ protocol: /^https?$/ }).max(2000),

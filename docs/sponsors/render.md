@@ -4,7 +4,7 @@
 
 **Every deal has a clock. Render keeps it ticking.**
 
-[← Back to README](../../README.md) · [PayPal](paypal.md) · [Channel3](channel3.md) · [Kernel](kernel.md)
+[← Back to README](../../README.md) · [PayPal](paypal.md) · [Channel3](channel3.md) · [Kernel](kernel.md) · [Elastic](elastic.md)
 
 </div>
 

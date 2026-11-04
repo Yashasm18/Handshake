@@ -69,7 +69,7 @@ export default function AgentsPage() {
             stats={[
               { n: "$210", t: "captured from a $215 backed offer. The other $5 was never charged.", s: "Sandbox capture" },
               { n: "0", t: "times an agent went past its owner's limit, including under prompt-injection attacks.", s: "Injection tests" },
-              { n: "127", t: "automated tests run before every deploy, 20 of them guarding the referee and the leak filter.", s: "Vitest" },
+              { n: "146", t: "automated tests run before every deploy, 20 of them guarding the referee and the leak filter.", s: "Vitest" },
             ]}
           />
         </Section>

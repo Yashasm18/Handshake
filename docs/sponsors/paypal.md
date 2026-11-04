@@ -4,7 +4,7 @@
 
 **PayPal holds the money. Nobody holds their breath.**
 
-[← Back to README](../../README.md) · [Channel3](channel3.md) · [Render](render.md) · [Kernel](kernel.md)
+[← Back to README](../../README.md) · [Channel3](channel3.md) · [Render](render.md) · [Kernel](kernel.md) · [Elastic](elastic.md)
 
 </div>
 

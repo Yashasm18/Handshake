@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Arrow, Button } from "./chrome";
 import { FadeIn, RevealText } from "./motion";
 
-// Building blocks shared by the "under the hood" pages (/agents, /paypal, /channel3, /render, /kernel), so each one
+// Building blocks shared by the "under the hood" pages (/agents, /paypal, /channel3, /render, /kernel, /elastic), so each one
 // reads like the landing page: big display type, serif prose, mono labels, hairlines.
 
 export const UNDER_THE_HOOD = [
@@ -11,6 +11,7 @@ export const UNDER_THE_HOOD = [
   { href: "/channel3", label: "Channel3" },
   { href: "/render", label: "Render" },
   { href: "/kernel", label: "Kernel" },
+  { href: "/elastic", label: "Elastic" },
 ];
 
 export const REPO = "https://github.com/Yashasm18/HandShake";

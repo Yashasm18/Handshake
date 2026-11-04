@@ -4,7 +4,7 @@
 
 **Paste a link. A real browser reads the listing.**
 
-[← Back to README](../../README.md) · [PayPal](paypal.md) · [Channel3](channel3.md) · [Render](render.md)
+[← Back to README](../../README.md) · [PayPal](paypal.md) · [Channel3](channel3.md) · [Render](render.md) · [Elastic](elastic.md)
 
 </div>
 

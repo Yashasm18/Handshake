@@ -9,7 +9,9 @@ export type Flag = {
     | "FAKE_INVOICE"
     | "MANIPULATION"
     | "PRICE_TOO_LOW"
-    | "STOCK_PHOTO";
+    | "STOCK_PHOTO"
+    | "KNOWN_SCAM"
+    | "SIMILAR_SCAM";
   quote: string;
   explanation: string;
 };
@@ -24,6 +26,20 @@ export type Market = {
   belowMarketPct: number | null;
 };
 
+// A scam Handshake has seen before (in Elasticsearch), and why this deal matched it.
+export type MemoryMatch = {
+  id: string;
+  kinds: ("SAME_DETAILS" | "SIMILAR_WORDING" | "SAME_PHOTO")[];
+  details: string[];
+  flags: string[];
+  seen: number;
+  lastSeen: string;
+  reported: boolean;
+  // Seed data, or met by at least two different visitors. Only confirmed matches can be KNOWN_SCAM.
+  confirmed: boolean;
+};
+export type ScamMemory = { size: number; matches: MemoryMatch[] };
+
 // A photo from a listing page, judged by the model and compared with store images of the same product.
 export type ListingPhoto = { src: string; kind: "SELLER_PHOTO" | "STORE_PHOTO" | "UNCLEAR"; reason: string };
 
@@ -36,6 +52,10 @@ export type Scan = {
   risk: "LOW" | "MEDIUM" | "HIGH";
   summary: string;
   market: Market | null;
+  // Lets the buyer report this scan to scam memory for a short while.
+  id?: string;
+  // Matches from Handshake's scam memory (Elasticsearch); null when memory is off or unreachable.
+  memory?: ScamMemory | null;
   // Set when the scan started from a link that Kernel opened.
   source?: { url: string; host: string; photos: ListingPhoto[] } | null;
 };

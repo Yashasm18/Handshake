@@ -17,11 +17,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 class Browser {
   jar = new Map();
-  constructor(name) { this.name = name; }
+  // `ip` stands in for a different visitor, as Cloudflare would report it in front of Render.
+  constructor(name, ip) { this.name = name; this.ip = ip; }
   async req(method, url, body, headers = {}) {
     const res = await fetch(BASE + url, {
       method,
-      headers: { "Content-Type": "application/json", cookie: [...this.jar].map(([k, v]) => `${k}=${v}`).join("; "), ...headers },
+      headers: { "Content-Type": "application/json", cookie: [...this.jar].map(([k, v]) => `${k}=${v}`).join("; "), ...(this.ip ? { "cf-connecting-ip": this.ip } : {}), ...headers },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     for (const c of res.headers.getSetCookie()) { const [kv] = c.split(";"); const i = kv.indexOf("="); this.jar.set(kv.slice(0, i), kv.slice(i + 1)); }
@@ -297,6 +298,73 @@ await scenario("K3", "Listing link", "Links to private or local addresses are re
   for (const u of ["http://localhost:3000/api/deals", "http://169.254.169.254/latest/meta-data", "file:///etc/passwd"]) out[u] = (await new Browser("x").post("/api/scan", { url: u })).status;
   check(Object.values(out).every((s) => s === 400), JSON.stringify(out));
   return out;
+});
+
+
+// ---------- Scam memory with Elastic ----------
+// Each run uses its own made-up Cash App tag and 555 number, so runs never depend on each other.
+const RUN = Math.random().toString(36).slice(2, 7);
+const TAG = `hs_e2e_${RUN}`;
+const PHONE = `415-555-01${String(Math.floor(Math.random() * 90) + 10)}`;
+const types = (scan) => scan.flags.map((f) => f.type);
+
+await scenario("M1", "Scam memory", "A reworded Friends & Family scam is recognized by its tactics, not its words", async () => {
+  const r = await new Browser("x", "10.1.0.1").post("/api/scan", { text: "Seller: yes still available, $300. pls send thru paypal friends n family, g&s eats like 3%. got 2 more ppl asking so lmk fast" });
+  check(r.status === 200, `scan ${r.status}`);
+  const wording = r.json.memory.matches.filter((m) => m.kinds.includes("SIMILAR_WORDING"));
+  check(wording.length > 0, `no wording match: ${JSON.stringify(r.json.memory)}`);
+  return { risk: r.json.risk, memoryFlag: r.json.flags.find((f) => f.type.endsWith("_SCAM"))?.quote, remembered: r.json.memory.size };
+});
+
+await scenario("M2", "Scam memory", "A known scam's Cash App tag in a new message is a known scam, whatever the item", async () => {
+  const r = await new Browser("x", "10.1.0.2").post("/api/scan", { text: "Seller: brand new Jordan 4s size 10, $180. Send to my Cash App $kicks_plug_la and I ship today" });
+  check(types(r.json).includes("KNOWN_SCAM") && r.json.risk === "HIGH", `${r.json.risk} ${types(r.json)}`);
+  return { risk: r.json.risk, flag: r.json.flags.find((f) => f.type === "KNOWN_SCAM").quote };
+});
+
+await scenario("M3", "Scam memory", "An honest listing matches nothing in memory", async () => {
+  const r = await new Browser("x", "10.1.0.3").post("/api/scan", { text: "Selling my Nintendo Switch OLED (white), $230. Both Joy-Cons, dock and charger included. Small scuff on the back. Happy to use PayPal Goods & Services or meet locally." });
+  check(r.json.memory.matches.length === 0 && r.json.risk === "LOW", JSON.stringify(r.json.memory.matches));
+  return { risk: r.json.risk, matches: 0 };
+});
+
+await scenario("M4", "Scam memory", "A reported scam warns the next buyer, and becomes a known scam once two people report it", async () => {
+  // Different networks: neighbouring addresses would count as one witness.
+  const a = new Browser("buyer A", "10.2.1.1"), b = new Browser("buyer B", "10.2.2.1"), c = new Browser("buyer C", "10.2.3.1");
+  const first = await a.post("/api/scan", { text: `Seller: Sony camera, $250. Pay first to Cash App $${TAG}, then I mail it. Text ${PHONE}` });
+  const rep1 = await a.post("/api/scan/report", { scanId: first.json.id });
+  check(rep1.status === 200, `report A ${rep1.status} ${JSON.stringify(rep1.json)}`);
+  const second = await b.post("/api/scan", { text: `Hi, Canon lens for sale, text me at ${PHONE}` });
+  const warned = second.json.flags.find((f) => f.type === "SIMILAR_SCAM");
+  check(warned && !types(second.json).includes("KNOWN_SCAM"), `B: ${types(second.json)}`);
+  const rep2 = await b.post("/api/scan/report", { scanId: second.json.id });
+  check(rep2.status === 200, `report B ${rep2.status}`);
+  const third = await c.post("/api/scan", { text: `Selling a GoPro, call ${PHONE}` });
+  check(types(third.json).includes("KNOWN_SCAM") && third.json.risk === "HIGH", `C: ${third.json.risk} ${types(third.json)}`);
+  return { afterOneReport: `${second.json.risk}: ${warned.quote}`, afterTwoReports: `${third.json.risk}: ${third.json.flags.find((f) => f.type === "KNOWN_SCAM").quote}` };
+});
+
+await scenario("M5", "Scam memory", "Reports can't be forged: nothing suspicious, an unknown scan, or someone else's scan is refused", async () => {
+  const v = new Browser("x", "10.3.1.1"), other = new Browser("y", "10.3.2.1");
+  const low = await v.post("/api/scan", { text: "Selling my road bike, $120, pick up in Oakland." });
+  const lowReport = (await v.post("/api/scan/report", { scanId: low.json.id })).status;
+  const unknown = (await v.post("/api/scan/report", { scanId: "made-up-scan-id-123" })).status;
+  const theirs = await v.post("/api/scan", { text: "Seller: send as friends and family, I have 3 other buyers, pay in 10 minutes" });
+  const notMine = (await other.post("/api/scan/report", { scanId: theirs.json.id })).status;
+  check(lowReport === 400 && unknown === 404 && notMine === 404, `${lowReport} ${unknown} ${notMine}`);
+  return { reportLowRisk: lowReport, reportUnknownScan: unknown, reportSomeoneElsesScan: notMine };
+});
+
+await scenario("M6", "Scam memory", "A scam listing's photo, reported once, is recognized when the same listing is opened again", async () => {
+  const a = new Browser("buyer A", "10.4.1.1"), b = new Browser("buyer B", "10.4.2.1");
+  const first = await a.post("/api/scan", { text: STORE_PHOTO_URL });
+  check(first.status === 200 && first.json.risk !== "LOW", `scan ${first.status} ${first.json.risk}`);
+  const rep = await a.post("/api/scan/report", { scanId: first.json.id });
+  check(rep.status === 200, `report ${rep.status} ${JSON.stringify(rep.json)}`);
+  const again = await b.post("/api/scan", { text: STORE_PHOTO_URL });
+  const photo = again.json.memory.matches.find((m) => m.kinds.includes("SAME_PHOTO"));
+  check(photo, `no photo match: ${JSON.stringify(again.json.memory.matches)}`);
+  return { flag: again.json.flags.find((f) => f.type.endsWith("_SCAM"))?.quote, kinds: photo.kinds };
 });
 
 const passed = results.filter((r) => r.ok).length;

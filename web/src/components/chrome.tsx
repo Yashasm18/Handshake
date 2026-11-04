@@ -23,6 +23,7 @@ const LINKS = [
   { href: "/channel3", label: "Channel3" },
   { href: "/render", label: "Render" },
   { href: "/kernel", label: "Kernel" },
+  { href: "/elastic", label: "Elastic" },
 ];
 
 function ActiveNavLinks() {
@@ -31,7 +32,7 @@ function ActiveNavLinks() {
 
 function NavLinks({ path }: { path: string | null }) {
   return (
-    <div className="hidden items-center gap-8 text-[15px] md:flex">
+    <div className="hidden items-center gap-7 text-[15px] lg:flex">
       {LINKS.map((l) => (
         <Link key={l.href} href={l.href} aria-current={path === l.href ? "page" : undefined} className={`relative transition-colors hover:text-ink ${path === l.href ? "text-ink" : "text-muted"}`}>
           {l.label}

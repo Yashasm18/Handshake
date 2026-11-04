@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api, compressImage } from "@/lib/client";
-import type { Deal, ListingPhoto, Scan } from "@/lib/types";
+import type { Deal, ListingPhoto, MemoryMatch, Scan } from "@/lib/types";
 import { usd } from "@/lib/types";
 import { fairBand } from "@/lib/fair";
 import { Arrow, Button } from "./chrome";
@@ -191,8 +191,8 @@ function InputPanel(props: {
   );
 }
 
-const SCAN_STEPS = ["Reading the conversation", "Looking for scam patterns", "Finding this item in 25,000 stores", "Comparing the price"];
-const LINK_STEPS = ["Opening the listing in a cloud browser", "Reading the price and photos", "Looking for scam patterns", "Checking the photos against store images", "Comparing the price"];
+const SCAN_STEPS = ["Reading the conversation", "Looking for scam patterns", "Checking Handshake's scam memory", "Finding this item in 25,000 stores", "Comparing the price"];
+const LINK_STEPS = ["Opening the listing in a cloud browser", "Reading the price and photos", "Looking for scam patterns", "Checking Handshake's scam memory", "Checking the photos against store images", "Comparing the price"];
 
 function Scanning({ hasImage, link }: { hasImage: boolean; link: boolean }) {
   const [i, setI] = useState(0);
@@ -280,6 +280,8 @@ function Verdict({ scan, mode, onCreate }: { scan: Scan; mode: "buy" | "sell"; o
 
       {scan.source && scan.source.photos.length > 0 && <ListingPhotos host={scan.source.host} url={scan.source.url} photos={scan.source.photos} />}
 
+      {scan.memory && <MemoryPanel scan={scan} mode={mode} />}
+
       <div className="mt-12 flex flex-wrap items-center gap-3 border-t hairline pt-8">
         {mode === "sell" ? (
           <Button size="lg" onClick={onCreate}>
@@ -304,6 +306,86 @@ function Verdict({ scan, mode, onCreate }: { scan: Scan; mode: "buy" | "sell"; o
         )}
       </div>
     </div>
+  );
+}
+
+const MATCH_LINE: Record<MemoryMatch["kinds"][number], string> = {
+  SAME_DETAILS: "Same contact or payment details",
+  SAME_PHOTO: "Same photo",
+  SIMILAR_WORDING: "Same tactics, different words",
+};
+
+const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+// What Handshake's scam memory (Elasticsearch) found, and a way for the buyer to add this scam to it.
+function MemoryPanel({ scan, mode }: { scan: Scan; mode: "buy" | "sell" }) {
+  const memory = scan.memory!;
+  const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const [note, setNote] = useState("");
+  const canReport = mode === "buy" && scan.risk !== "LOW" && !!scan.id;
+
+  async function report() {
+    setState("sending");
+    try {
+      const r = await api<{ already: boolean }>("/api/scan/report", { scanId: scan.id });
+      setNote(r.already ? "You've already reported this one." : "Added to Handshake's scam memory. The next buyer who meets this seller will be warned.");
+      setState("done");
+    } catch (e) {
+      setNote((e as Error).message);
+      setState("error");
+    }
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: EASE, delay: 0.6 }}
+      className="mt-10 rounded-[28px] border hairline bg-card p-6 md:p-7"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <p className="label text-muted">Scam memory · Elastic</p>
+        <p className="label text-muted">{memory.size.toLocaleString()} scams remembered</p>
+      </div>
+      {memory.matches.length === 0 ? (
+        <p className="mt-4 font-display text-[22px] font-semibold tracking-tight">No match in Handshake&apos;s memory.</p>
+      ) : (
+        <>
+          <p className="mt-4 font-display text-[22px] font-semibold tracking-tight text-alert">
+            Handshake has seen this before.
+          </p>
+          <ul className="mt-5 divide-y divide-line border-y hairline">
+            {memory.matches.map((m) => (
+              <li key={m.id} className="grid gap-1 py-4 md:grid-cols-[1fr_auto] md:items-baseline md:gap-6">
+                <div>
+                  <p className="text-[16px] font-medium">
+                    {m.kinds.map((k) => MATCH_LINE[k]).join(" · ")}
+                    {m.details.length > 0 && <span className="text-muted">: {m.details.join(", ")}</span>}
+                  </p>
+                  {m.flags.length > 0 && (
+                    <p className="mt-1 text-[14px] text-muted">
+                      That scam used {m.flags.map((f) => f.replace(/_/g, " ").toLowerCase().replace("friends and family", "Friends & Family")).join(", ")}.
+                    </p>
+                  )}
+                </div>
+                <p className="label text-muted">
+                  Seen {m.seen}× · last {day(m.lastSeen)}
+                  {m.reported ? " · reported by a buyer" : ""}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {canReport && (
+        <div className="mt-6 flex flex-wrap items-center gap-4">
+          <Button variant="ghost" onClick={report} disabled={state === "sending" || state === "done"}>
+            {state === "sending" ? "Reporting…" : state === "done" ? "Reported" : "Report this seller as a scam"}
+          </Button>
+          {note && <p className={`text-[14px] ${state === "error" ? "text-alert" : "text-safe"}`} role="status">{note}</p>}
+        </div>
+      )}
+    </motion.div>
   );
 }
 

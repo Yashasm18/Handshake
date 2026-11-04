@@ -18,7 +18,7 @@ We aim to acknowledge reports within **72 hours** and to share a fix plan within
 
 | In scope | Out of scope |
 |---|---|
-| This repository: the web app, API routes, workflow and Blueprint | PayPal, Channel3, Render, Kernel, OpenRouter or Anthropic infrastructure (report to them directly) |
+| This repository: the web app, API routes, workflow and Blueprint | PayPal, Channel3, Render, Kernel, Elastic, OpenRouter or Anthropic infrastructure (report to them directly) |
 | The hosted demo at `handshake-5rkw.onrender.com` | Denial of service, load or spam testing |
 | Logic flaws that could move money incorrectly, even in the sandbox | Social engineering, physical attacks |
 
@@ -45,6 +45,14 @@ The demo runs on the **PayPal sandbox**: no real money moves. Please test only w
 - **Untrusted pages never touch our server.** Listings and their photos are opened inside Kernel's cloud browser; the server only receives text and size-limited JPEG, PNG, WebP or GIF data.
 - **Links are data, not code.** The URL reaches the browser script as a JSON string literal.
 - **Bounded cost.** Each browser has a 60-second ceiling and is always deleted. One visitor can open 8 links per 10 minutes, identified by Cloudflare's CF-Connecting-IP, or else the address our proxy appends, never one a client can supply; all visitors together can open 120, with at most 4 at once.
+
+### Scam memory (Elastic)
+- **Only the seller's side is stored**: the tactics the scan quoted, contact and payment details, and listing photo vectors. Never the buyer's messages, address or identity.
+- **Two witnesses to convict.** Details and photos count as a known scam only after buyers from two different networks reported them (or they come from the seed set), so one fake message can't brand an innocent seller. Automatic saves never count as witnesses. Addresses in the same IPv4 /24 or IPv6 /64 count as one witness, and witnesses are stored only as keyed hashes.
+- **Known limit.** Handshake has no accounts, so someone with many genuinely different networks could still fake witnesses. A confirmed match tells a buyer to keep the payment protected; it never blocks anyone or moves money.
+- **Reports point at real scans.** A report names a scan Handshake ran in the last 30 minutes that found warning signs, and only the visitor who ran it can report it; clients can't submit text. One report per visitor per scan, 10 per 10 minutes.
+- **Partial details only.** Buyers see "a phone number ending 0199", not the number.
+- **Memory never blocks a check**; if Elasticsearch is unreachable, checks run without it.
 
 ### AI
 - **Untrusted input is labelled.** Listings, chats, complaints and agent messages are wrapped as evidence, never instructions.
@@ -75,6 +83,8 @@ We review every change that touches money or AI. Findings so far, all fixed with
 | Privacy | Activity-log entries showed PayPal authorization, capture and payout ids to anyone with the deal link (found by the live end-to-end run) | Log references are only sent to the buyer and seller |
 | Links | The link limit trusted the first `X-Forwarded-For` entry, which a client controls, and reset every visitor's count when its table filled | Visitors are identified by Cloudflare's CF-Connecting-IP or the proxy's own entry; expired entries are dropped instead; a global cap and an in-flight limit were added; links are validated before they use any budget |
 | Links | A public-looking name that resolved to a private address passed the link check | Names are resolved and refused if any address is private, before and after redirects; photo links to bare IPs are skipped |
+| Memory | Matching on whole listings made an honest listing for the same product "sound like" a stored scam | Only the scan's red-flag quotes are matched by meaning; product words are left out |
+| Memory | One fake message could have branded an innocent seller's phone number a known scam | Details and photos are confirmed only by two distinct witnesses, counted across messages |
 
 ## Supported versions
 

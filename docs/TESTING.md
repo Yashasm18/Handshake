@@ -10,20 +10,20 @@
 
 Handshake moves other people's money, so every rule that touches it is tested twice:
 
-1. **Automated tests (127).** They run on every push in GitHub Actions and again on Render before every deploy. External services are replaced with fakes, so these tests check *our* rules: amounts, limits, states, retries and who can see what.
-2. **Live end-to-end scenarios (21).** A script drives a running Handshake server through real deals on the **PayPal sandbox**, with live **Channel3** prices, **Kernel** cloud browsers reading real listings, and the real **AI models** reading real images. These check that everything works together.
+1. **Automated tests (146).** They run on every push in GitHub Actions and again on Render before every deploy. External services are replaced with fakes, so these tests check *our* rules: amounts, limits, states, retries and who can see what.
+2. **Live end-to-end scenarios (27).** A script drives a running Handshake server through real deals on the **PayPal sandbox**, with live **Channel3** prices, **Kernel** cloud browsers reading real listings, **Elastic** scam memory, and the real **AI models** reading real images. These check that everything works together.
 
 | | Automated | Live |
 |---|---|---|
-| Count | 127 tests | 21 scenarios |
+| Count | 146 tests | 27 scenarios |
 | Runs | Every push and every deploy | Before each release, and on demand |
-| PayPal, Channel3, Kernel, AI | Faked | Real (PayPal sandbox) |
+| PayPal, Channel3, Kernel, Elastic, AI | Faked | Real (PayPal sandbox) |
 | Result | All pass | All pass |
 
 ## Automated tests
 
 ```bash
-npm --prefix web test         # 119 tests
+npm --prefix web test         # 138 tests
 npm --prefix workflows test   # 8 tests
 ```
 
@@ -36,6 +36,7 @@ npm --prefix workflows test   # 8 tests
 | [`money.test.ts`](../web/test/money.test.ts) | 16 | Refund caps (including a sweep of 72 price and part combinations where refund plus capture must always equal the price), the fair price band, market medians and the deadline clock. |
 | [`pricing.test.ts`](../web/test/pricing.test.ts) | 9 | Damaged-part pricing built on the real Channel3 results from a bug we fixed: a $50 Joy-Con must never be priced from $300 consoles. |
 | [`kernel.test.ts`](../web/test/kernel.test.ts) | 20 | Pasted links: only public pages are opened (no localhost, private IPs, metadata addresses, odd ports or credentials, and no names that resolve to private addresses), redirects are re-checked, the link reaches the browser as data, every browser is deleted even on failure, the stock-photo rule, and a per-visitor link limit that spoofed headers can't dodge. |
+| [`memory.test.ts`](../web/test/memory.test.ts) | 19 | Scam memory: phones, emails, Cash App tags, accounts and links found in any format (and prices never mistaken for tags); the exact queries sent to Elasticsearch (keyword terms, Jina reranker retriever, photo kNN); confirmed vs. single-witness matches; witnesses counted across messages and by network (IPv4 /24, IPv6 /64); reports only for recent scans with warning signs, by the person who ran them, once each; nothing about the buyer stored. |
 | [`handshake.test.ts`](../workflows/test/handshake.test.ts) | 8 | The Render Workflow's client: it sends the secret, retries outages and rate limits, and doesn't retry requests the app rejected. |
 
 ### Do the tests catch real bugs?
@@ -52,7 +53,7 @@ Each bug was reverted after the check.
 
 ## Live end-to-end scenarios
 
-Run on November 4, 2026 against a local Handshake server connected to the PayPal sandbox, Channel3, Kernel and Claude via OpenRouter. Deadlines were shortened with `TIMER_SCALE=0.0002`, so three days passed in about 52 seconds. **21 of 21 passed.**
+Run on November 4, 2026 against a local Handshake server connected to the PayPal sandbox, Channel3, Kernel, Elastic and Claude via OpenRouter. Deadlines were shortened with `TIMER_SCALE=0.0002`, so three days passed in about 52 seconds. **All 27 passed.** In the full run, C1 lacked its local damage photo and M4 ran while the witness rule was being tightened; both passed when re-run against the final code.
 
 The images were drawn for the test by [`make-images.py`](../scripts/e2e/make-images.py), apart from the damage photo, which is a real photo of a damaged Switch.
 
@@ -123,15 +124,34 @@ Real Craigslist listings, opened by a Kernel stealth browser through the scan AP
 
 Listings expire, so the script takes current ones from `E2E_SELLER_PHOTO_URL` and `E2E_STORE_PHOTO_URL`.
 
+### Scam memory with Elastic
+
+Against a separate test index seeded with the 24 starting scam scripts. Each run uses its own made-up Cash App tag and 555 phone number.
+
+| # | Scenario | Result |
+|---|---|---|
+| M1 | "pls send thru paypal friends n family, g&s eats like 3%. got 2 more ppl asking", worded nothing like the stored scripts | **Pass.** "Reads like 2 scams Handshake has seen", matched by the Jina reranker on tactics. High risk |
+| M2 | A brand-new message about sneakers using a known scam's Cash App tag | **Pass.** Known scam: "Uses the same Cash App tag ($kicks_plug_la)". High risk |
+| M3 | An honest Switch listing | **Pass.** No match. Low risk |
+| M4 | Buyer A reports a scam; buyer B meets the same phone number in a different message and also reports it; buyer C meets it again | **Pass.** After one report, buyer B is **warned** (medium risk, "Uses the same phone number"). After a second report from a different network, buyer C sees a **known scam** (high risk) |
+| M5 | Reporting a check that found nothing wrong, and a scan id that doesn't exist | **Pass.** Refused (400, 404). Reporting someone else's scan is also refused (404) |
+| M6 | Buyer A reports the stock-photo AirPods listing; buyer B opens the same link | **Pass.** "A photo here was used in a scam listing Handshake has seen", matched by Jina CLIP |
+
 ### Self-enforcing deadlines
 
 | # | Scenario | Result |
 |---|---|---|
 | T1 | The seller never ships | **Pass.** Once the 3-day ship-by deadline passed, the timer API voided the hold and the deal was released. Running it a second time did nothing ("not-due"), and a caller with the wrong secret was refused (401) |
 
-## What the live run found
+## What the live runs found
 
-The first live run failed **A2**: a stranger holding the deal link could see PayPal authorization, capture and payout ids. They were attached to entries in the deal's activity log, which the privacy filter passed through unchanged. The automated privacy test had missed it because its sample deal had an empty log.
+**Scam memory (Elastic).** Live runs found two bugs before release, both now fixed and covered by tests:
+- A phone number reported by two different buyers in two *different* messages wasn't confirmed, because witnesses were counted per message. They are now counted across every stored scam that shares the detail.
+- A high-risk scan saving itself in the background and its buyer's report a moment later both wrote the same record, and one failed with a version conflict. Writes now retry on conflict.
+
+**Privacy.**
+
+The first full live run failed **A2**: a stranger holding the deal link could see PayPal authorization, capture and payout ids. They were attached to entries in the deal's activity log, which the privacy filter passed through unchanged. The automated privacy test had missed it because its sample deal had an empty log.
 
 The fix sends log references only to the buyer and seller ([`auth.ts`](../web/src/lib/server/auth.ts)). The privacy test now uses a deal with PayPal ids in its log, fails without the fix and passes with it. A2 passes live. The issue is recorded in [SECURITY.md](../SECURITY.md#issues-we-found-and-fixed).
 
