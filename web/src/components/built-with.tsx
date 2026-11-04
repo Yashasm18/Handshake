@@ -7,6 +7,7 @@ type Item = { name: string; role: string; icon?: keyof typeof ICONS; mono?: stri
 const ITEMS: Item[] = [
   { name: "PayPal", role: "Holds · Payouts", icon: "paypal", color: "#003087", dark: "#4cb3ff" },
   { name: "Channel3", role: "Market prices", mono: "C3" },
+  { name: "Kernel", role: "Cloud browsers", mono: "K" },
   { name: "Claude", role: "Vision AI", icon: "anthropic" },
   { name: "GPT", role: "Backup AI", icon: "openai" },
   { name: "OpenRouter", role: "AI routing", mono: "OR" },

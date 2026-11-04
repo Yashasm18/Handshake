@@ -18,7 +18,7 @@ We aim to acknowledge reports within **72 hours** and to share a fix plan within
 
 | In scope | Out of scope |
 |---|---|
-| This repository: the web app, API routes, workflow and Blueprint | PayPal, Channel3, Render, OpenRouter or Anthropic infrastructure (report to them directly) |
+| This repository: the web app, API routes, workflow and Blueprint | PayPal, Channel3, Render, Kernel, OpenRouter or Anthropic infrastructure (report to them directly) |
 | The hosted demo at `handshake-5rkw.onrender.com` | Denial of service, load or spam testing |
 | Logic flaws that could move money incorrectly, even in the sandbox | Social engineering, physical attacks |
 
@@ -39,6 +39,12 @@ The demo runs on the **PayPal sandbox**: no real money moves. Please test only w
 - **Checkout pinned to one browser.** A payment can only be completed by the browser that started it, and a checkout window can't be extended to lock others out.
 - **Private data stays private.** Shipping addresses, emails, PayPal ids, claim photos and each side's negotiation limit are only sent to the people allowed to see them.
 - **Internal timer API.** The deadline workflow authenticates with a secret that Render generates; the route doesn't exist without it.
+
+### Pasted links (Kernel)
+- **Public pages only.** Links to `localhost`, IP addresses (including cloud metadata), `.local` and `.internal` names, odd ports, credentials or non-web schemes are refused before a browser starts, and the final address is re-checked after redirects.
+- **Untrusted pages never touch our server.** Listings and their photos are opened inside Kernel's cloud browser; the server only receives text and size-limited JPEG, PNG, WebP or GIF data.
+- **Links are data, not code.** The URL reaches the browser script as a JSON string literal.
+- **Bounded cost.** Each browser has a 60-second ceiling, is always deleted, and one visitor can open 8 links per 10 minutes.
 
 ### AI
 - **Untrusted input is labelled.** Listings, chats, complaints and agent messages are wrapped as evidence, never instructions.

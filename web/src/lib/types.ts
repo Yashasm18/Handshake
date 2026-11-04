@@ -8,7 +8,8 @@ export type Flag = {
     | "PHISHING_LINK"
     | "FAKE_INVOICE"
     | "MANIPULATION"
-    | "PRICE_TOO_LOW";
+    | "PRICE_TOO_LOW"
+    | "STOCK_PHOTO";
   quote: string;
   explanation: string;
 };
@@ -23,6 +24,9 @@ export type Market = {
   belowMarketPct: number | null;
 };
 
+// A photo from a listing page, judged by the model and compared with store images of the same product.
+export type ListingPhoto = { src: string; kind: "SELLER_PHOTO" | "STORE_PHOTO" | "UNCLEAR"; reason: string };
+
 export type Scan = {
   item: string;
   priceCents: number | null;
@@ -32,6 +36,8 @@ export type Scan = {
   risk: "LOW" | "MEDIUM" | "HIGH";
   summary: string;
   market: Market | null;
+  // Set when the scan started from a link that Kernel opened.
+  source?: { url: string; host: string; photos: ListingPhoto[] } | null;
 };
 
 export type DealStatus =

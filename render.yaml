@@ -29,6 +29,8 @@ services:
         sync: false
       - key: CHANNEL3_API_KEY
         sync: false
+      - key: KERNEL_API_KEY
+        sync: false
       - key: OPENROUTER_API_KEY
         sync: false
       # 1 = real days. Set below 1 only for demos (0.0007 ≈ one day per minute).

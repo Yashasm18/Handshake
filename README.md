@@ -23,6 +23,7 @@ Agents negotiate a fair price, and every deadline enforces itself.
 [![PayPal](https://img.shields.io/badge/PayPal-003087?style=flat-square&logo=paypal&logoColor=white)](docs/sponsors/paypal.md)
 [![Channel3](https://img.shields.io/badge/Channel3-111110?style=flat-square)](docs/sponsors/channel3.md)
 [![Render](https://img.shields.io/badge/Render-46E3B7?style=flat-square&logo=render&logoColor=black)](docs/sponsors/render.md)
+[![Kernel](https://img.shields.io/badge/Kernel-111110?style=flat-square)](docs/sponsors/kernel.md)
 [![Claude](https://img.shields.io/badge/Claude-D97757?style=flat-square&logo=anthropic&logoColor=white)](docs/sponsors/ai.md)
 [![OpenRouter](https://img.shields.io/badge/OpenRouter-6566F1?style=flat-square&logo=openrouter&logoColor=white)](docs/sponsors/ai.md)
 
@@ -55,6 +56,7 @@ Americans lost a record **$15.9B to fraud in 2025**, and online shopping scams a
 
 | Feature | How |
 |---|---|
+| **Paste a link** | Paste a Marketplace, Craigslist or OfferUp link. A Kernel cloud browser reads the listing and checks whether its photos are the seller's own or copied from a store. |
 | **Scam check** | Paste the chat or a screenshot. AI flags Friends & Family pressure, fake urgency, overpayment and address swaps, quoting the exact words. |
 | **Real-price check** | Live prices from 25,000+ stores. A phone at 64% under retail is flagged as bait. |
 | **PayPal hold** | The buyer's money is a PayPal authorization: reserved, never sent, until the item arrives. |
@@ -83,7 +85,7 @@ The **PayPal sandbox record** on the deal page shows the real order, authorizati
 
 ```mermaid
 flowchart LR
-    A["Paste the deal"] --> B["AI scam check<br/>+ Channel3 prices"]
+    A["Paste the deal<br/>or a link (Kernel)"] --> B["AI scam check<br/>+ Channel3 prices<br/>+ photo check"]
     B --> C["PayPal hold<br/>(or backed offer)"]
     C --> D["Agents negotiate"]
     C --> E["Ship to verified address"]
@@ -124,6 +126,14 @@ Each partner powers a different part of a safe deal. Click through for exactly w
       <a href="docs/sponsors/ai.md"><b>How Handshake uses AI →</b></a>
     </td>
   </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3><a href="docs/sponsors/kernel.md">Kernel</a></h3>
+      <b>Paste a link, not a screenshot.</b> A stealth cloud browser opens the listing, reads its price and photos, and lets Handshake catch sellers who post store photos instead of the real item.<br><br>
+      <a href="docs/sponsors/kernel.md"><b>How Handshake uses Kernel →</b></a>
+    </td>
+    <td width="50%" valign="top"></td>
+  </tr>
 </table>
 
 ## Safety by design
@@ -138,7 +148,7 @@ Full threat model and the issues we've found and fixed: **[SECURITY.md](SECURITY
 
 ## Tests and CI
 
-Handshake is tested two ways: **107 automated tests** that run on every push and deploy, and **18 live end-to-end scenarios** run against the real PayPal sandbox, Channel3 and the AI models with real images.
+Handshake is tested two ways: **123 automated tests** that run on every push and deploy, and **21 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel and the AI models with real images and real listings.
 
 | Area | Automated | Live on the sandbox | What it proves |
 |---|---:|---:|---|
@@ -149,6 +159,7 @@ Handshake is tested two ways: **107 automated tests** that run on every push and
 | Label and scam checks | 4 | 5 | A label to the wrong address is stopped, even one that tries to instruct the AI; scam chats and bait prices are flagged |
 | Deadlines and the Render Workflow | 30 | 1 | Every deadline fires exactly once, survives retries and concurrent runs, and a hold left unshipped is voided on its own |
 | PayPal client | 4 | | Captures and payouts reuse one idempotency key, so a retry can never charge twice |
+| Listing links (Kernel) | 16 | 3 | Only public pages are opened, every browser is closed, and listings using store photos are flagged |
 
 **Every live scenario passes**, and the run found one real privacy bug that is now fixed and covered by a test. Full results, PayPal sandbox ids and how to re-run them: **[docs/TESTING.md](docs/TESTING.md)**.
 
@@ -163,7 +174,7 @@ npm --prefix workflows test
 
 ## Run it locally
 
-Requires **Node 22+** and free sandbox keys for PayPal, Channel3 and OpenRouter.
+Requires **Node 22+** and free keys for the PayPal sandbox, Channel3, OpenRouter and (for pasted links) Kernel.
 
 ```bash
 git clone https://github.com/Yashasm18/HandShake.git

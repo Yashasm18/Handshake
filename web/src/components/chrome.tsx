@@ -22,6 +22,7 @@ const LINKS = [
   { href: "/paypal", label: "PayPal" },
   { href: "/channel3", label: "Channel3" },
   { href: "/render", label: "Render" },
+  { href: "/kernel", label: "Kernel" },
 ];
 
 function ActiveNavLinks() {

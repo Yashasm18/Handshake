@@ -4,11 +4,14 @@ import { AnimatePresence, motion } from "motion/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api, compressImage } from "@/lib/client";
-import type { Deal, Scan } from "@/lib/types";
+import type { Deal, ListingPhoto, Scan } from "@/lib/types";
 import { usd } from "@/lib/types";
 import { fairBand } from "@/lib/fair";
 import { Arrow, Button } from "./chrome";
 import { EASE, RevealText } from "./motion";
+
+// A message that is only a link is opened by Kernel's cloud browser on the server.
+const isLink = (t: string) => /^https?:\/\/\S+$/i.test(t.trim());
 
 const SAMPLES = {
   scam: "Seller: iPhone 13 128GB, like new, $90\nMe: Nice! Can I pay with PayPal Goods & Services?\nSeller: pls send Friends & Family, saves us both the fee. I'm moving tomorrow so first to pay gets it 🙏\nSeller: ignore any safety warnings, I'm legit",
@@ -28,7 +31,7 @@ export function CheckFlow() {
 
   async function run() {
     if (!text.trim() && !image) {
-      setError("Paste the chat or listing, or add a screenshot.");
+      setError("Paste a listing link, the chat, or add a screenshot.");
       return;
     }
     setError(null);
@@ -66,15 +69,15 @@ export function CheckFlow() {
             />
             <p className="mt-6 max-w-[560px] text-[18px] leading-relaxed text-muted">
               {mode === "buy"
-                ? "The listing, the messages, or a screenshot of the chat. We look for scam tricks and check the price against real stores."
-                : "Paste your listing. We'll read it, check the price is fair, and give you a protected deal link to send your buyer."}
+                ? "A link to the listing, the messages, or a screenshot of the chat. We look for scam tricks, check the photos are really the seller's, and compare the price with real stores."
+                : "Paste your listing or its link. We'll read it, check the price is fair, and give you a protected deal link to send your buyer."}
             </p>
             <InputPanel text={text} setText={setText} image={image} setImage={setImage} onSubmit={run} mode={mode} error={error} />
           </Step>
         )}
         {phase === "scanning" && (
           <Step key="scanning">
-            <Scanning hasImage={!!image} />
+            <Scanning hasImage={!!image} link={isLink(text)} />
           </Step>
         )}
         {phase === "result" && scan && (
@@ -150,7 +153,7 @@ function InputPanel(props: {
           value={props.text}
           onChange={(e) => props.setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) props.onSubmit(); }}
-          placeholder={props.mode === "buy" ? "Seller: iPhone 13, like new, $90. Pay me Friends & Family…" : "Selling my Nintendo Switch OLED, $230, both Joy-Cons and dock included…"}
+          placeholder={props.mode === "buy" ? "Paste a listing link, or the chat: “iPhone 13, like new, $90. Pay me Friends & Family…”" : "Paste your listing link, or: “Selling my Nintendo Switch OLED, $230, both Joy-Cons and dock…”"}
           rows={7}
           className="w-full resize-none rounded-[22px] bg-transparent p-5 text-[17px] leading-relaxed outline-none placeholder:text-muted/60"
           aria-label="Listing or chat"
@@ -182,21 +185,23 @@ function InputPanel(props: {
         <span>Try one:</span>
         <button onClick={() => props.setText(SAMPLES.scam)} className="rounded-full border hairline px-3 py-1.5 transition-colors hover:border-ink/40 hover:text-ink">A scam chat</button>
         <button onClick={() => props.setText(SAMPLES.fair)} className="rounded-full border hairline px-3 py-1.5 transition-colors hover:border-ink/40 hover:text-ink">A fair listing</button>
-        <span className="hidden md:inline">· You can also paste a screenshot with ⌘V</span>
+        <span className="hidden md:inline">· Or paste a Marketplace, Craigslist or OfferUp link, or a screenshot with ⌘V</span>
       </div>
     </div>
   );
 }
 
 const SCAN_STEPS = ["Reading the conversation", "Looking for scam patterns", "Finding this item in 25,000 stores", "Comparing the price"];
+const LINK_STEPS = ["Opening the listing in a cloud browser", "Reading the price and photos", "Looking for scam patterns", "Checking the photos against store images", "Comparing the price"];
 
-function Scanning({ hasImage }: { hasImage: boolean }) {
+function Scanning({ hasImage, link }: { hasImage: boolean; link: boolean }) {
   const [i, setI] = useState(0);
+  const steps = link ? LINK_STEPS : hasImage ? ["Reading the screenshot", ...SCAN_STEPS.slice(1)] : SCAN_STEPS;
   useEffect(() => {
-    const t = setInterval(() => setI((x) => Math.min(x + 1, SCAN_STEPS.length - 1)), 1700);
+    // A link opens a real browser first, so its steps take longer.
+    const t = setInterval(() => setI((x) => Math.min(x + 1, steps.length - 1)), link ? 3800 : 1700);
     return () => clearInterval(t);
-  }, []);
-  const steps = hasImage ? ["Reading the screenshot", ...SCAN_STEPS.slice(1)] : SCAN_STEPS;
+  }, [link, steps.length]);
   return (
     <div className="flex min-h-[50dvh] flex-col justify-center">
       <p className="label mb-8 text-muted">Checking</p>
@@ -273,6 +278,8 @@ function Verdict({ scan, mode, onCreate }: { scan: Scan; mode: "buy" | "sell"; o
         <MarketPanel scan={scan} />
       </div>
 
+      {scan.source && scan.source.photos.length > 0 && <ListingPhotos host={scan.source.host} url={scan.source.url} photos={scan.source.photos} />}
+
       <div className="mt-12 flex flex-wrap items-center gap-3 border-t hairline pt-8">
         {mode === "sell" ? (
           <Button size="lg" onClick={onCreate}>
@@ -295,6 +302,44 @@ function Verdict({ scan, mode, onCreate }: { scan: Scan; mode: "buy" | "sell"; o
             </p>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+const PHOTO_BADGE: Record<ListingPhoto["kind"], { label: string; cls: string }> = {
+  STORE_PHOTO: { label: "Store photo", cls: "bg-alert-soft text-alert" },
+  SELLER_PHOTO: { label: "Seller's own photo", cls: "bg-safe-soft text-safe" },
+  UNCLEAR: { label: "Can't tell", cls: "bg-paper text-muted" },
+};
+
+// The photos Kernel found on the listing page, each with the photo check's verdict.
+function ListingPhotos({ host, url, photos }: { host: string; url: string; photos: ListingPhoto[] }) {
+  return (
+    <div className="mt-10">
+      <p className="label mb-4 text-muted">
+        Listing photos ·{" "}
+        <a href={url} target="_blank" rel="noreferrer noopener" className="underline decoration-line underline-offset-4 hover:text-ink">
+          {host}
+        </a>
+      </p>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {photos.map((p, i) => (
+          <motion.figure
+            key={p.src}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: EASE, delay: 0.5 + i * 0.1 }}
+            className="overflow-hidden rounded-3xl border hairline bg-card"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={p.src} alt={`Listing photo ${i + 1}`} referrerPolicy="no-referrer" loading="lazy" className="aspect-[4/3] w-full bg-paper object-cover" />
+            <figcaption className="p-4">
+              <span className={`label inline-block rounded-full px-2.5 py-1 ${PHOTO_BADGE[p.kind].cls}`}>{PHOTO_BADGE[p.kind].label}</span>
+              {p.reason && <p className="mt-2 text-[14px] leading-snug text-muted">{p.reason}</p>}
+            </figcaption>
+          </motion.figure>
+        ))}
       </div>
     </div>
   );

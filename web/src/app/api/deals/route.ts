@@ -16,7 +16,7 @@ const ScanSchema: z.ZodType<Scan> = z.strictObject({
   flags: z
     .array(
       z.strictObject({
-        type: z.enum(["FRIENDS_AND_FAMILY", "URGENCY", "OFF_PLATFORM", "OVERPAYMENT", "ADDRESS_CHANGE", "PHISHING_LINK", "FAKE_INVOICE", "MANIPULATION", "PRICE_TOO_LOW"]),
+        type: z.enum(["FRIENDS_AND_FAMILY", "URGENCY", "OFF_PLATFORM", "OVERPAYMENT", "ADDRESS_CHANGE", "PHISHING_LINK", "FAKE_INVOICE", "MANIPULATION", "PRICE_TOO_LOW", "STOCK_PHOTO"]),
         quote: str(400),
         explanation: str(400),
       }),
@@ -44,6 +44,16 @@ const ScanSchema: z.ZodType<Scan> = z.strictObject({
         .max(8),
     })
     .nullable(),
+  source: z
+    .strictObject({
+      url: z.url({ protocol: /^https?$/ }).max(2000),
+      host: str(200),
+      photos: z
+        .array(z.strictObject({ src: z.url({ protocol: /^https$/ }).max(2000), kind: z.enum(["SELLER_PHOTO", "STORE_PHOTO", "UNCLEAR"]), reason: str(200) }))
+        .max(3),
+    })
+    .nullable()
+    .optional(),
 });
 
 const Body = z.object({

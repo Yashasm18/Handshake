@@ -4,7 +4,7 @@
 
 **The AI advises. Code moves the money.**
 
-[← Back to README](../../README.md) · [PayPal](paypal.md) · [Channel3](channel3.md) · [Render](render.md)
+[← Back to README](../../README.md) · [PayPal](paypal.md) · [Channel3](channel3.md) · [Render](render.md) · [Kernel](kernel.md)
 
 </div>
 

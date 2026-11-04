@@ -268,5 +268,36 @@ await scenario("T1", "Deadlines", "A seller who never ships: the timer API voids
   return { wrongSecret: wrong, firstRun: run.json.outcome, secondRun: again.json.outcome, status: v.status };
 });
 
+
+// ---------- Paste a link: Kernel opens the listing, the photo check compares it with store images ----------
+// Real listings come and go; pass current ones with E2E_SELLER_PHOTO_URL and E2E_STORE_PHOTO_URL.
+const SELLER_PHOTO_URL = process.env.E2E_SELLER_PHOTO_URL ?? "https://www.craigslist.org/view/d/san-francisco-nintendo-switch-oled/8Qa6TAbBDnKHN1FT6RrApq";
+const STORE_PHOTO_URL = process.env.E2E_STORE_PHOTO_URL ?? "https://www.craigslist.org/view/d/rosemead-new-airpods-pro-3rd-generation/tuDV1JD6ezWR9RSYFbzfG3";
+
+await scenario("K1", "Listing link", "A pasted Craigslist link is opened by Kernel and the seller's own photos pass", async () => {
+  const r = await new Browser("x").post("/api/scan", { text: SELLER_PHOTO_URL });
+  check(r.status === 200, `scan ${r.status} ${JSON.stringify(r.json).slice(0, 200)}`);
+  const photos = r.json.source?.photos ?? [];
+  check(photos.length > 0, "no photos read");
+  check(photos.every((p) => p.kind !== "STORE_PHOTO"), `store photo: ${JSON.stringify(photos)}`);
+  check(!r.json.flags.some((f) => f.type === "STOCK_PHOTO"), "stock photo flag");
+  return { host: r.json.source.host, item: r.json.item, priceUsd: r.json.priceCents / 100, photo: photos[0].reason, risk: r.json.risk, medianUsd: r.json.market?.medianCents / 100 };
+});
+
+await scenario("K2", "Listing link", "A listing that uses Apple's product image is flagged as a store photo", async () => {
+  const r = await new Browser("x").post("/api/scan", { text: STORE_PHOTO_URL });
+  check(r.status === 200, `scan ${r.status}`);
+  const flag = r.json.flags.find((f) => f.type === "STOCK_PHOTO");
+  check(flag, `no stock photo flag: ${JSON.stringify(r.json.source?.photos)}`);
+  return { host: r.json.source.host, item: r.json.item, priceUsd: r.json.priceCents / 100, flag: flag.quote, risk: r.json.risk };
+});
+
+await scenario("K3", "Listing link", "Links to private or local addresses are refused before a browser is opened", async () => {
+  const out = {};
+  for (const u of ["http://localhost:3000/api/deals", "http://169.254.169.254/latest/meta-data", "file:///etc/passwd"]) out[u] = (await new Browser("x").post("/api/scan", { url: u })).status;
+  check(Object.values(out).every((s) => s === 400), JSON.stringify(out));
+  return out;
+});
+
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n${passed}/${results.length} passed`);

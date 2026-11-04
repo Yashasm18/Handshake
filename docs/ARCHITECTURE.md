@@ -29,6 +29,7 @@ flowchart TB
     WF -->|secret-guarded timer API| APP
     APP -->|Orders · Payments · Payouts| PAYPAL["PayPal REST"]
     APP -->|product search| C3["Channel3"]
+    APP -->|open a pasted link| K["Kernel<br/>cloud browser"]
     APP -->|structured outputs| AI["Claude via OpenRouter"]
 ```
 
@@ -61,6 +62,7 @@ stateDiagram-v2
 | [`web/src/lib/server/negotiate.ts`](../web/src/lib/server/negotiate.ts) | Agent negotiation and its code referee |
 | [`web/src/lib/server/timers.ts`](../web/src/lib/server/timers.ts) · [`web/src/lib/deadlines.ts`](../web/src/lib/deadlines.ts) | Deadline rules and the actions that enforce them |
 | [`web/src/lib/server/checks.ts`](../web/src/lib/server/checks.ts) · [`channel3.ts`](../web/src/lib/server/channel3.ts) | Scam scan, label and damage review, price data and filters |
+| [`web/src/lib/server/kernel.ts`](../web/src/lib/server/kernel.ts) | Pasted links: URL checks and the listing reader that runs in a Kernel browser |
 | [`web/src/lib/server/auth.ts`](../web/src/lib/server/auth.ts) | Party cookies and the public view of a deal |
 | [`web/src/lib/refund.ts`](../web/src/lib/refund.ts) | Refund caps as a pure function |
 | [`workflows/`](../workflows) | Render Workflow tasks and the cron trigger |

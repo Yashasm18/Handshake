@@ -4,7 +4,7 @@
 
 **Real prices from 25,000 stores. Not guesses.**
 
-[← Back to README](../../README.md) · [PayPal](paypal.md) · [Render](render.md) · [AI](ai.md)
+[← Back to README](../../README.md) · [PayPal](paypal.md) · [Render](render.md) · [AI](ai.md) · [Kernel](kernel.md)
 
 </div>
 
