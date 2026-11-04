@@ -2,7 +2,7 @@ import { z } from "zod";
 import { HttpError } from "@/lib/server/deals";
 import { scanDeal } from "@/lib/server/checks";
 import { handle } from "@/lib/server/http";
-import { linkOnly, readListing } from "@/lib/server/kernel";
+import { checkLink, linkOnly, readListing } from "@/lib/server/kernel";
 
 const Body = z.object({
   text: z.string().max(8000).optional(),
@@ -19,9 +19,12 @@ const recent = new Map<string, number[]>();
 let everyone: number[] = [];
 let open = 0;
 
-// The proxy in front of us appends the address it saw as the last X-Forwarded-For entry; earlier
-// entries are whatever the client sent, so they can't be trusted to identify anyone.
+// Render runs behind Cloudflare, which sets True-Client-IP itself (a client can't supply it). Without
+// it, use the last X-Forwarded-For entry, the one our proxy appended; earlier entries are whatever the
+// client sent, so they never identify anyone.
 function visitor(req: Request) {
+  const edge = req.headers.get("true-client-ip")?.trim();
+  if (edge) return edge;
   const hops = req.headers.get("x-forwarded-for")?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
   return hops.at(-1) ?? "local";
 }
@@ -48,6 +51,8 @@ export async function POST(req: Request) {
     // A message that is only a link means "open this listing".
     const url = body.url?.trim() || linkOnly(body.text);
     if (url) {
+      // Refuse bad links before they count against anyone's budget.
+      await checkLink(url);
       const release = takeLinkSlot(req);
       try {
         const listing = await readListing(url);

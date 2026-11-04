@@ -107,10 +107,16 @@ const readerCode = (url: string) => `
 
 type Raw = { url: string; title: string; description: string; text: string; photos: { src: string; dataUrl: string }[] };
 
-export async function readListing(raw: string): Promise<ListingPage> {
+// Every check that needs no browser: the link's shape, that Kernel is set up, and where the name resolves.
+export async function checkLink(raw: string) {
   const url = listingUrl(raw);
   if (!process.env.KERNEL_API_KEY) throw new HttpError(503, "Reading links isn't set up on this server. Paste the listing text instead.");
   await assertPublicHost(url.hostname);
+  return url;
+}
+
+export async function readListing(raw: string): Promise<ListingPage> {
+  const url = await checkLink(raw);
   const kernel = new Kernel();
   // Short-lived and always deleted: a scan holds a browser for a few seconds, not the 60s ceiling.
   const browser = await kernel.browsers.create({ stealth: true, timeout_seconds: 60 });

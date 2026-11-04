@@ -171,6 +171,7 @@ describe("photo check: the model looks, code decides", () => {
 
 describe("scan API with a link", () => {
   it("opens the link with Kernel and limits how many links one visitor can open", async () => {
+    process.env.KERNEL_API_KEY = "test-key";
     vi.resetModules();
     const read = vi.fn(async () => ({ url: "https://offerup.com/item/1", host: "offerup.com", title: "", description: "", text: "", photos: [] }));
     const scan = vi.fn(async () => ({ risk: "LOW" }));
@@ -186,6 +187,14 @@ describe("scan API with a link", () => {
     expect((await POST(req("5.6.7.8"))).status).toBe(200);
     // A client can't dodge the limit by prepending fake addresses: the proxy's own entry comes last.
     expect((await POST(req("9.9.9.9, 1.2.3.4"))).status).toBe(429);
+    // Refused links never use up a slot: a fresh visitor can still send 8 good ones after 20 bad ones.
+    const bad = () => new Request("http://x/api/scan", { method: "POST", headers: { "x-forwarded-for": "7.7.7.7" }, body: JSON.stringify({ url: "http://127.0.0.1/" }) });
+    for (let i = 0; i < 20; i++) expect((await POST(bad())).status).toBe(400);
+    const good = () => new Request("http://x/api/scan", { method: "POST", headers: { "x-forwarded-for": "7.7.7.7" }, body: JSON.stringify({ url: "https://offerup.com/item/2" }) });
+    for (let i = 0; i < 8; i++) expect((await POST(good())).status).toBe(200);
+    // Behind Cloudflare, True-Client-IP names the visitor, so a fresh address isn't held to 7.7.7.7's limit.
+    const viaEdge = new Request("http://x/api/scan", { method: "POST", headers: { "x-forwarded-for": "7.7.7.7", "true-client-ip": "8.8.4.4" }, body: JSON.stringify({ url: "https://offerup.com/item/3" }) });
+    expect((await POST(viaEdge)).status).toBe(200);
     expect(read).toHaveBeenCalledWith("https://offerup.com/item/1");
     expect(scan).toHaveBeenCalledWith(expect.objectContaining({ listing: expect.objectContaining({ host: "offerup.com" }) }));
   });
