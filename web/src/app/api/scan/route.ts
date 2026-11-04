@@ -47,11 +47,10 @@ function takeLinkSlot(req: Request) {
     if (!closed) open--;
     closed = true;
   };
-  // A link refused before any browser opened gives its slot back.
+  // A link refused before any browser opened gives back the site-wide budget, so junk can't exhaust it
+  // for everyone, but it still counts against the visitor who sent it.
   const refund = () => {
     release();
-    const mine = recent.get(who) ?? [];
-    mine.splice(mine.indexOf(now), 1);
     everyone.splice(everyone.indexOf(now), 1);
   };
   return { release, refund };
