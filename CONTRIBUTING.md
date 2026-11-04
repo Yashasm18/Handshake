@@ -65,6 +65,8 @@ npx tsc --noEmit
 npm test
 ```
 
+If your change touches payments, labels, claims or negotiation, also run the live sandbox scenarios in [`scripts/e2e`](scripts/e2e) and update [docs/TESTING.md](docs/TESTING.md) with the result.
+
 ## Making a change
 
 1. Create a branch from `main`: `feature/short-name` or `fix/short-name`.

@@ -66,6 +66,7 @@ We review every change that touches money or AI. Findings so far, all fixed with
 | Pricing | Damaged-part prices polluted by whole consoles ($304 for a $50 part) | Part filter plus tests built on the real search results |
 | Timers | Retried settlement could capture twice; self-reported shipments could auto-release | Resumable settlement; auto-release requires a verified label |
 | Timers | A claim could be opened after capture but before payout | Amount locked once captured |
+| Privacy | Activity-log entries showed PayPal authorization, capture and payout ids to anyone with the deal link (found by the live end-to-end run) | Log references are only sent to the buyer and seller |
 
 ## Supported versions
 

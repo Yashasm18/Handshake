@@ -138,7 +138,19 @@ Full threat model and the issues we've found and fixed: **[SECURITY.md](SECURITY
 
 ## Tests and CI
 
-**52 tests** cover the rules that move money: part pricing (built on real Channel3 results), refund caps, negotiation limits and leak filters, and every deadline, including exactly-once behavior under retries and concurrent runs.
+Handshake is tested two ways: **107 automated tests** that run on every push and deploy, and **18 live end-to-end scenarios** run against the real PayPal sandbox, Channel3 and the AI models with real images.
+
+| Area | Automated | Live on the sandbox | What it proves |
+|---|---:|---:|---|
+| Deal flow and settlement | 14 | 3 | Holds, captures, payouts and voids happen once, for the right amount, only in the right state |
+| Refunds and pricing | 26 | 3 | Refunds come from real part prices, are capped by verdict, and refund plus capture always equals the price |
+| Agent negotiation | 20 | 3 | Agents never cross a secret limit, never leak it, and PayPal captures exactly the agreed price |
+| Privacy and access | 9 | 3 | Strangers and the wrong party get 403; addresses, PayPal ids and limits stay with the people allowed to see them |
+| Label and scam checks | 4 | 5 | A label to the wrong address is stopped, even one that tries to instruct the AI; scam chats and bait prices are flagged |
+| Deadlines and the Render Workflow | 30 | 1 | Every deadline fires exactly once, survives retries and concurrent runs, and a hold left unshipped is voided on its own |
+| PayPal client | 4 | | Captures and payouts reuse one idempotency key, so a retry can never charge twice |
+
+**Every live scenario passes**, and the run found one real privacy bug that is now fixed and covered by a test. Full results, PayPal sandbox ids and how to re-run them: **[docs/TESTING.md](docs/TESTING.md)**.
 
 - **GitHub Actions** runs lint, type check, tests and a production build on every push and pull request.
 - **Render** runs the tests again before every deploy, so a failing rule never reaches the live site.

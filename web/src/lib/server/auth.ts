@@ -94,6 +94,8 @@ export function publicDeal(deal: Deal, viewer: Viewer): DealView {
     shipTo: party ? rest.shipTo : undefined,
     shipment: party ? rest.shipment : rest.shipment && { ...rest.shipment, labelCheck: null },
     claim: party ? rest.claim : rest.claim && { ...rest.claim, photo: undefined, note: "" },
+    // Log entries cite PayPal ids (authorization, capture, payout batch); like the ids above, only the parties see them.
+    events: party ? rest.events : rest.events.map((e) => ({ ...e, ref: undefined })),
     viewer,
   };
 }

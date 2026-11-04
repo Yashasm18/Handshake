@@ -51,4 +51,25 @@ describe("handshake client", () => {
     await expect(listDue()).rejects.toBeInstanceOf(RetryableError);
     process.env.HANDSHAKE_URL = saved;
   });
+
+  it("retries when the app is rate limited", async () => {
+    respond = () => [429, { error: "slow down" }];
+    await expect(listDue()).rejects.toBeInstanceOf(RetryableError);
+  });
+
+  it("a wrong secret is rejected, not retried forever", async () => {
+    respond = (_m, _b, auth) => (auth === "Bearer s3cret" ? [200, { due: [] }] : [401, { error: "Unauthorized." }]);
+    process.env.TIMERS_SECRET = "wrong";
+    const err = await listDue().catch((e) => e);
+    process.env.TIMERS_SECRET = "s3cret";
+    expect(err).not.toBeInstanceOf(RetryableError);
+    expect(String(err)).toContain("401");
+  });
+
+  it("refuses to run without the app URL or secret", async () => {
+    const saved = process.env.TIMERS_SECRET;
+    delete process.env.TIMERS_SECRET;
+    await expect(listDue()).rejects.toThrow("HANDSHAKE_URL and TIMERS_SECRET must be set.");
+    process.env.TIMERS_SECRET = saved;
+  });
 });
