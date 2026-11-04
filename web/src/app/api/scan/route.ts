@@ -10,18 +10,36 @@ const Body = z.object({
   url: z.string().max(2000).optional(),
 });
 
-// Each link opens a cloud browser, so one visitor gets a handful per window, not an unlimited supply.
-const LINKS_PER_WINDOW = 8;
+// Each link opens a paid cloud browser, so links are limited per visitor, across all visitors, and in flight.
+const LINKS_PER_VISITOR = 8;
+const LINKS_PER_WINDOW = 120;
+const MAX_OPEN = 4;
 const WINDOW_MS = 10 * 60_000;
 const recent = new Map<string, number[]>();
+let everyone: number[] = [];
+let open = 0;
 
-function allowLink(req: Request) {
-  const who = req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "local";
+// The proxy in front of us appends the address it saw as the last X-Forwarded-For entry; earlier
+// entries are whatever the client sent, so they can't be trusted to identify anyone.
+function visitor(req: Request) {
+  const hops = req.headers.get("x-forwarded-for")?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
+  return hops.at(-1) ?? "local";
+}
+
+function takeLinkSlot(req: Request) {
   const now = Date.now();
-  const hits = (recent.get(who) ?? []).filter((t) => now - t < WINDOW_MS);
-  if (hits.length >= LINKS_PER_WINDOW) throw new HttpError(429, "That's a lot of links in a few minutes. Wait a little, or paste the listing text instead.");
+  const fresh = (ts: number[]) => ts.filter((t) => now - t < WINDOW_MS);
+  const who = visitor(req);
+  const hits = fresh(recent.get(who) ?? []);
+  everyone = fresh(everyone);
+  if (hits.length >= LINKS_PER_VISITOR) throw new HttpError(429, "That's a lot of links in a few minutes. Wait a little, or paste the listing text instead.");
+  if (everyone.length >= LINKS_PER_WINDOW || open >= MAX_OPEN) throw new HttpError(503, "Link checks are busy right now. Paste the listing text or a screenshot instead.");
   recent.set(who, [...hits, now]);
-  if (recent.size > 5000) recent.clear();
+  everyone.push(now);
+  open++;
+  // Forget visitors whose window has passed, rather than resetting everyone's limit.
+  if (recent.size > 5000) for (const [k, ts] of recent) if (!fresh(ts).length) recent.delete(k);
+  return () => { open--; };
 }
 
 export async function POST(req: Request) {
@@ -30,9 +48,13 @@ export async function POST(req: Request) {
     // A message that is only a link means "open this listing".
     const url = body.url?.trim() || linkOnly(body.text);
     if (url) {
-      allowLink(req);
-      const listing = await readListing(url);
-      return scanDeal({ listing, imageDataUrl: body.image, text: body.url ? body.text : undefined });
+      const release = takeLinkSlot(req);
+      try {
+        const listing = await readListing(url);
+        return await scanDeal({ listing, imageDataUrl: body.image, text: body.url ? body.text : undefined });
+      } finally {
+        release();
+      }
     }
     if (!body.text?.trim() && !body.image) throw new z.ZodError([]);
     return scanDeal({ text: body.text, imageDataUrl: body.image });

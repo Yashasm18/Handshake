@@ -17,10 +17,14 @@ vi.mock("@onkernel/sdk", () => ({
   },
 }));
 
+// DNS is faked too: public names resolve to a public address unless a test says otherwise.
+const dns = vi.hoisted(() => ({ lookup: vi.fn(async () => [{ address: "151.101.1.1", family: 4 }]) }));
+vi.mock("node:dns/promises", () => ({ lookup: dns.lookup, default: { lookup: dns.lookup } }));
+
 const ai = vi.hoisted(() => ({ structured: vi.fn() }));
 vi.mock("@/lib/server/ai", async (orig) => ({ ...(await orig<typeof import("@/lib/server/ai")>()), structured: ai.structured }));
 
-const { listingUrl, linkOnly, readListing } = await import("@/lib/server/kernel");
+const { listingUrl, linkOnly, readListing, privateAddress } = await import("@/lib/server/kernel");
 const { checkPhotos, stockPhotoFlag, listingEvidence } = await import("@/lib/server/checks");
 
 const PHOTO = "data:image/jpeg;base64,AAAA";
@@ -31,7 +35,7 @@ const page = (over = {}) => ({
 
 beforeEach(() => {
   process.env.KERNEL_API_KEY = "test-key";
-  for (const f of [...Object.values(k), ai.structured]) f.mockClear();
+  for (const f of [...Object.values(k), ai.structured, dns.lookup]) f.mockClear();
 });
 afterEach(() => { delete process.env.KERNEL_API_KEY; });
 
@@ -50,6 +54,11 @@ describe("which links Handshake will open", () => {
       "https://user:pass@example.com/", "http://intranet/", "javascript:alert(1)", "not a link",
     ];
     for (const u of bad) expect(() => listingUrl(u), u).toThrow();
+  });
+
+  it("knows which resolved addresses are private", () => {
+    for (const ip of ["127.0.0.1", "10.1.2.3", "172.16.0.1", "172.31.255.255", "192.168.1.1", "169.254.169.254", "100.64.0.1", "0.0.0.0", "224.0.0.1", "::1", "fd00::1", "fe80::1", "::ffff:10.0.0.1"]) expect(privateAddress(ip), ip).toBe(true);
+    for (const ip of ["151.101.1.1", "8.8.8.8", "172.32.0.1", "2606:4700::1111"]) expect(privateAddress(ip), ip).toBe(false);
   });
 
   it("only a message that is just a link counts as a link", () => {
@@ -96,6 +105,25 @@ describe("reading a listing with Kernel", () => {
     delete process.env.KERNEL_API_KEY;
     await expect(readListing("https://offerup.com/item/1")).rejects.toMatchObject({ status: 503 });
     expect(k.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses a public-looking name that resolves to a private address, before a browser starts", async () => {
+    dns.lookup.mockResolvedValueOnce([{ address: "151.101.1.1", family: 4 }, { address: "10.0.0.7", family: 4 }]);
+    await expect(readListing("https://listing.example.com/item")).rejects.toMatchObject({ status: 400 });
+    expect(k.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses a name that doesn't resolve", async () => {
+    dns.lookup.mockRejectedValueOnce(new Error("ENOTFOUND"));
+    await expect(readListing("https://no-such-site.example/item")).rejects.toMatchObject({ status: 400 });
+    expect(k.create).not.toHaveBeenCalled();
+  });
+
+  it("checks the address again when the page redirects to another site", async () => {
+    k.execute.mockResolvedValueOnce(page({ url: "https://evil.example.net/x" }));
+    dns.lookup.mockResolvedValueOnce([{ address: "151.101.1.1", family: 4 }]).mockResolvedValueOnce([{ address: "127.0.0.1", family: 4 }]);
+    await expect(readListing("https://offerup.com/item/1")).rejects.toMatchObject({ status: 400 });
+    expect(k.deleteByID).toHaveBeenCalledTimes(1);
   });
 
   it("never starts a browser for a refused link", async () => {
@@ -156,6 +184,8 @@ describe("scan API with a link", () => {
     expect(statuses.slice(0, 8).every((s) => s === 200)).toBe(true);
     expect(statuses[8]).toBe(429);
     expect((await POST(req("5.6.7.8"))).status).toBe(200);
+    // A client can't dodge the limit by prepending fake addresses: the proxy's own entry comes last.
+    expect((await POST(req("9.9.9.9, 1.2.3.4"))).status).toBe(429);
     expect(read).toHaveBeenCalledWith("https://offerup.com/item/1");
     expect(scan).toHaveBeenCalledWith(expect.objectContaining({ listing: expect.objectContaining({ host: "offerup.com" }) }));
   });

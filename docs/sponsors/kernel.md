@@ -40,11 +40,11 @@ Code: [`kernel.ts`](../../web/src/lib/server/kernel.ts) (link checks, reader, cl
 
 Opening a link a stranger wrote is risky, so the rules are strict:
 
-- **Only public pages.** Code refuses `localhost`, IP addresses (including cloud metadata addresses such as `169.254.169.254`), `.local` and `.internal` names, odd ports, credentials in links, and anything other than `http` and `https`. It refuses them before a browser starts, and checks the page's final address again after redirects.
+- **Only public pages.** Code refuses `localhost`, IP addresses (including cloud metadata addresses such as `169.254.169.254`), `.local` and `.internal` names, odd ports, credentials in links, and anything other than `http` and `https`. It also resolves the name and refuses it if any address is private. All of this happens before a browser starts, and again for the page's final address after redirects. Photo links that point at a bare IP or a local name are skipped inside the browser.
 - **Nothing untrusted runs on our server.** The page and its photos are fetched inside Kernel's sandbox. Our server only receives text and image data, and accepts only JPEG, PNG, WebP and GIF photos under 1.5 MB.
 - **The link is data, not code.** The URL is passed to the browser script as a JSON string literal, so a crafted link can't inject commands. There's a test for exactly that.
 - **The page is untrusted evidence.** Its text reaches the AI wrapped as untrusted, like every other stranger's text in Handshake.
-- **Limited per visitor.** Each link opens a cloud browser, so one visitor can open 8 links per 10 minutes.
+- **Limited per visitor and overall.** Each link opens a cloud browser, so one visitor can open 8 links per 10 minutes (identified by the address our proxy saw, which a client can't fake), all visitors together 120, and at most 4 run at once.
 
 ## Real results from testing
 
@@ -64,7 +64,7 @@ On November 4, 2026, we scanned 9 live Craigslist listings through Kernel:
 
 - **A stealth browser starts in 1.3 seconds.** A full scan, from paste to verdict, takes about 20 seconds.
 - **The live end-to-end suite** has three Kernel scenarios: a seller's photo passes, a store photo is flagged, and private addresses are refused. See [docs/TESTING.md](../TESTING.md).
-- **16 automated tests** cover link safety, browser cleanup on failure, refused redirects, the photo rule and the per-visitor limit.
+- **20 automated tests** cover link safety, DNS checks, browser cleanup on failure, refused redirects, the photo rule and the per-visitor limit.
 
 ## What we liked
 

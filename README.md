@@ -148,7 +148,7 @@ Full threat model and the issues we've found and fixed: **[SECURITY.md](SECURITY
 
 ## Tests and CI
 
-Handshake is tested two ways: **123 automated tests** that run on every push and deploy, and **21 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel and the AI models with real images and real listings.
+Handshake is tested two ways: **127 automated tests** that run on every push and deploy, and **21 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel and the AI models with real images and real listings.
 
 | Area | Automated | Live on the sandbox | What it proves |
 |---|---:|---:|---|
@@ -159,7 +159,7 @@ Handshake is tested two ways: **123 automated tests** that run on every push and
 | Label and scam checks | 4 | 5 | A label to the wrong address is stopped, even one that tries to instruct the AI; scam chats and bait prices are flagged |
 | Deadlines and the Render Workflow | 30 | 1 | Every deadline fires exactly once, survives retries and concurrent runs, and a hold left unshipped is voided on its own |
 | PayPal client | 4 | | Captures and payouts reuse one idempotency key, so a retry can never charge twice |
-| Listing links (Kernel) | 16 | 3 | Only public pages are opened, every browser is closed, and listings using store photos are flagged |
+| Listing links (Kernel) | 20 | 3 | Only public pages are opened, every browser is closed, and listings using store photos are flagged |
 
 **Every live scenario passes**, and the run found one real privacy bug that is now fixed and covered by a test. Full results, PayPal sandbox ids and how to re-run them: **[docs/TESTING.md](docs/TESTING.md)**.
 

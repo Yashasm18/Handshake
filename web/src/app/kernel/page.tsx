@@ -57,7 +57,7 @@ export default function KernelPage() {
         >
           <Steps
             steps={[
-              { t: "Check the link", d: "Only public web pages are opened. Local addresses, private networks, odd ports and credentials in links are refused before any browser starts.", tag: "Code" },
+              { t: "Check the link", d: "Only public web pages are opened. Local addresses, names that resolve to private networks, odd ports and credentials in links are refused before any browser starts.", tag: "Code" },
               { t: "Open it in the cloud", d: "Kernel starts a stealth Chromium in about a second. It loads the page like a person would, scripts and all, then reads the title, price, description and photos.", tag: "Kernel · browsers.create" },
               { t: "Fetch the photos there too", d: "The listing's photos are downloaded inside Kernel's browser, not by our server, so a listing can never point Handshake at an internal address.", tag: "Kernel · playwright.execute" },
               { t: "Compare with the store", d: "AI looks at each photo next to Channel3's store images of the same product: is it the real item in a real room, or a product render?", tag: "AI · Vision + Channel3" },
@@ -91,7 +91,7 @@ export default function KernelPage() {
             stats={[
               { n: "1.3s", t: "to start a stealth cloud browser; a full link scan, from paste to verdict, takes about 20 seconds.", s: "Kernel" },
               { n: "9", t: "real Craigslist listings scanned: 7 showed the sellers' own photos, 1 had none, and 1 used Apple's AirPods render and was flagged.", s: "Live scans" },
-              { n: "16", t: "automated tests for link safety, browser cleanup, the photo rule and the per-visitor limit.", s: "Vitest" },
+              { n: "20", t: "automated tests for link and DNS safety, browser cleanup, the photo rule and the link limits.", s: "Vitest" },
             ]}
           />
         </Section>

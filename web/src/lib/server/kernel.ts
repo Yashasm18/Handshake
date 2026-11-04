@@ -1,5 +1,6 @@
 import "server-only";
 import Kernel from "@onkernel/sdk";
+import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { HttpError } from "./deals";
 
@@ -39,6 +40,25 @@ export function listingUrl(raw: string) {
   return url;
 }
 
+// True for loopback, private, link-local (incl. cloud metadata), carrier-grade NAT, multicast and reserved ranges.
+export function privateAddress(ip: string) {
+  const v4 = ip.replace(/^::ffff:/i, "");
+  if (isIP(v4) === 4) {
+    const [a, b] = v4.split(".").map(Number);
+    return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 198 && (b === 18 || b === 19));
+  }
+  const v6 = ip.toLowerCase();
+  return v6 === "::" || v6 === "::1" || /^f[cd]/.test(v6) || /^fe[89ab]/.test(v6) || /^ff/.test(v6);
+}
+
+// The name must resolve, and only to public addresses. The browser runs in Kernel's cloud, not on our
+// network, so this is defense in depth rather than the only barrier.
+export async function assertPublicHost(host: string) {
+  const addrs = await lookup(host, { all: true }).catch(() => []);
+  if (!addrs.length) throw new HttpError(400, "We couldn't find that website. Check the link and try again.");
+  if (addrs.some((a) => privateAddress(a.address))) throw new HttpError(400, "Handshake can only open public listing pages, like a Marketplace, Craigslist or eBay link.");
+}
+
 // A message that is only a link (with optional whitespace) is treated as "read this listing".
 export const linkOnly = (text?: string) => {
   const t = text?.trim() ?? "";
@@ -59,7 +79,9 @@ const readerCode = (url: string) => `
       .filter((i) => i.naturalWidth >= 300 && i.naturalHeight >= 300)
       .sort((a, b) => b.naturalWidth * b.naturalHeight - a.naturalWidth * a.naturalHeight)
       .map((i) => i.currentSrc || i.src);
-    const images = [...new Set([meta("og:image"), ...big])].filter((s) => /^https:\\/\\//.test(s)).slice(0, 6);
+    // Photos come from the listing's own CDNs; never a bare IP or a local name.
+    const publicImage = (s) => { try { const h = new URL(s).hostname; return s.startsWith("https://") && h.includes(".") && !/^[\\d.]+$|^\\[|(^|\\.)(localhost|local|internal)$/i.test(h); } catch { return false; } };
+    const images = [...new Set([meta("og:image"), ...big])].filter(publicImage).slice(0, 6);
     return {
       url: location.href,
       title: (meta("og:title") || document.title || "").slice(0, 300),
@@ -88,6 +110,7 @@ type Raw = { url: string; title: string; description: string; text: string; phot
 export async function readListing(raw: string): Promise<ListingPage> {
   const url = listingUrl(raw);
   if (!process.env.KERNEL_API_KEY) throw new HttpError(503, "Reading links isn't set up on this server. Paste the listing text instead.");
+  await assertPublicHost(url.hostname);
   const kernel = new Kernel();
   // Short-lived and always deleted: a scan holds a browser for a few seconds, not the 60s ceiling.
   const browser = await kernel.browsers.create({ stealth: true, timeout_seconds: 60 });
@@ -96,6 +119,7 @@ export async function readListing(raw: string): Promise<ListingPage> {
     if (!run.success || !run.result) throw new Error(run.error ?? "no result");
     const page = run.result as Raw;
     const final = listingUrl(page.url);
+    if (final.hostname !== url.hostname) await assertPublicHost(final.hostname);
     return {
       url: final.href,
       host: final.hostname.replace(/^www\./, ""),
