@@ -181,7 +181,7 @@ function InputPanel(props: {
         </div>
       </div>
       {props.error && <p className="mt-4 text-[15px] text-alert" role="alert">{props.error}</p>}
-      <div className="mt-6 flex flex-wrap items-center gap-2 text-[14px] text-muted">
+      <div className="mt-6 flex flex-wrap items-center gap-2 font-ui text-[14px] text-muted">
         <span>Try one:</span>
         <button onClick={() => props.setText(SAMPLES.scam)} className="rounded-full border hairline px-3 py-1.5 transition-colors hover:border-ink/40 hover:text-ink">A scam chat</button>
         <button onClick={() => props.setText(SAMPLES.fair)} className="rounded-full border hairline px-3 py-1.5 transition-colors hover:border-ink/40 hover:text-ink">A fair listing</button>
