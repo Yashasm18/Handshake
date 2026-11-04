@@ -2,12 +2,23 @@ import type { CSSProperties } from "react";
 import { ICONS } from "./brand-icons";
 
 // `dark` is the brand color to use on the dark theme, where the deep brand blues would vanish.
-type Item = { name: string; role: string; icon?: keyof typeof ICONS; mono?: string; color?: string; dark?: string };
+// `mark` is a sponsor's own square logo file; `wordmark` is a full logo (light and dark versions) that
+// already spells the name, so it replaces both the mark and the name.
+type Item = {
+  name: string;
+  role: string;
+  icon?: keyof typeof ICONS;
+  mono?: string;
+  color?: string;
+  dark?: string;
+  mark?: string;
+  wordmark?: { light: string; dark: string };
+};
 
 const ITEMS: Item[] = [
   { name: "PayPal", role: "Holds · Payouts", icon: "paypal", color: "#003087", dark: "#4cb3ff" },
-  { name: "Channel3", role: "Market prices", mono: "C3" },
-  { name: "Kernel", role: "Cloud browsers", mono: "K" },
+  { name: "Channel3", role: "Market prices", wordmark: { light: "/brands/channel3-light.svg", dark: "/brands/channel3-dark.svg" } },
+  { name: "Kernel", role: "Cloud browsers", mark: "/brands/kernel.svg" },
   { name: "Claude", role: "Vision AI", icon: "anthropic" },
   { name: "GPT", role: "Backup AI", icon: "openai" },
   { name: "OpenRouter", role: "AI routing", mono: "OR" },
@@ -21,6 +32,10 @@ const ITEMS: Item[] = [
 ];
 
 function Mark({ item }: { item: Item }) {
+  if (item.mark) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={item.mark} alt="" className="size-[clamp(26px,2.6vw,36px)] shrink-0 rounded-lg" />;
+  }
   if (item.icon) {
     return (
       <svg
@@ -61,8 +76,19 @@ export function BuiltWith() {
               aria-hidden={i >= ITEMS.length}
               className="flex items-center gap-4 rounded-full border hairline bg-card py-3 pl-4 pr-6 transition-colors duration-300 hover:border-ink/30"
             >
-              <Mark item={item} />
-              <span className="font-display text-[clamp(20px,2.2vw,30px)] font-semibold tracking-[-0.03em]">{item.name}</span>
+              {item.wordmark ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={item.wordmark.light} alt={item.name} className="h-[clamp(22px,2.4vw,32px)] w-auto dark:hidden" />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={item.wordmark.dark} alt={item.name} className="hidden h-[clamp(22px,2.4vw,32px)] w-auto dark:block" />
+                </>
+              ) : (
+                <>
+                  <Mark item={item} />
+                  <span className="font-display text-[clamp(20px,2.2vw,30px)] font-semibold tracking-[-0.03em]">{item.name}</span>
+                </>
+              )}
               <span className="label hidden text-muted sm:inline">{item.role}</span>
             </li>
           ))}
