@@ -111,9 +111,11 @@ html.lenis body {
 }
 
 /* Above-the-fold motion runs in CSS so it starts on first paint, before any JavaScript loads. */
+/* Words start 150% down: the mask has room below for descenders (g, y), so 110% left their tops
+   peeking out of it before the animation began. */
 @keyframes word-rise {
   from {
-    transform: translateY(110%);
+    transform: translateY(150%);
   }
   to {
     transform: translateY(0);

@@ -43,7 +43,8 @@ export function RevealText({
                 ) : (
                   <motion.span
                     className="inline-block"
-                    initial={{ y: "110%" }}
+                    // Fully below the mask (which has extra room for descenders) until the word rises.
+                    initial={{ y: "150%" }}
                     animate={inView ? { y: "0%" } : undefined}
                     transition={{ duration: 0.9, ease: EASE, delay: delay + n * stagger }}
                   >
