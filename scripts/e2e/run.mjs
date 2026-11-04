@@ -12,6 +12,9 @@ const [BASE = "http://localhost:3000", ...ONLY] = process.argv.slice(2);
 const IMG = path.join(import.meta.dirname, "images");
 const OUT = path.join(import.meta.dirname, "results.json");
 const TIMERS_SECRET = process.env.E2E_TIMERS_SECRET ?? "e2e-local-secret";
+// Visitors are imitated with CF-Connecting-IP only locally: Cloudflare in front of Render refuses
+// requests that try to set it (403), which is exactly why the app can trust it there.
+const LOCAL = /^http:\/\/(localhost|127\.0\.0\.1)/.test(BASE);
 const img = (f) => `data:image/${f.endsWith(".jpg") ? "jpeg" : "png"};base64,${readFileSync(path.join(IMG, f)).toString("base64")}`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -22,7 +25,7 @@ class Browser {
   async req(method, url, body, headers = {}) {
     const res = await fetch(BASE + url, {
       method,
-      headers: { "Content-Type": "application/json", cookie: [...this.jar].map(([k, v]) => `${k}=${v}`).join("; "), ...(this.ip ? { "cf-connecting-ip": this.ip } : {}), ...headers },
+      headers: { "Content-Type": "application/json", cookie: [...this.jar].map(([k, v]) => `${k}=${v}`).join("; "), ...(this.ip && LOCAL ? { "cf-connecting-ip": this.ip } : {}), ...headers },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     for (const c of res.headers.getSetCookie()) { const [kv] = c.split(";"); const i = kv.indexOf("="); this.jar.set(kv.slice(0, i), kv.slice(i + 1)); }
