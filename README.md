@@ -15,7 +15,7 @@ Agents negotiate a fair price, and every deadline enforces itself.
 <br>
 
 [![Live demo](https://img.shields.io/badge/Live_demo-handshake--5rkw.onrender.com-111110?style=for-the-badge)](https://handshake-5rkw.onrender.com)
-[![CI](https://img.shields.io/github/actions/workflow/status/Yashasm18/HandShake/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/Yashasm18/HandShake/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/Yashasm18/HandShake/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0a7a4b?style=for-the-badge)](LICENSE)
 
 **Powered by**
@@ -24,11 +24,11 @@ Agents negotiate a fair price, and every deadline enforces itself.
 [![Channel3](https://img.shields.io/badge/Channel3-111110?style=flat-square)](docs/sponsors/channel3.md)
 [![Render](https://img.shields.io/badge/Render-46E3B7?style=flat-square&logo=render&logoColor=black)](docs/sponsors/render.md)
 [![Kernel](https://img.shields.io/badge/Kernel-111110?style=flat-square)](docs/sponsors/kernel.md)
-[![Claude](https://img.shields.io/badge/Claude-D97757?style=flat-square&logo=anthropic&logoColor=white)](docs/sponsors/ai.md)
-[![OpenRouter](https://img.shields.io/badge/OpenRouter-6566F1?style=flat-square&logo=openrouter&logoColor=white)](docs/sponsors/ai.md)
 
 **Built with**
 
+[![Claude](https://img.shields.io/badge/Claude-D97757?style=flat-square&logo=anthropic&logoColor=white)](docs/AI.md)
+[![OpenRouter](https://img.shields.io/badge/OpenRouter-6566F1?style=flat-square&logo=openrouter&logoColor=white)](docs/AI.md)
 ![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=flat-square&logo=nextdotjs&logoColor=white)
 ![React](https://img.shields.io/badge/React_19-20232A?style=flat-square&logo=react&logoColor=61DAFB)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
@@ -121,20 +121,14 @@ Each partner powers a different part of a safe deal. Click through for exactly w
       <a href="docs/sponsors/render.md"><b>How Handshake uses Render →</b></a>
     </td>
     <td width="50%" valign="top">
-      <h3><a href="docs/sponsors/ai.md">Claude via OpenRouter</a></h3>
-      <b>Reads, argues, never pays.</b> Vision and structured outputs for scam checks, label reading, damage review and agent negotiation, all validated with Zod.<br><br>
-      <a href="docs/sponsors/ai.md"><b>How Handshake uses AI →</b></a>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
       <h3><a href="docs/sponsors/kernel.md">Kernel</a></h3>
       <b>Paste a link, not a screenshot.</b> A stealth cloud browser opens the listing, reads its price and photos, and lets Handshake catch sellers who post store photos instead of the real item.<br><br>
       <a href="docs/sponsors/kernel.md"><b>How Handshake uses Kernel →</b></a>
     </td>
-    <td width="50%" valign="top"></td>
   </tr>
 </table>
+
+The AI layer (Claude, routed through OpenRouter, with every answer checked by Zod) reads chats, labels and photos and runs the negotiating agents. How it's kept in check is in **[docs/AI.md](docs/AI.md)**.
 
 ## Safety by design
 

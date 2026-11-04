@@ -2,7 +2,7 @@ import { z } from "zod";
 import { HttpError } from "@/lib/server/deals";
 import { scanDeal } from "@/lib/server/checks";
 import { handle } from "@/lib/server/http";
-import { checkLink, linkOnly, readListing } from "@/lib/server/kernel";
+import { assertPublicHost, linkOnly, listingUrl, readListing } from "@/lib/server/kernel";
 
 const Body = z.object({
   text: z.string().max(8000).optional(),
@@ -19,11 +19,11 @@ const recent = new Map<string, number[]>();
 let everyone: number[] = [];
 let open = 0;
 
-// Render runs behind Cloudflare, which sets True-Client-IP itself (a client can't supply it). Without
-// it, use the last X-Forwarded-For entry, the one our proxy appended; earlier entries are whatever the
-// client sent, so they never identify anyone.
+// Render runs behind Cloudflare, which always overwrites CF-Connecting-IP with the address it saw.
+// Without it, use the last X-Forwarded-For entry, the one our proxy appended; earlier entries are
+// whatever the client sent. Even a faked identity stays inside the global cap and in-flight limit.
 function visitor(req: Request) {
-  const edge = req.headers.get("true-client-ip")?.trim();
+  const edge = req.headers.get("cf-connecting-ip")?.trim();
   if (edge) return edge;
   const hops = req.headers.get("x-forwarded-for")?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
   return hops.at(-1) ?? "local";
@@ -42,7 +42,19 @@ function takeLinkSlot(req: Request) {
   open++;
   // Forget visitors whose window has passed, rather than resetting everyone's limit.
   if (recent.size > 5000) for (const [k, ts] of recent) if (!fresh(ts).length) recent.delete(k);
-  return () => { open--; };
+  let closed = false;
+  const release = () => {
+    if (!closed) open--;
+    closed = true;
+  };
+  // A link refused before any browser opened gives its slot back.
+  const refund = () => {
+    release();
+    const mine = recent.get(who) ?? [];
+    mine.splice(mine.indexOf(now), 1);
+    everyone.splice(everyone.indexOf(now), 1);
+  };
+  return { release, refund };
 }
 
 export async function POST(req: Request) {
@@ -51,14 +63,21 @@ export async function POST(req: Request) {
     // A message that is only a link means "open this listing".
     const url = body.url?.trim() || linkOnly(body.text);
     if (url) {
-      // Refuse bad links before they count against anyone's budget.
-      await checkLink(url);
-      const release = takeLinkSlot(req);
+      // Cheap checks first; the DNS check runs inside the limit and refunds the slot if it refuses.
+      const parsed = listingUrl(url);
+      if (!process.env.KERNEL_API_KEY) throw new HttpError(503, "Reading links isn't set up on this server. Paste the listing text instead.");
+      const slot = takeLinkSlot(req);
+      try {
+        await assertPublicHost(parsed.hostname);
+      } catch (e) {
+        slot.refund();
+        throw e;
+      }
       try {
         const listing = await readListing(url);
         return await scanDeal({ listing, imageDataUrl: body.image, text: body.url ? body.text : undefined });
       } finally {
-        release();
+        slot.release();
       }
     }
     if (!body.text?.trim() && !body.image) throw new z.ZodError([]);

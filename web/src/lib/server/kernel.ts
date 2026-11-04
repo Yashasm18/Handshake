@@ -54,7 +54,9 @@ export function privateAddress(ip: string) {
 // The name must resolve, and only to public addresses. The browser runs in Kernel's cloud, not on our
 // network, so this is defense in depth rather than the only barrier.
 export async function assertPublicHost(host: string) {
-  const addrs = await lookup(host, { all: true }).catch(() => []);
+  // A slow nameserver can't hold a request: no answer in 3 seconds counts as no answer.
+  const timeout = new Promise<[]>((done) => setTimeout(() => done([]), 3000).unref?.());
+  const addrs = await Promise.race([lookup(host, { all: true }).catch(() => [] as []), timeout]);
   if (!addrs.length) throw new HttpError(400, "We couldn't find that website. Check the link and try again.");
   if (addrs.some((a) => privateAddress(a.address))) throw new HttpError(400, "Handshake can only open public listing pages, like a Marketplace, Craigslist or eBay link.");
 }

@@ -192,9 +192,14 @@ describe("scan API with a link", () => {
     for (let i = 0; i < 20; i++) expect((await POST(bad())).status).toBe(400);
     const good = () => new Request("http://x/api/scan", { method: "POST", headers: { "x-forwarded-for": "7.7.7.7" }, body: JSON.stringify({ url: "https://offerup.com/item/2" }) });
     for (let i = 0; i < 8; i++) expect((await POST(good())).status).toBe(200);
-    // Behind Cloudflare, True-Client-IP names the visitor, so a fresh address isn't held to 7.7.7.7's limit.
-    const viaEdge = new Request("http://x/api/scan", { method: "POST", headers: { "x-forwarded-for": "7.7.7.7", "true-client-ip": "8.8.4.4" }, body: JSON.stringify({ url: "https://offerup.com/item/3" }) });
+    // Behind Cloudflare, CF-Connecting-IP names the visitor, so a fresh address isn't held to 7.7.7.7's limit.
+    const viaEdge = new Request("http://x/api/scan", { method: "POST", headers: { "x-forwarded-for": "7.7.7.7", "cf-connecting-ip": "8.8.4.4" }, body: JSON.stringify({ url: "https://offerup.com/item/3" }) });
     expect((await POST(viaEdge)).status).toBe(200);
+    // A name that resolves privately is refused after the DNS check and gives its slot back.
+    dns.lookup.mockResolvedValueOnce([{ address: "10.0.0.9", family: 4 }]);
+    const sneaky = () => new Request("http://x/api/scan", { method: "POST", headers: { "cf-connecting-ip": "6.6.6.6" }, body: JSON.stringify({ url: "https://sneaky.example.com/x" }) });
+    expect((await POST(sneaky())).status).toBe(400);
+    for (let i = 0; i < 8; i++) expect((await POST(new Request("http://x/api/scan", { method: "POST", headers: { "cf-connecting-ip": "6.6.6.6" }, body: JSON.stringify({ url: "https://offerup.com/item/4" }) }))).status).toBe(200);
     expect(read).toHaveBeenCalledWith("https://offerup.com/item/1");
     expect(scan).toHaveBeenCalledWith(expect.objectContaining({ listing: expect.objectContaining({ host: "offerup.com" }) }));
   });

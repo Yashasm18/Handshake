@@ -4,7 +4,7 @@
 
 **Real prices from 25,000 stores. Not guesses.**
 
-[← Back to README](../../README.md) · [PayPal](paypal.md) · [Render](render.md) · [AI](ai.md) · [Kernel](kernel.md)
+[← Back to README](../../README.md) · [PayPal](paypal.md) · [Render](render.md) · [Kernel](kernel.md)
 
 </div>
 
@@ -23,7 +23,7 @@ One endpoint, three questions:
 | Job | Call | What it decides |
 |---|---|---|
 | **Scam check** | `POST /v1/search` for the exact item | The retail median. If a listing is **55% or more under it**, Handshake flags it as bait (used goods normally sell 20–50% under retail). |
-| **Fair range** | Same search, reused | A fair used price range for the item's condition, computed in code. Both [negotiating agents](ai.md) argue inside it. |
+| **Fair range** | Same search, reused | A fair used price range for the item's condition, computed in code. Both [negotiating agents](../AI.md) argue inside it. |
 | **Damage pricing** | `POST /v1/search` for the broken part alone | The replacement part's price, which grounds a partial refund. |
 
 Code: [`channel3.ts`](../../web/src/lib/server/channel3.ts) (search and filters), [`checks.ts`](../../web/src/lib/server/checks.ts) (scam check and median), [`fair.ts`](../../web/src/lib/fair.ts) (fair range), [`flows.ts`](../../web/src/lib/server/flows.ts) (damage pricing).

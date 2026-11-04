@@ -44,7 +44,7 @@ The demo runs on the **PayPal sandbox**: no real money moves. Please test only w
 - **Public pages only.** Links to `localhost`, IP addresses (including cloud metadata), `.local` and `.internal` names, odd ports, credentials or non-web schemes are refused before a browser starts. The name must also resolve only to public addresses. Both checks run again on the final address after redirects.
 - **Untrusted pages never touch our server.** Listings and their photos are opened inside Kernel's cloud browser; the server only receives text and size-limited JPEG, PNG, WebP or GIF data.
 - **Links are data, not code.** The URL reaches the browser script as a JSON string literal.
-- **Bounded cost.** Each browser has a 60-second ceiling and is always deleted. One visitor can open 8 links per 10 minutes, identified by Cloudflare's True-Client-IP, or else the address our proxy appends, never one a client can supply; all visitors together can open 120, with at most 4 at once.
+- **Bounded cost.** Each browser has a 60-second ceiling and is always deleted. One visitor can open 8 links per 10 minutes, identified by Cloudflare's CF-Connecting-IP, or else the address our proxy appends, never one a client can supply; all visitors together can open 120, with at most 4 at once.
 
 ### AI
 - **Untrusted input is labelled.** Listings, chats, complaints and agent messages are wrapped as evidence, never instructions.
@@ -73,7 +73,7 @@ We review every change that touches money or AI. Findings so far, all fixed with
 | Timers | Retried settlement could capture twice; self-reported shipments could auto-release | Resumable settlement; auto-release requires a verified label |
 | Timers | A claim could be opened after capture but before payout | Amount locked once captured |
 | Privacy | Activity-log entries showed PayPal authorization, capture and payout ids to anyone with the deal link (found by the live end-to-end run) | Log references are only sent to the buyer and seller |
-| Links | The link limit trusted the first `X-Forwarded-For` entry, which a client controls, and reset every visitor's count when its table filled | Visitors are identified by Cloudflare's True-Client-IP or the proxy's own entry; expired entries are dropped instead; a global cap and an in-flight limit were added; links are validated before they use any budget |
+| Links | The link limit trusted the first `X-Forwarded-For` entry, which a client controls, and reset every visitor's count when its table filled | Visitors are identified by Cloudflare's CF-Connecting-IP or the proxy's own entry; expired entries are dropped instead; a global cap and an in-flight limit were added; links are validated before they use any budget |
 | Links | A public-looking name that resolved to a private address passed the link check | Names are resolved and refused if any address is private, before and after redirects; photo links to bare IPs are skipped |
 
 ## Supported versions

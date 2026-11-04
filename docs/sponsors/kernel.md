@@ -4,7 +4,7 @@
 
 **Paste a link. A real browser reads the listing.**
 
-[← Back to README](../../README.md) · [PayPal](paypal.md) · [Channel3](channel3.md) · [Render](render.md) · [AI](ai.md)
+[← Back to README](../../README.md) · [PayPal](paypal.md) · [Channel3](channel3.md) · [Render](render.md)
 
 </div>
 
@@ -44,7 +44,7 @@ Opening a link a stranger wrote is risky, so the rules are strict:
 - **Nothing untrusted runs on our server.** The page and its photos are fetched inside Kernel's sandbox. Our server only receives text and image data, and accepts only JPEG, PNG, WebP and GIF photos under 1.5 MB.
 - **The link is data, not code.** The URL is passed to the browser script as a JSON string literal, so a crafted link can't inject commands. There's a test for exactly that.
 - **The page is untrusted evidence.** Its text reaches the AI wrapped as untrusted, like every other stranger's text in Handshake.
-- **Limited per visitor and overall.** Each link opens a cloud browser, so one visitor can open 8 links per 10 minutes (identified by Cloudflare's True-Client-IP or the address our proxy appended, which a client can't fake), all visitors together 120, and at most 4 run at once.
+- **Limited per visitor and overall.** Each link opens a cloud browser, so one visitor can open 8 links per 10 minutes (identified by Cloudflare's CF-Connecting-IP or the address our proxy appended, which a client can't fake), all visitors together 120, and at most 4 run at once.
 
 ## Real results from testing
 
