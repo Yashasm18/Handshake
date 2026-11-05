@@ -162,14 +162,24 @@ describe("what tracking does to the money", () => {
     const d = base();
     applyTracker(d, tracker("delivered", [scan("delivered", T0)]));
     await saveDeal(d);
-    // Another deal ships the same parcel, written with spaces and a dash.
+    // Another deal shipped the same parcel EARLIER, written with spaces and a dash.
     const spaced = d.shipment!.trackingNumber.toLowerCase().replace(/^(..)(.*)$/, "$1 $2-");
-    await saveDeal(base({ shipment: { carrier: "UPS", trackingNumber: spaced, labelCheck: null } }));
+    await saveDeal(base({ shipment: { carrier: "UPS", trackingNumber: spaced, labelCheck: null }, clock: { shippedAt: iso(T0 - 86_400_000) } }));
     expect((await runTimer(d.id, "AUTO_RELEASE", T0 + 4 * 86_400_000)).outcome).toBe("rescheduled");
     const after = (await getDeal(d.id))!;
     expect(after.status).toBe("SHIPPED");
     expect(after.shipment!.tracking!.flags).toContain("REUSED_NUMBER");
     expect(pp.captureHold).not.toHaveBeenCalled();
+  });
+
+  it("copying an honest seller's number into a LATER deal can't stall their payout", async () => {
+    const honest = base();
+    applyTracker(honest, tracker("delivered", [scan("delivered", T0)]));
+    honest.shipment!.tracking!.flags = ["REUSED_NUMBER"]; // a stale flag is recomputed, not trusted
+    await saveDeal(honest);
+    await saveDeal(base({ shipment: { carrier: "UPS", trackingNumber: honest.shipment!.trackingNumber, labelCheck: null }, clock: { shippedAt: iso(T0 + 86_400_000) } }));
+    expect((await runTimer(honest.id, "AUTO_RELEASE", T0 + 4 * 86_400_000)).outcome).toBe("done");
+    expect((await getDeal(honest.id))!.status).toBe("SETTLED");
   });
 
   it("a parcel returned to the seller releases the buyer's hold", async () => {

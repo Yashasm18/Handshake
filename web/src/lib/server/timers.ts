@@ -84,11 +84,16 @@ const ACTIONS: Record<DeadlineKind, Action> = {
 
   async AUTO_RELEASE(deal) {
     // Two deals could ship the same number at the same moment; check again right before paying out.
+    // Recomputed each time (only an earlier shipment counts), so a stale flag never sticks.
     const t = deal.shipment?.tracking;
-    if (t && reusedElsewhere(deal, await allDeals())) {
-      if (!t.flags.includes("REUSED_NUMBER")) t.flags.push("REUSED_NUMBER");
-      logOnce(deal, "This tracking number is also used on another Handshake deal, so payment won't be released without the buyer's confirmation.");
-      return { outcome: "rescheduled", detail: "Tracking number reused; waiting for the buyer" };
+    if (t) {
+      const reused = reusedElsewhere(deal, await allDeals());
+      t.flags = t.flags.filter((f) => f !== "REUSED_NUMBER");
+      if (reused) {
+        t.flags.push("REUSED_NUMBER");
+        logOnce(deal, "This tracking number was already used on an earlier Handshake deal, so payment won't be released without the buyer's confirmation.");
+        return { outcome: "rescheduled", detail: "Tracking number reused; waiting for the buyer" };
+      }
     }
     logOnce(
       deal,

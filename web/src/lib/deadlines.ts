@@ -1,7 +1,9 @@
 import type { Deal, Tracking, TrackingFlag } from "./types";
 
 // Signs of a fake shipment. Any of them stops a payout on silence: the buyer has to confirm it arrived.
-export const BLOCKING_FLAGS: TrackingFlag[] = ["UNKNOWN_NUMBER", "WRONG_ZIP", "REUSED_NUMBER", "DELIVERED_BEFORE_SHIPPED", "LOST"];
+// REUSED_NUMBER isn't here: reuse depends on other deals, so the payout itself rechecks it fresh each
+// time (see timers.ts AUTO_RELEASE). A stale flag can then never stall an honest seller.
+export const BLOCKING_FLAGS: TrackingFlag[] = ["UNKNOWN_NUMBER", "WRONG_ZIP", "DELIVERED_BEFORE_SHIPPED", "LOST"];
 export const blocksRelease = (t?: Tracking) => Boolean(t?.flags.some((f) => BLOCKING_FLAGS.includes(f)));
 
 // Every deal has a clock, so nobody can stall it: a seller who never ships, a buyer who goes quiet,
