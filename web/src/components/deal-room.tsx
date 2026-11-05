@@ -229,7 +229,7 @@ type ActProps = {
 function ActionCard(p: ActProps) {
   const { deal, role } = p;
   // Captured, payout still going through: nothing for either person to do.
-  if (deal.paypal.captureId && !deal.paypal.payoutBatchId && deal.status !== "SETTLED" && deal.status !== "RELEASED") {
+  if (deal.paypal.captureId && deal.status !== "SETTLED" && deal.status !== "RELEASED") {
     const captured = usd(deal.paypal.capturedCents ?? deal.priceCents);
     return (
       <Panel tone="safe">

@@ -189,37 +189,83 @@ export async function settle(deal: Deal, captureCents: number, note: string, now
     paypal.trackingAttached = true;
   }
 
+  if (await payOut(deal, now)) deal.status = "SETTLED";
+}
+
+// How long settle waits, right after sending a payout, for PayPal to say it completed. Usually it does
+// within a few seconds; if not, the PAYOUT timer keeps checking.
+export const PAYOUT_CHECKS_MS = [0, 1500, 3000];
+
+// Sends the seller's payout and confirms PayPal completed it. True once the seller is really paid.
+// Each outcome is recorded and saved, so a retry resumes: it never sends a second payout while the
+// first might still go through.
+async function payOut(deal: Deal, now: number): Promise<boolean> {
+  const { paypal } = deal;
+  if (paypal.payoutStatus === "paid") return true;
+  // A queued retry or check waits for its time, whoever taps a button in the meantime.
+  if (paypal.payoutRetryAt && Date.parse(paypal.payoutRetryAt) > now) return false;
+  const net = paypal.netCents!;
+
+  const queue = (why: string, e?: unknown) => {
+    const attempts = (paypal.payoutAttempts ?? 0) + 1;
+    paypal.payoutAttempts = attempts;
+    paypal.payoutRetryAt = new Date(now + payoutBackoff(attempts)).toISOString();
+    if (attempts === 1) log(deal, "handshake", `Payment captured. ${why}, so Handshake will keep retrying automatically.`);
+    console.error("payout queued", deal.id, attempts, e instanceof pp.PayPalError ? `${e.issue} ${e.debugId}` : (e ?? why));
+  };
+
   if (!paypal.payoutBatchId) {
-    // A queued payout waits for its retry time, whoever taps a button in the meantime.
-    if (paypal.payoutRetryAt && Date.parse(paypal.payoutRetryAt) > now) return;
-    const net = paypal.netCents!;
     const payee: pp.Payee = deal.seller ? { type: "PAYER_ID", payerId: deal.seller.payerId } : { type: "EMAIL", email: deal.sellerEmail };
-    let payout: Awaited<ReturnType<typeof pp.payoutSeller>>;
     try {
-      payout = await pp.payoutSeller(deal.id, payee, net, `Payment for ${deal.title}`, paypal.payoutRefusals ?? 0);
+      const batch = await pp.payoutSeller(deal.id, payee, net, `Payment for ${deal.title}`, paypal.payoutRefusals ?? 0);
+      paypal.payoutBatchId = batch.batch_header.payout_batch_id;
+      paypal.payoutCents = net;
+      paypal.payoutStatus = "pending";
+      paypal.payoutRetryAt = undefined;
+      await saveDeal(deal); // a payout request exists now: record it before anything else can fail
     } catch (e) {
       // Only PayPal's explicit "insufficient funds" proves no payout was created, so only it moves the
       // next try to a new key. Anything else (timeouts, 5xx, 409 in progress, 429, auth) keeps the key,
       // in case the payout went through after all.
       if (e instanceof pp.PayPalError && REFUSED_FOR_GOOD.has(e.issue ?? "")) paypal.payoutRefusals = (paypal.payoutRefusals ?? 0) + 1;
-      // The money is captured and recorded; only the payout is left. Queue it rather than failing the
-      // buyer's confirmation: the timer retries with backoff until PayPal accepts it.
-      const attempts = (paypal.payoutAttempts ?? 0) + 1;
-      paypal.payoutAttempts = attempts;
-      paypal.payoutRetryAt = new Date(now + payoutBackoff(attempts)).toISOString();
-      if (attempts === 1) log(deal, "handshake", `Payment captured. PayPal didn't accept the payout to ${deal.sellerName} yet, so Handshake will keep retrying it automatically.`);
-      console.error("payout queued", deal.id, attempts, e instanceof pp.PayPalError ? `${e.issue} ${e.debugId}` : e);
+      queue(`PayPal didn't accept the payout to ${deal.sellerName} yet`, e);
       await saveDeal(deal);
-      return;
+      return false;
     }
-    paypal.payoutRetryAt = undefined;
-    paypal.payoutBatchId = payout.batch_header.payout_batch_id;
-    paypal.payoutCents = net;
-    const where = deal.seller ? " into their own PayPal account" : "";
-    log(deal, "paypal", `Paid ${deal.sellerName} ${usd(net)}${where} after PayPal's ${usd(paypal.feeCents ?? 0)} fee.`, paypal.payoutBatchId);
   }
-  deal.status = "SETTLED";
+
+  // The batch exists; find out what happened to the seller's item.
+  for (const wait of PAYOUT_CHECKS_MS) {
+    if (wait) await new Promise((r) => setTimeout(r, wait));
+    let outcome: ReturnType<typeof pp.payoutOutcome>;
+    try {
+      outcome = pp.payoutOutcome(await pp.getPayoutBatch(paypal.payoutBatchId!));
+    } catch (e) {
+      queue("PayPal hasn't confirmed the payout yet", e);
+      return false;
+    }
+    if (outcome === "paid") {
+      paypal.payoutStatus = "paid";
+      paypal.payoutRetryAt = undefined;
+      const where = deal.seller ? " into their own PayPal account" : "";
+      log(deal, "paypal", `Paid ${deal.sellerName} ${usd(net)}${where} after PayPal's ${usd(paypal.feeCents ?? 0)} fee.`, paypal.payoutBatchId);
+      return true;
+    }
+    if (outcome === "failed") {
+      // A denied or failed item moved no money: send it again under a fresh key and batch id.
+      log(deal, "handshake", `PayPal didn't complete the payout to ${deal.sellerName}. Handshake will send it again automatically.`, paypal.payoutBatchId);
+      paypal.payoutRefusals = (paypal.payoutRefusals ?? 0) + 1;
+      paypal.payoutBatchId = undefined;
+      paypal.payoutStatus = undefined;
+      queue("PayPal didn't complete the payout");
+      await saveDeal(deal);
+      return false;
+    }
+  }
+  queue("PayPal is still processing the payout");
+  return false;
 }
+
 
 export const confirmDelivery = (id: string) =>
   withDeal(id, async (deal) => {

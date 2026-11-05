@@ -30,6 +30,7 @@ Handshake makes **nine** PayPal REST calls: two to sign sellers in with PayPal (
 | Charge what's fair | `POST /v2/payments/authorizations/{id}/capture` with `final_capture: true` | Captures the agreed price, or less after a damage refund. PayPal releases the rest of the hold automatically. |
 | Prove it shipped | `POST /v2/checkout/orders/{id}/track` | Attaches carrier and tracking to the capture, which Seller Protection looks for. |
 | Pay the seller | `POST /v1/payments/payouts` | Sends the seller their share after PayPal's fee, into **their own PayPal account** (`recipient_type: PAYPAL_ID`, the payer id). Guest demo sellers are paid into the sandbox seller account by email. |
+| Confirm the seller was paid | `GET /v1/payments/payouts/{batch_id}` | A payout request can still be denied after PayPal accepts it. The deal settles, and the seller hears "you've been paid", only once the payout item completes. |
 | Release everything | `POST /v2/payments/authorizations/{id}/void` | Cancels the hold when a deal is cancelled, the agents can't agree, or the seller misses the shipping deadline. |
 
 On the client, the **PayPal JS SDK** (`intent=authorize`) renders PayPal's own checkout buttons ([`paypal-button.tsx`](../../web/src/components/paypal-button.tsx)). For judges without a sandbox login, a test-card path funds the same `AUTHORIZE` order with PayPal's published sandbox card.

@@ -45,7 +45,7 @@ export function deadlinesFor(deal: Deal, scale = 1): Deadline[] {
     out.push({ kind, at: t(c.heldAt, kind), who: kind === "MEET_BY" ? "both" : "seller", consequence: "the hold is released and the buyer pays nothing" });
   }
   // Captured but not yet paid out: the only thing left is to retry the payout. Nothing else may run.
-  if (deal.paypal.captureId && !deal.paypal.payoutBatchId && deal.status !== "SETTLED" && deal.status !== "RELEASED") {
+  if (deal.paypal.captureId && deal.status !== "SETTLED" && deal.status !== "RELEASED") {
     const at = deal.paypal.payoutRetryAt ? Date.parse(deal.paypal.payoutRetryAt) : Date.parse(deal.updatedAt);
     out.push({ kind: "PAYOUT", at: Number.isFinite(at) ? at : 0, who: "handshake", consequence: "Handshake retries paying the seller" });
     return out;

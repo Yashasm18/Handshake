@@ -18,6 +18,7 @@ const pp = vi.hoisted(() => ({
   })),
   addTracking: vi.fn(async () => ({})),
   payoutSeller: vi.fn(async () => ({ batch_header: { payout_batch_id: "BATCH-1", batch_status: "PENDING" } })),
+  getPayoutBatch: vi.fn(async (id: string) => ({ batch_header: { payout_batch_id: id, batch_status: "SUCCESS" }, items: [{ payout_item_id: "ITEM", transaction_status: "SUCCESS" }] })),
 }));
 vi.mock("@/lib/server/paypal", async (orig) => ({ ...(await orig<typeof import("@/lib/server/paypal")>()), ...pp }));
 
@@ -178,6 +179,50 @@ describe("timer actions", () => {
     expect((pp.payoutSeller.mock.calls.at(-1) as unknown[])[4]).toBe(1); // same key after the 500: it may have gone through
     expect((await getDeal(d.id))!.status).toBe("SETTLED");
     expect(pp.captureHold).toHaveBeenCalledTimes(1);
+  });
+
+  it("a payout PayPal accepted but hasn't completed isn't called paid until it completes", async () => {
+    flows.PAYOUT_CHECKS_MS.splice(0, Infinity, 0, 0, 0);
+    const pending = { batch_header: { payout_batch_id: "BATCH-1", batch_status: "PENDING" }, items: [{ payout_item_id: "I", transaction_status: "PENDING" }] };
+    pp.getPayoutBatch.mockResolvedValueOnce(pending).mockResolvedValueOnce(pending).mockResolvedValueOnce(pending);
+    const d = await saveDeal(deal({ status: "SHIPPED", shipment: VERIFIED, clock: { authorizedAt: iso(T0), reauthorizedAt: iso(T0), shippedAt: iso(T0) } }));
+    await runTimer(d.id, "AUTO_RELEASE", T0 + 8 * DAY);
+    const mid = (await getDeal(d.id))!;
+    expect(mid.status).toBe("SHIPPED");
+    expect(mid.paypal).toMatchObject({ payoutBatchId: "BATCH-1", payoutStatus: "pending" });
+    expect(mid.events.some((e) => e.text.startsWith("Paid"))).toBe(false);
+    expect(deadlinesFor(mid).map((x) => x.kind)).toEqual(["PAYOUT"]);
+    // Later, PayPal says it completed: settled, without sending a second payout.
+    expect((await runTimer(d.id, "PAYOUT", Date.now() + 2 * 60_000)).outcome).toBe("done");
+    const after = (await getDeal(d.id))!;
+    expect(after.status).toBe("SETTLED");
+    expect(after.events.filter((e) => e.text.startsWith("Paid"))).toHaveLength(1);
+    expect(pp.payoutSeller).toHaveBeenCalledTimes(1);
+  });
+
+  it("a payout PayPal denies after accepting it is sent again under a new key, and paid once", async () => {
+    flows.PAYOUT_CHECKS_MS.splice(0, Infinity, 0, 0, 0);
+    pp.getPayoutBatch.mockResolvedValueOnce({ batch_header: { payout_batch_id: "BATCH-1", batch_status: "DENIED" }, items: [{ payout_item_id: "I", transaction_status: "DENIED" }] });
+    const d = await saveDeal(deal({ status: "SHIPPED", shipment: VERIFIED, clock: { authorizedAt: iso(T0), reauthorizedAt: iso(T0), shippedAt: iso(T0) } }));
+    await runTimer(d.id, "AUTO_RELEASE", T0 + 8 * DAY);
+    const mid = (await getDeal(d.id))!;
+    expect(mid.status).toBe("SHIPPED");
+    expect(mid.paypal.payoutBatchId).toBeUndefined();
+    expect(mid.paypal.payoutRefusals).toBe(1);
+    expect(mid.events.some((e) => e.text.includes("send it again"))).toBe(true);
+    await runTimer(d.id, "PAYOUT", Date.now() + 2 * 60_000);
+    expect((pp.payoutSeller.mock.calls.at(-1) as unknown[])[4]).toBe(1);
+    expect((await getDeal(d.id))!.status).toBe("SETTLED");
+    expect(pp.payoutSeller).toHaveBeenCalledTimes(2);
+    expect(pp.captureHold).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads PayPal's payout item states the way a seller would", async () => {
+    const { payoutOutcome } = await import("@/lib/server/paypal");
+    const b = (s: string) => ({ batch_header: { payout_batch_id: "B", batch_status: "SUCCESS" }, items: [{ payout_item_id: "I", transaction_status: s }] });
+    expect(["SUCCESS", "UNCLAIMED"].map((s) => payoutOutcome(b(s)))).toEqual(["paid", "paid"]);
+    expect(["DENIED", "FAILED", "RETURNED", "BLOCKED", "REFUNDED", "REVERSED"].map((s) => payoutOutcome(b(s)))).toEqual(Array(6).fill("failed"));
+    expect(["PENDING", "ONHOLD", "NEW"].map((s) => payoutOutcome(b(s)))).toEqual(["pending", "pending", "pending"]);
   });
 
   it("after a capture, no claim or cancel can change the outcome", async () => {

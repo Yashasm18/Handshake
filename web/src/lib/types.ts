@@ -157,6 +157,8 @@ export type Deal = {
     payoutAttempts?: number;
     // How many payouts PayPal definitely refused; each refusal moves to a fresh idempotency key.
     payoutRefusals?: number;
+    // A payout batch is only a request: the seller is paid once PayPal says its item completed.
+    payoutStatus?: "pending" | "paid";
     trackingAttached?: boolean;
     // Server-only: binds "confirm payment" to the browser that opened the PayPal checkout.
     payNonce?: string;

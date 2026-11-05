@@ -158,6 +158,21 @@ export async function payoutSeller(dealId: string, payee: Payee, cents: number, 
   );
 }
 
+export type PayoutBatch = {
+  batch_header: { payout_batch_id: string; batch_status: string };
+  items?: { payout_item_id: string; transaction_status: string; errors?: { name?: string; message?: string } }[];
+};
+export const getPayoutBatch = (batchId: string) => call<PayoutBatch>("GET", `/v1/payments/payouts/${encodeURIComponent(batchId)}`);
+
+// What a payout item's status means for the seller. UNCLAIMED: the money left us and waits for the
+// recipient to claim it, so it counts as paid. A denied, failed or returned item moved no money.
+export function payoutOutcome(batch: PayoutBatch): "paid" | "failed" | "pending" {
+  const s = (batch.items?.[0]?.transaction_status ?? batch.batch_header.batch_status).toUpperCase();
+  if (s === "SUCCESS" || s === "UNCLAIMED") return "paid";
+  if (["DENIED", "FAILED", "RETURNED", "BLOCKED", "REFUNDED", "REVERSED", "CANCELED"].includes(s)) return "failed";
+  return "pending";
+}
+
 export function holdFrom(order: Order) {
   const unit = order.purchase_units[0];
   const auth = unit?.payments?.authorizations?.[0];

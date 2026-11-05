@@ -26,6 +26,7 @@ const pp = vi.hoisted(() => ({
   })),
   addTracking: vi.fn(async () => ({})),
   payoutSeller: vi.fn(async () => ({ batch_header: { payout_batch_id: "BATCH-T", batch_status: "PENDING" } })),
+  getPayoutBatch: vi.fn(async (id: string) => ({ batch_header: { payout_batch_id: id, batch_status: "SUCCESS" }, items: [{ payout_item_id: "ITEM", transaction_status: "SUCCESS" }] })),
   authorizeOrder: vi.fn(async (id: string) => ({
     id,
     status: "COMPLETED",
