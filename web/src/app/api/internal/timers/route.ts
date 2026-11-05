@@ -4,6 +4,7 @@ import { DEADLINE_KINDS } from "@/lib/deadlines";
 import { HttpError } from "@/lib/server/deals";
 import { handle } from "@/lib/server/http";
 import { dueTimers, runTimer } from "@/lib/server/timers";
+import { checkAll, recordTimerSweep } from "@/lib/server/status";
 
 // Called only by the Render Workflow that enforces deadlines (see /workflows). A shared secret from
 // the Blueprint's env group proves the caller; without TIMERS_SECRET set, these routes don't exist.
@@ -18,6 +19,10 @@ function authorize(req: Request) {
 export async function GET(req: Request) {
   return handle(async () => {
     authorize(req);
+    // Every sweep (every 5 minutes) also refreshes the health checks, so alerts go out even when nobody
+    // has /status open. In the background: the sweep itself never waits on it.
+    recordTimerSweep();
+    checkAll({ alert: true }).catch((e) => console.error("status", e));
     return { now: Date.now(), due: await dueTimers() };
   });
 }

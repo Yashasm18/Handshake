@@ -45,6 +45,8 @@ services:
         sync: false
       - key: EASYPOST_WEBHOOK_SECRET
         sync: false
+      - key: ALERT_EMAIL
+        sync: false
       - key: CHANNEL3_API_KEY
         sync: false
       - key: KERNEL_API_KEY

@@ -2,6 +2,7 @@ import "server-only";
 import { ZodError } from "zod";
 import { HttpError } from "./deals";
 import { PayPalError } from "./paypal";
+import { recordServerError } from "./status";
 
 export async function handle(fn: () => Promise<unknown>) {
   try {
@@ -14,6 +15,7 @@ export async function handle(fn: () => Promise<unknown>) {
       return Response.json({ error: `PayPal said: ${e.message}`, issue: e.issue, debugId: e.debugId }, { status: 502 });
     }
     console.error(e);
+    recordServerError("an API request");
     return Response.json({ error: "Something went wrong on our side. Try again." }, { status: 500 });
   }
 }

@@ -154,6 +154,7 @@ export function Footer() {
             <a key={l.href} href={l.href} className="transition-colors hover:text-ink">{l.label}</a>
           ))}
           <a href="/deals" className="transition-colors hover:text-ink">My deals</a>
+          <a href="/status" className="transition-colors hover:text-ink">Status</a>
           <a href="/terms" className="transition-colors hover:text-ink">Terms</a>
           <a href="/privacy" className="transition-colors hover:text-ink">Privacy</a>
         </nav>
