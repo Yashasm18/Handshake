@@ -77,7 +77,7 @@ const actions: Record<string, (deal: Deal, body: unknown, req: Request) => Promi
     const { role, email } = z.object({ role: Role, email: z.string().max(254) }).parse(b);
     await requireParty(d, role);
     if (!emailLimiter.take(visitorOf(req))) throw new HttpError(429, "Too many email changes. Try again in a while.");
-    return setContactEmail(d.id, role, email);
+    return setContactEmail(d.id, role, email, visitorOf(req));
   },
   "email-mute": async (d, b) => {
     const { role, muted } = z.object({ role: Role, muted: z.boolean() }).parse(b);

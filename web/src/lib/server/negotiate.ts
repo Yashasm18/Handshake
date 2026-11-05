@@ -191,6 +191,9 @@ async function closeNoDeal(deal: Deal) {
   deal.paypal = {};
   deal.shipTo = undefined;
   deal.buyerToken = undefined;
+  // The buyer is no longer part of this deal: their PayPal account loses access straight away.
+  // Their email stays until the next buyer pays, so they still hear "no deal, hold released".
+  deal.buyer = undefined;
   deal.status = "AWAITING_PAYMENT";
   log(deal, "handshake", "No deal: the two sides' limits didn't overlap. The buyer's hold was released in full.");
 }

@@ -54,6 +54,14 @@ async function newDeal(over: Partial<Deal> = {}) {
 }
 
 const to = (addr: string) => outbox.filter((m) => m.to === addr);
+
+// A buyer only exists once they pay, so their address is attached after the hold (as in the app).
+async function fundWithBuyer(id: string) {
+  await flows.fundWithTestCard(id, async () => {});
+  const deal = (await getDeal(id))!;
+  deal.contacts = { ...deal.contacts, buyer: { ...BUYER } };
+  await saveDeal(deal);
+}
 beforeEach(() => {
   outbox.length = 0;
 });
@@ -77,10 +85,13 @@ describe("addresses", () => {
 describe("who hears what", () => {
   it("each step emails the person who has to act next", async () => {
     const id = await newDeal();
-    await flows.fundWithTestCard(id, async () => {});
+    await flows.fundWithTestCard(id, async () => {}, undefined);
     await flush();
     expect(to(SELLER.email).at(-1)!.subject).toContain("is held for Sony WH-1000XM5. Ship it.");
-    expect(to(BUYER.email).at(-1)!.subject).toContain("Your $180 is held");
+    // The buyer who just paid hears too, once their address is known (here, from signing in).
+    const deal = (await getDeal(id))!;
+    deal.contacts = { ...deal.contacts, buyer: { ...BUYER } };
+    await saveDeal(deal);
 
     outbox.length = 0;
     await flows.ship(id, { carrier: "UPS", trackingNumber: "1Z999" });
@@ -119,7 +130,7 @@ describe("who hears what", () => {
 
   it("a cancelled deal tells both sides nobody was charged", async () => {
     const id = await newDeal();
-    await flows.fundWithTestCard(id, async () => {});
+    await fundWithBuyer(id);
     await flush();
     outbox.length = 0;
     await flows.cancel(id, "seller");
@@ -209,6 +220,9 @@ describe("nothing goes where it shouldn't", () => {
 describe("typing in an address", () => {
   it("sends one confirmation and nothing else until it's confirmed", async () => {
     const id = await newDeal({ contacts: {} });
+    await flows.fundWithTestCard(id, async () => {});
+    await flush();
+    outbox.length = 0;
     expect(await contacts.setContactEmail(id, "buyer", "  New@Gmail.com ")).toEqual({ pending: true });
     const c = (await getDeal(id))!.contacts!.buyer!;
     expect(c).toMatchObject({ email: "new@gmail.com", confirmed: false, source: "typed" });
@@ -217,14 +231,14 @@ describe("typing in an address", () => {
     expect(outbox[0].html).toContain(`/email?d=${id}&amp;r=buyer&amp;t=${c.token}&amp;a=confirm`);
 
     outbox.length = 0;
-    await flows.fundWithTestCard(id, async () => {});
+    await flows.ship(id, { carrier: "UPS", trackingNumber: "1Z1" });
     await flush();
     expect(outbox).toHaveLength(0);
 
     await contacts.applyEmailLink(id, "buyer", c.token, "confirm");
-    await flows.ship(id, { carrier: "UPS", trackingNumber: "1Z1" });
+    await flows.confirmDelivery(id);
     await flush();
-    expect(to("new@gmail.com")[0].subject).toContain("on its way");
+    expect(to("new@gmail.com")[0].subject).toContain("Deal complete");
   });
 
   it("refuses sandbox and malformed addresses", async () => {
@@ -245,10 +259,26 @@ describe("typing in an address", () => {
     }
   });
 
-  it("making more deals can't flood one inbox: 3 confirmations per address per day across all deals", async () => {
-    for (let i = 0; i < 3; i++) await contacts.setContactEmail(await newDeal({ contacts: {} }), "buyer", "target@gmail.com");
-    await expect(contacts.setContactEmail(await newDeal({ contacts: {} }), "buyer", "TARGET@gmail.com")).rejects.toThrow(/enough confirmation emails/);
-    expect(to("target@gmail.com")).toHaveLength(3);
+  it("making more deals can't flood one inbox, and +tags or Gmail dots don't count as a new inbox", async () => {
+    const fresh = async () => newDeal({ contacts: {} });
+    await contacts.setContactEmail(await fresh(), "buyer", "target@gmail.com", "attacker");
+    await contacts.setContactEmail(await fresh(), "buyer", "t.a.r.g.e.t+1@googlemail.com", "attacker");
+    await expect(contacts.setContactEmail(await fresh(), "buyer", "TARGET+spam@gmail.com", "attacker")).rejects.toThrow(/enough confirmation emails/);
+    expect(contacts.mailbox("T.a.r.g.e.t+x@GoogleMail.com")).toBe("target@gmail.com");
+    expect(contacts.mailbox("first.last+x@outlook.com")).toBe("first.last@outlook.com");
+  });
+
+  it("one person using up their allowance can't lock the owner out of confirming", async () => {
+    const fresh = async () => newDeal({ contacts: {} });
+    for (let i = 0; i < 2; i++) await contacts.setContactEmail(await fresh(), "buyer", "owner@gmail.com", "attacker");
+    await expect(contacts.setContactEmail(await fresh(), "buyer", "owner@gmail.com", "attacker")).rejects.toThrow(/enough/);
+    await expect(contacts.setContactEmail(await fresh(), "buyer", "owner@gmail.com", "the-owner")).resolves.toEqual({ pending: true });
+  });
+
+  it("an inbox gets at most 10 confirmations a day, however many people ask", async () => {
+    const fresh = async () => newDeal({ contacts: {} });
+    for (let i = 0; i < 10; i++) await contacts.setContactEmail(await fresh(), "buyer", "popular@gmail.com", `person-${i}`);
+    await expect(contacts.setContactEmail(await fresh(), "buyer", "popular@gmail.com", "person-11")).rejects.toThrow(/enough/);
   });
 
   it("can't be used to spam an inbox: 3 confirmations per side per day", async () => {
@@ -281,6 +311,21 @@ describe("typing in an address", () => {
 });
 
 const route = await import("@/app/api/email/unsubscribe/route");
+
+describe("a buyer whose offer fell through", () => {
+  it("loses access and stops getting emails once someone else pays", async () => {
+    const id = await newDeal({ buyer: { payerId: "OLDBUYER", name: "Old", verified: true } });
+    await flows.fundWithTestCard(id, async () => {});
+    const deal = (await getDeal(id))!;
+    expect(deal.buyer).toBeUndefined();
+    expect(deal.contacts?.buyer).toBeUndefined();
+  });
+
+  it("an email link for a deal that doesn't exist is refused without touching anything", async () => {
+    await expect(contacts.applyEmailLink("no-such-deal-xxxxxxxx", "seller", "whatever-token-xx", "mute")).rejects.toThrow(/no longer valid/);
+    await expect(contacts.applyEmailLink("x".repeat(500), "seller", "t".repeat(500), "mute")).rejects.toThrow(/no longer valid/);
+  });
+});
 
 describe("unsubscribe endpoint", () => {
   it("opening the link changes nothing (mail scanners open links); the one-click POST mutes", async () => {

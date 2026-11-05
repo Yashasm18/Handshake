@@ -72,6 +72,9 @@ function recordHold(deal: Deal, order: Awaited<ReturnType<typeof pp.authorizeOrd
   deal.paypal.orderId = order.id;
   deal.paypal.authorizationId = hold.authorizationId;
   deal.paypal.buyerEmail = hold.buyerEmail;
+  // A new hold means a new buyer: nothing of a previous buyer (a released offer) carries over.
+  deal.buyer = undefined;
+  if (deal.contacts?.buyer) deal.contacts = { ...deal.contacts, buyer: undefined };
   // Paid by logging in to PayPal: link the deal to that account, so signing in with it later finds the deal.
   if (hold.buyer) deal.buyer = { ...hold.buyer, verified: false };
   // PayPal checkout's email is the buyer's PayPal-verified address; updates go there unless they choose another.

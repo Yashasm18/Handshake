@@ -66,7 +66,12 @@ export async function withDeal<T>(id: string, fn: (deal: Deal) => Promise<T>): P
     if (deal.status !== before) announce(deal, before);
     return out;
   });
-  locks.set(id, next.catch(() => {}));
+  const tail = next.catch(() => {});
+  locks.set(id, tail);
+  // Drop the entry once nothing is queued behind it, so unknown or old ids don't pile up.
+  tail.then(() => {
+    if (locks.get(id) === tail) locks.delete(id);
+  });
   return next;
 }
 
