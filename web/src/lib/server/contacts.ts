@@ -58,7 +58,13 @@ export const setContactEmail = (id: string, role: Role, raw: string, requester =
       ...deal.contacts,
       [role]: { email, confirmed: false, token: newContactToken(), source: "typed", confirmSends: [...recent, new Date(now).toISOString()] },
     };
-    await sendConfirmation(deal, role);
+    try {
+      await sendConfirmation(deal, role);
+    } catch (e) {
+      // Nothing is saved: the address only counts once its confirmation email has gone out.
+      console.error("confirmation email", deal.id, role, (e as Error).message);
+      throw new HttpError(502, "We couldn't send the confirmation email to that address. Check it, or try again in a few minutes.");
+    }
     return { pending: true };
   });
 
