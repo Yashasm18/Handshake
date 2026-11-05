@@ -4,11 +4,11 @@ import { z } from "zod";
 // The AI chain: paid models first, then free vision models when OpenRouter refuses the paid ones
 // (an account out of credit gets 402). Free models are "thinking" models, so reasoning is turned off
 // for them, or they can spend the whole token budget thinking and return no answer.
-const calls: { model: string; reasoning?: unknown; timeout: boolean }[] = [];
+const calls: { model: string; reasoning?: unknown; provider?: unknown; timeout: boolean }[] = [];
 let reply: (model: string) => Response;
 vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
   const body = JSON.parse(String(init.body));
-  calls.push({ model: body.model, reasoning: body.reasoning, timeout: Boolean(init.signal) });
+  calls.push({ model: body.model, reasoning: body.reasoning, provider: body.provider, timeout: Boolean(init.signal) });
   return reply(body.model);
 }));
 vi.spyOn(console, "error").mockImplementation(() => {});
@@ -28,20 +28,27 @@ describe("the AI model chain", () => {
   it("uses the paid model when it answers, with its usual settings", async () => {
     reply = () => answer('{"risk":"HIGH"}');
     expect(await ask()).toEqual({ risk: "HIGH" });
-    expect(calls).toEqual([{ model: DEFAULT_MODELS[0], reasoning: undefined, timeout: true }]);
+    expect(calls).toEqual([{ model: DEFAULT_MODELS[0], reasoning: undefined, provider: { data_collection: "deny" }, timeout: true }]);
   });
 
   it("an account out of credit falls through to a free model, with reasoning off", async () => {
     reply = (m) => (m.endsWith(":free") ? answer('{"risk":"LOW"}') : outOfCredit());
     expect(await ask()).toEqual({ risk: "LOW" });
-    expect(calls.map((c) => c.model)).toEqual(DEFAULT_MODELS.slice(0, 3));
+    expect(calls.map((c) => c.model)).toEqual(DEFAULT_MODELS);
     expect(calls[2].reasoning).toEqual({ enabled: false });
   });
 
   it("an empty answer (a model that only thought) moves on to the next model", async () => {
-    reply = (m) => (m === DEFAULT_MODELS[2] ? answer("") : m.endsWith(":free") ? answer('{"risk":"HIGH"}') : outOfCredit());
+    reply = (m) => (m === DEFAULT_MODELS[0] ? answer("") : answer('{"risk":"HIGH"}'));
     expect(await ask()).toEqual({ risk: "HIGH" });
-    expect(calls.at(-1)?.model).toBe(DEFAULT_MODELS[3]);
+    expect(calls.map((c) => c.model)).toEqual(DEFAULT_MODELS.slice(0, 2));
+  });
+
+  it("people's data only goes to providers that don't keep or train on it: a model without one fails safely", async () => {
+    const noSuchProvider = () => Response.json({ error: { message: "No endpoints found matching your data policy" } }, { status: 404 });
+    reply = (m) => (m.endsWith(":free") ? noSuchProvider() : outOfCredit());
+    await expect(ask()).rejects.toThrow("data policy");
+    expect(calls.every((c) => JSON.stringify(c.provider) === '{"data_collection":"deny"}')).toBe(true);
   });
 
   it("anything outside the schema is never returned", async () => {

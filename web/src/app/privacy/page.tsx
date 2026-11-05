@@ -21,7 +21,7 @@ export default function PrivacyPage() {
       <Clause title="Services we use">
         <ul>
           <li><b>PayPal</b> for sign-in, holds, captures and payouts.</li>
-          <li><b>OpenRouter</b> (AI models) to read listings, chats, labels and delivery photos.</li>
+          <li><b>OpenRouter</b> (AI models) to read listings, chats, labels and delivery photos, only through providers that don&apos;t store or train on what they&apos;re sent.</li>
           <li><b>Channel3</b> for store prices of the item.</li>
           <li><b>Kernel</b> to open a listing link in a cloud browser.</li>
           <li><b>Elastic</b> for scam memory: the wording, contact details and photo fingerprints of high-risk listings, so the next buyer can be warned.</li>

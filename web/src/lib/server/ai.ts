@@ -2,14 +2,15 @@ import "server-only";
 import type { z } from "zod";
 import { toJSONSchema } from "zod";
 
-// Primary model first; the next one takes over if it errors, stalls or is refused. The last two are
-// free vision models: if the OpenRouter account runs out of credit, paid models are refused with 402
-// in about a second and the scam check carries on with these (slower, and rate limited by OpenRouter).
+// Primary model first; the next one takes over if it errors, stalls or is refused. The last is a free
+// vision model: if the OpenRouter account runs out of credit, paid models are refused with 402 in about
+// a second and the check carries on with it (slower, and rate limited by OpenRouter). Every request
+// requires providers that neither keep nor train on what they're sent (see below), so a free model is
+// only used where it runs under that rule; otherwise OpenRouter refuses it and the check fails safely.
 // AI_MODELS (comma-separated) replaces the list without a code change.
 export const DEFAULT_MODELS = [
   "anthropic/claude-haiku-5.5",
   "openai/gpt-6-luna",
-  "nvidia/nemotron-3.5-super-vl:free",
   "dots-studio/dots-3-note-preview:free",
 ];
 export const models = () => {
@@ -42,6 +43,9 @@ export async function structured<T extends z.ZodType>(opts: {
         body: JSON.stringify({
           model,
           max_tokens: opts.maxTokens ?? 900,
+          // People's chat screenshots, shipping labels and home addresses go to the model: only providers
+          // that don't store or train on requests may serve them, whichever model is in use.
+          provider: { data_collection: "deny" },
           // The free backups are "thinking" models that can spend the whole token budget reasoning and
           // return no answer. The checks need a direct, schema-shaped answer, so reasoning is off for them.
           ...(model.endsWith(":free") ? { reasoning: { enabled: false } } : {}),
