@@ -94,6 +94,17 @@ export const PROBES: Probe[] = [
     },
   },
   {
+    id: "groq",
+    name: "Free AI backup (Groq)",
+    role: "Takes over the AI checks if OpenRouter is out of credit",
+    ttlMs: 15 * MIN,
+    enabled: () => Boolean(process.env.GROQ_API_KEY),
+    run: async () => {
+      const res = await fetch("https://api.groq.com/openai/v1/models", { headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}` }, signal: AbortSignal.timeout(TIMEOUT_MS), cache: "no-store" });
+      await ok(res, "Groq");
+    },
+  },
+  {
     id: "channel3",
     name: "Channel3",
     role: "Real store prices for price checks and repairs",

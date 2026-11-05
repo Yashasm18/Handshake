@@ -8,6 +8,7 @@ const KEYS = {
   PAYPAL_PAYOUT_CLIENT_ID: "pp-pay-id",
   PAYPAL_PAYOUT_CLIENT_SECRET: "pp-pay-SECRET",
   OPENROUTER_API_KEY: "or-SECRET",
+  GROQ_API_KEY: "gsk-SECRET",
   CHANNEL3_API_KEY: "c3-SECRET",
   KERNEL_API_KEY: "k-SECRET",
   ELASTIC_URL: "https://secret-cluster.es.example.io",
@@ -59,7 +60,7 @@ describe("the checks", () => {
   it("all services answering means everything is working", async () => {
     status.recordTimerSweep(T - 60_000);
     const cs = await status.checkAll({ now: T });
-    expect(cs.map((c) => c.id)).toEqual(["database", "paypal", "payouts", "ai", "channel3", "kernel", "elastic", "easypost", "email", "timers"]);
+    expect(cs.map((c) => c.id)).toEqual(["database", "paypal", "payouts", "ai", "groq", "channel3", "kernel", "elastic", "easypost", "email", "timers"]);
     // Without DATABASE_URL (this test), the database row says "not set up"; everything else answers.
     expect(cs.filter((c) => c.id !== "database").every((c) => c.status === "up")).toBe(true);
     expect(status.overall(cs)).toBe("up");
