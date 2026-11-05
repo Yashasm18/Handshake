@@ -27,6 +27,7 @@ export default function PrivacyPage() {
           <li><b>Elastic</b> for scam memory: the wording, contact details and photo fingerprints of high-risk listings, so the next buyer can be warned.</li>
           <li><b>Render</b> to host the site and store deals.</li>
           <li><b>Gmail</b> or <b>Resend</b> to send deal emails.</li>
+          <li><b>EasyPost</b> to follow a shipped parcel with its carrier. It gets the tracking number and carrier only.</li>
         </ul>
         <p>We don&apos;t sell personal data or use it for advertising.</p>
       </Clause>

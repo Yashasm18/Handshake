@@ -15,6 +15,7 @@ import { DealClock, DeadlineNotice } from "./deadline";
 import { Headline, Panel } from "./deal-ui";
 import { PayPalMark, PayPalSignIn, VerifiedTick } from "./account";
 import { EmailUpdates } from "./email-updates";
+import { ParcelCard, suspiciousDelivery, TestParcelPicker } from "./parcel";
 import { negotiatedFrom, NegotiationLive, NegotiationRecap, NoDealNotice, OfferForm } from "./negotiation";
 
 type Role = "buyer" | "seller";
@@ -252,8 +253,12 @@ function ActionCard(p: ActProps) {
     case "SHIPPED":
       return role === "buyer" ? <BuyerInspect {...p} /> : (
         <Panel>
-          <Headline eyebrow="On its way" title={`Shipped. ${usd(deal.priceCents)} is still held for you.`} body={`Once ${deal.paypal.buyerEmail ? "the buyer" : "your buyer"} confirms it arrived as described, the money is captured and paid straight to your PayPal.`} />
-          <TrackingChip deal={deal} />
+          <Headline
+            eyebrow="On its way"
+            title={deal.shipment?.tracking?.status === "delivered" ? `Delivered. ${usd(deal.priceCents)} is still held for you.` : `Shipped. ${usd(deal.priceCents)} is still held for you.`}
+            body={deal.shipment?.tracking?.status === "delivered" ? "Your buyer has it. Once they confirm it's as described, or the check window ends, you're paid straight to your PayPal." : `Once ${deal.paypal.buyerEmail ? "the buyer" : "your buyer"} confirms it arrived as described, the money is captured and paid straight to your PayPal.`}
+          />
+          <ParcelCard deal={deal} role="seller" />
         </Panel>
       );
     case "CLAIM_OPEN":
@@ -565,6 +570,15 @@ function SellerShip({ deal, act, busy }: ActProps) {
       )}
       <div className="mt-6 space-y-4">
         <PhotoPicker value={label} onChange={setLabel} capture hint="We read the address and tracking number for you. A matching label also lets you be paid automatically if the buyer goes quiet." />
+        {deal.parcels?.test && (
+          <TestParcelPicker
+            value={tracking}
+            onPick={(code) => {
+              setCarrier("USPS");
+              setTracking(code);
+            }}
+          />
+        )}
         <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
           <select value={carrier} onChange={(e) => setCarrier(e.target.value)} className="h-14 rounded-2xl border hairline bg-card px-4 text-[16px] outline-none" aria-label="Carrier">
             {CARRIERS.map((c) => <option key={c}>{c}</option>)}
@@ -576,17 +590,6 @@ function SellerShip({ deal, act, busy }: ActProps) {
         {busy === "ship" ? (label ? "Reading the label…" : "Saving…") : "Mark as shipped"} {!busy && <Arrow />}
       </Button>
     </Panel>
-  );
-}
-
-function TrackingChip({ deal }: { deal: Deal }) {
-  if (!deal.shipment) return null;
-  return (
-    <div className="mt-6 inline-flex flex-wrap items-center gap-3 rounded-full bg-paper px-4 py-2 text-[14px]">
-      <span className="label text-muted">{deal.shipment.carrier}</span>
-      <span className="font-mono">{deal.shipment.trackingNumber}</span>
-      {deal.shipment.labelCheck?.match && <span className="text-safe">● Address verified</span>}
-    </div>
   );
 }
 
@@ -613,7 +616,17 @@ function BuyerInspect({ deal, act, busy }: ActProps) {
   }
   return (
     <Panel>
-      <Headline eyebrow="Step 3 · Check it" title="Did it arrive as described?" body={`${usd(deal.priceCents)} is still held. Check it against what ${deal.sellerName} promised:`} />
+      <Headline
+        eyebrow="Step 3 · Check it"
+        title={
+          suspiciousDelivery(deal.shipment?.tracking)
+            ? "Did you actually get it?"
+            : !deal.shipment?.tracking || deal.shipment.tracking.status === "delivered"
+              ? "Did it arrive as described?"
+              : "It's on its way. Check it when it arrives."
+        }
+        body={`${usd(deal.priceCents)} is still held. Check it against what ${deal.sellerName} promised:`}
+      />
       {deal.checklist.length > 0 && (
         <ul className="mt-6 space-y-2">
           {deal.checklist.map((c) => (
@@ -624,12 +637,12 @@ function BuyerInspect({ deal, act, busy }: ActProps) {
           ))}
         </ul>
       )}
-      <TrackingChip deal={deal} />
+      <ParcelCard deal={deal} role="buyer" />
       <div className="mt-8 flex flex-wrap gap-3">
-        <Button size="lg" disabled={!!busy} onClick={() => act("deliver")}>
-          {busy === "deliver" ? "Releasing payment…" : "Yes, release payment"}
+        <Button size="lg" variant={suspiciousDelivery(deal.shipment?.tracking) ? "ghost" : "primary"} disabled={!!busy} onClick={() => act("deliver")}>
+          {busy === "deliver" ? "Releasing payment…" : deal.shipment?.tracking && deal.shipment.tracking.status !== "delivered" ? "I have it. Release payment" : "Yes, release payment"}
         </Button>
-        <Button size="lg" variant="ghost" onClick={() => setReporting(true)}>Report a problem</Button>
+        <Button size="lg" variant={suspiciousDelivery(deal.shipment?.tracking) ? "primary" : "ghost"} onClick={() => setReporting(true)}>Report a problem</Button>
       </div>
     </Panel>
   );

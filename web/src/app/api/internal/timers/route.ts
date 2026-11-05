@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { RULES } from "@/lib/deadlines";
+import { DEADLINE_KINDS } from "@/lib/deadlines";
 import { HttpError } from "@/lib/server/deals";
 import { handle } from "@/lib/server/http";
 import { dueTimers, runTimer } from "@/lib/server/timers";
@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   });
 }
 
-const Run = z.object({ dealId: z.string().min(10).max(40), kind: z.enum(Object.keys(RULES) as [keyof typeof RULES, ...(keyof typeof RULES)[]]) });
+const Run = z.object({ dealId: z.string().min(10).max(40), kind: z.enum(DEADLINE_KINDS as [string, ...string[]]).transform((k) => k as (typeof DEADLINE_KINDS)[number]) });
 
 export async function POST(req: Request) {
   return handle(async () => {

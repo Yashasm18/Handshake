@@ -166,7 +166,7 @@ export type Deal = {
     buyerEmail?: string;
   };
   shipTo?: { name?: string; line: string; address?: { address_line_1?: string; postal_code?: string } };
-  shipment?: { carrier: string; trackingNumber: string; labelCheck: { match: boolean; read: string; reason: string } | null };
+  shipment?: { carrier: string; trackingNumber: string; labelCheck: { match: boolean; read: string; reason: string } | null; tracking?: Tracking };
   claim?: Claim;
   events: { at: string; actor: "buyer" | "seller" | "handshake" | "paypal"; text: string; ref?: string }[];
   // Server-only: the PayPal accounts behind each side. The seller's payer id is where the payout goes;
@@ -186,6 +186,31 @@ export type Contact = { email: string; confirmed: boolean; token: string; muted?
 // What the viewer may see of their own email settings.
 export type ContactView = { email: string; confirmed: boolean; muted: boolean; deliverable: boolean; source: "paypal" | "typed" };
 
+// Where a parcel is, from the carrier (through EasyPost). It only ever changes deadlines and warnings;
+// money still moves under the deal's own rules.
+export type ParcelStatus = "unknown" | "pre_transit" | "in_transit" | "out_for_delivery" | "delivered" | "available_for_pickup" | "return_to_sender" | "failure" | "cancelled" | "error";
+export type TrackingFlag = "UNKNOWN_NUMBER" | "WRONG_ZIP" | "REUSED_NUMBER" | "DELIVERED_BEFORE_SHIPPED" | "LOST";
+export type Tracking = {
+  provider: "easypost";
+  // Server-only: EasyPost's tracker id.
+  trackerId?: string;
+  // Test mode: EasyPost's simulated parcels. Locations and times are made up, so the address and
+  // timing checks are skipped (and the page says so).
+  test: boolean;
+  status: ParcelStatus;
+  statusDetail?: string;
+  estDelivery?: string;
+  deliveredAt?: string;
+  deliveredPlace?: string;
+  // The delivery ZIP compared with the buyer's PayPal address: match, mismatch, or not known.
+  addressCheck?: "match" | "mismatch" | "unknown";
+  events: { at: string; status: ParcelStatus; message: string; place?: string }[];
+  flags: TrackingFlag[];
+  checkedAt?: string;
+  // Milestones already emailed, so a repeated webhook never emails twice.
+  notified?: string[];
+};
+
 export type PartyAccount = { payerId: string; name: string; email?: string; verified: boolean };
 
 export type Viewer = { seller: boolean; buyer: boolean };
@@ -195,6 +220,8 @@ export type DealView = Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail" |
   notify: { seller?: ContactView | null; buyer?: ContactView | null; enabled: boolean };
   // What a buyer may know about the seller's PayPal: whether they signed in with it, and whether PayPal verified them.
   sellerPayPal: { signedIn: boolean; verified: boolean };
+  // Whether parcels are followed with the carrier, and whether those are EasyPost's simulated test parcels.
+  parcels: { tracked: boolean; test: boolean };
   acceptsOffers: boolean;
   deadlines: import("./deadlines").Deadline[];
   // True when deadlines run at demo speed (TIMER_SCALE < 1), so the UI can say so.

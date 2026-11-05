@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
-import { countdown, type Deadline } from "@/lib/deadlines";
+import { BACKSTAGE, countdown, type Deadline } from "@/lib/deadlines";
 import type { DealView as Deal } from "@/lib/types";
 import { EASE } from "./motion";
 
@@ -42,7 +42,7 @@ function sentence(d: Deadline, role: Role, seller: string, left: string) {
 // Under the action card: the one deadline that matters to this person right now.
 export function DeadlineNotice({ deal, role }: { deal: Deal; role: Role }) {
   const now = useNow();
-  const d = deal.deadlines.find((x) => x.kind !== "REAUTHORIZE");
+  const d = deal.deadlines.find((x) => !BACKSTAGE.includes(x.kind));
   if (!d) return null;
   const left = d.at - now;
   const urgent = left < (deal.demoClock ? 30_000 : 12 * 3600_000);
@@ -69,13 +69,15 @@ const TITLES: Record<Deadline["kind"], string> = {
   REAUTHORIZE: "Renew PayPal hold",
   AUTO_RELEASE: "Buyer responds by",
   CLAIM_SETTLE: "Claim settles",
+  RETURNED: "Release to buyer",
+  TRACKING_CHECK: "Next carrier check",
   PAYOUT: "Paying the seller",
 };
 
 // Sidebar: every running timer on the deal, and who enforces them.
 export function DealClock({ deal }: { deal: Deal }) {
   const now = useNow();
-  if (!deal.deadlines.length) return null;
+  if (!deal.deadlines.some((d) => d.kind !== "TRACKING_CHECK")) return null;
   return (
     <div className="rounded-[28px] border hairline bg-card p-6">
       <div className="flex items-center justify-between gap-3">
@@ -83,7 +85,7 @@ export function DealClock({ deal }: { deal: Deal }) {
         {deal.demoClock && <span className="label rounded-full bg-held-soft px-2.5 py-1 text-held">Demo speed</span>}
       </div>
       <ul className="mt-4 space-y-4">
-        {deal.deadlines.map((d) => (
+        {deal.deadlines.filter((d) => d.kind !== "TRACKING_CHECK").map((d) => (
           <li key={d.kind} className="grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-1">
             <span className="font-medium">{TITLES[d.kind]}</span>
             <span className="font-mono text-[14px] tabular-nums">{countdown(d.at - now)}</span>

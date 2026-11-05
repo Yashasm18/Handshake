@@ -7,6 +7,8 @@ import { timerScale } from "./timers";
 import { HttpError, newToken } from "./deals";
 import { currentAccount, type Account } from "./session";
 import { contactView, notifyEnabled } from "./notify";
+import { testMode, trackingEnabled } from "./easypost";
+import { publicTracking } from "./tracking";
 
 type Party = "seller" | "buyer";
 
@@ -113,7 +115,11 @@ export function publicDeal(deal: Deal, viewer: Viewer): DealView {
     paypal: party ? { ...rest.paypal, payNonce: undefined } : {},
     // An in-person deal needs no address: the seller never sees where the buyer lives.
     shipTo: viewer.buyer || (viewer.seller && deal.handoff !== "meet") ? rest.shipTo : undefined,
-    shipment: party ? rest.shipment : rest.shipment && { ...rest.shipment, labelCheck: null },
+    // The tracker id stays on the server. Strangers see how far the parcel is, not the number or places.
+    shipment: rest.shipment && (party
+      ? { ...rest.shipment, tracking: rest.shipment.tracking && { ...rest.shipment.tracking, trackerId: undefined, notified: undefined } }
+      : { ...rest.shipment, trackingNumber: "", labelCheck: null, tracking: rest.shipment.tracking && publicTracking(rest.shipment.tracking) }),
+    parcels: { tracked: trackingEnabled(), test: testMode() },
     claim: party ? rest.claim : rest.claim && { ...rest.claim, photo: undefined, note: "" },
     // Log entries cite PayPal ids (authorization, capture, payout batch); like the ids above, only the parties see them.
     events: party ? rest.events : rest.events.map((e) => ({ ...e, ref: undefined })),

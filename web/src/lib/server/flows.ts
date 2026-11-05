@@ -5,9 +5,11 @@ import type { Deal } from "../types";
 import { usd } from "../types";
 import { median, partComps, searchComps } from "./channel3";
 import { labelMatches, readLabel, reviewClaim } from "./checks";
-import { HttpError, log, saveDeal, withDeal } from "./deals";
+import { allDeals, HttpError, log, saveDeal, withDeal } from "./deals";
+import { createTracker, testMode, trackingEnabled } from "./easypost";
+import { applyTracker, newTracking, reusedElsewhere } from "./tracking";
 import { runNegotiation, startNegotiation } from "./negotiate";
-import { adoptPayPalEmail } from "./notify";
+import { adoptPayPalEmail, announceTracking } from "./notify";
 import * as pp from "./paypal";
 
 const dollars = (v?: string) => Math.round(Number(v ?? 0) * 100);
@@ -151,12 +153,32 @@ export const ship = (id: string, input: { label?: string; carrier: string; track
     deal.status = "SHIPPED";
     deal.clock = { ...deal.clock, shippedAt: new Date().toISOString() };
     log(deal, "seller", `Shipped with ${deal.shipment.carrier}, tracking ${deal.shipment.trackingNumber}.`);
+    await startTracking(deal);
     return { blocked: false, labelCheck };
   });
 
 // 1, 2, 4, 8 … minutes, capped at an hour.
 export const payoutBackoff = (attempts: number) => Math.min(60, 2 ** (attempts - 1)) * 60_000;
 const REFUSED_FOR_GOOD = new Set(["INSUFFICIENT_FUNDS"]);
+
+// Asks the carrier (through EasyPost) to follow the parcel. Shipping never fails because of this: if
+// EasyPost is down, the deal still ships and the tracking timer tries again.
+async function startTracking(deal: Deal) {
+  if (!trackingEnabled() || !deal.shipment) return;
+  const tracking = newTracking(testMode());
+  if (reusedElsewhere(deal, await allDeals())) {
+    tracking.flags.push("REUSED_NUMBER");
+    log(deal, "handshake", "This tracking number is already used on another Handshake deal, so payment won't be released without the buyer's confirmation.");
+  }
+  deal.shipment.tracking = tracking;
+  try {
+    const tracker = await createTracker(deal.shipment.trackingNumber, deal.shipment.carrier);
+    announceTracking(deal, applyTracker(deal, tracker));
+    log(deal, "handshake", `Following the parcel with the carrier${deal.shipment.tracking.test ? " (EasyPost test parcel)" : ""}.`);
+  } catch (e) {
+    console.error("tracker", deal.id, (e as Error).message);
+  }
+}
 
 // Capture, attach tracking, pay the seller. Resumable: each finished step is recorded and saved, so a
 // retry after a failure (say, the payout) picks up where it stopped instead of capturing twice.

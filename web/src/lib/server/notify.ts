@@ -170,6 +170,48 @@ export async function notifyChange(deal: Deal, prev: DealStatus | "NEW") {
   );
 }
 
+// Parcel milestones from the carrier. They don't change the deal's status, so they're announced here.
+export function trackingMessages(deal: Deal, milestone: "out_for_delivery" | "delivered" | "failure"): Partial<Record<Role, Message>> {
+  const t = deal.shipment?.tracking;
+  const suspicious = t?.flags.some((f) => f === "WRONG_ZIP" || f === "DELIVERED_BEFORE_SHIPPED" || f === "REUSED_NUMBER");
+  if (milestone === "out_for_delivery") {
+    return { buyer: { subject: `${deal.title} is out for delivery`, lead: "It's arriving today.", body: [`Check it against what ${deal.sellerName} promised before you confirm. If anything's wrong, report it with a photo; your money stays on hold.`], cta: "Open your deal" } };
+  }
+  if (milestone === "delivered") {
+    const by = deadline(deal, "AUTO_RELEASE");
+    const where = t?.deliveredPlace && !t.test ? ` in ${t.deliveredPlace}` : "";
+    if (suspicious) {
+      return {
+        buyer: { subject: `Check this delivery: ${deal.title}`, lead: "The carrier says it was delivered, but something doesn't add up.", body: ["The delivery doesn't match your PayPal address or this shipment. If you don't have it, report it: the payment stays on hold and won't be released on its own."], cta: "Review the delivery" },
+      };
+    }
+    return {
+      buyer: { subject: `${deal.title} was delivered. Check it.`, lead: `It was delivered${where}.`, body: ["Check it against the listing, then confirm it, or report a problem with a photo.", by ? `If you don't respond by ${by}, payment is released to ${deal.sellerName}.` : ""].filter(Boolean), cta: "Check it" },
+      seller: { subject: `Delivered: ${deal.title}`, lead: "Your buyer has it.", body: [by ? `They have until ${by} to check it. If they don't report a problem, you're paid automatically.` : "Once they confirm it, you're paid."], cta: "Open your deal" },
+    };
+  }
+  return {
+    buyer: { subject: `The carrier reports a problem with ${deal.title}`, lead: "The carrier reports a problem with your parcel.", body: ["Your money is still on hold. If it doesn't arrive, report it and you won't be charged."], cta: "Open your deal" },
+    seller: { subject: `Delivery problem: ${deal.title}`, lead: "The carrier reports a problem with the parcel.", body: ["Contact the carrier about it. The buyer's payment stays on hold until it's sorted."], cta: "Open your deal" },
+  };
+}
+
+// Fire and forget, like status emails: a parcel email can never hold up or undo anything.
+export function announceTracking(deal: Deal, milestones: ("out_for_delivery" | "delivered" | "failure")[]) {
+  if (!milestones.length) return;
+  const snapshot = structuredClone(deal);
+  Promise.all(
+    milestones.flatMap((m) =>
+      (Object.entries(trackingMessages(snapshot, m)) as [Role, Message][]).map(async ([role, msg]) => {
+        const c = snapshot.contacts?.[role];
+        if (!c || !c.confirmed || c.muted) return;
+        const mail = render(snapshot, role, c, msg, { footer: "deal" });
+        await sendEmail({ to: c.email, ...mail, unsubscribeUrl: oneClickUnsubscribe(snapshot, role, c), idempotencyKey: `${snapshot.id}-${role}-parcel-${m}` });
+      }),
+    ),
+  ).catch((e) => console.error("tracking email", deal.id, (e as Error).message));
+}
+
 // A typed-in address gets one email asking to confirm; nothing else is sent until it's confirmed.
 export async function sendConfirmation(deal: Deal, role: Role) {
   const c = deal.contacts?.[role];

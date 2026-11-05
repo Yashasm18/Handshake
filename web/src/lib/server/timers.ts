@@ -5,6 +5,9 @@ import { usd } from "../types";
 import { allDeals, log, withDeal } from "./deals";
 import { settle } from "./flows";
 import { PayPalError, reauthorizeHold, voidHold } from "./paypal";
+import { createTracker, getTracker, trackingEnabled } from "./easypost";
+import { applyTracker } from "./tracking";
+import { announceTracking } from "./notify";
 
 // TIMER_SCALE shrinks every deadline for demos (e.g. 0.0007 ≈ a day per minute). Real deals use 1.
 export const timerScale = () => {
@@ -13,7 +16,7 @@ export const timerScale = () => {
 };
 
 // "3 days", or "3 minutes (demo speed)" when the clock is scaled.
-function span(kind: DeadlineKind) {
+function span(kind: keyof typeof RULES) {
   const ms = RULES[kind] * timerScale();
   if (ms >= DAY) return `${Math.round(ms / DAY)} days`;
   const min = Math.max(1, Math.round(ms / 60_000));
@@ -80,9 +83,31 @@ const ACTIONS: Record<DeadlineKind, Action> = {
   },
 
   async AUTO_RELEASE(deal) {
-    logOnce(deal, `The buyer didn't confirm or report a problem within ${span("AUTO_RELEASE")} of a verified shipment, so payment was released automatically.`);
+    logOnce(
+      deal,
+      deal.shipment?.tracking
+        ? `The carrier delivered it and the buyer didn't confirm or report a problem within ${span("DELIVERED_WINDOW")}, so payment was released automatically.`
+        : `The buyer didn't confirm or report a problem within ${span("AUTO_RELEASE")} of a verified shipment, so payment was released automatically.`,
+    );
     await settle(deal, deal.priceCents, "Handshake: released after the inspection window");
     return { outcome: "done", detail: `Captured ${usd(deal.priceCents)}` };
+  },
+
+  // The carrier brought the parcel back to the seller: nothing was delivered, so nothing is charged.
+  async RETURNED(deal) {
+    if (deal.paypal.authorizationId) await voidHold(deal.paypal.authorizationId);
+    deal.status = "RELEASED";
+    log(deal, "handshake", "The carrier returned the parcel to the seller, so the hold was released. The buyer paid nothing.");
+    return { outcome: "done", detail: "Hold voided" };
+  },
+
+  // A webhook may go missing; this asks the carrier directly.
+  async TRACKING_CHECK(deal, now) {
+    const t = deal.shipment?.tracking;
+    if (!t || !trackingEnabled()) return { outcome: "rescheduled", detail: "Tracking is off" };
+    const tracker = t.trackerId ? await getTracker(t.trackerId) : await createTracker(deal.shipment!.trackingNumber, deal.shipment!.carrier);
+    announceTracking(deal, applyTracker(deal, tracker, now));
+    return { outcome: "done", detail: `Parcel is ${deal.shipment!.tracking!.status}` };
   },
 
   async PAYOUT(deal, now) {
