@@ -156,10 +156,11 @@ export const ship = (id: string, input: { label?: string; carrier: string; track
 
 // 1, 2, 4, 8 … minutes, capped at an hour.
 export const payoutBackoff = (attempts: number) => Math.min(60, 2 ** (attempts - 1)) * 60_000;
+const REFUSED_FOR_GOOD = new Set(["INSUFFICIENT_FUNDS"]);
 
 // Capture, attach tracking, pay the seller. Resumable: each finished step is recorded and saved, so a
 // retry after a failure (say, the payout) picks up where it stopped instead of capturing twice.
-export async function settle(deal: Deal, captureCents: number, note: string) {
+export async function settle(deal: Deal, captureCents: number, note: string, now = Date.now()) {
   const { paypal } = deal;
   if (!paypal.authorizationId || !paypal.orderId) throw new HttpError(409, "There's no PayPal hold on this deal.");
   // Resuming is only allowed for the same amount; a different outcome can't reuse an existing capture.
@@ -189,20 +190,23 @@ export async function settle(deal: Deal, captureCents: number, note: string) {
   }
 
   if (!paypal.payoutBatchId) {
+    // A queued payout waits for its retry time, whoever taps a button in the meantime.
+    if (paypal.payoutRetryAt && Date.parse(paypal.payoutRetryAt) > now) return;
     const net = paypal.netCents!;
     const payee: pp.Payee = deal.seller ? { type: "PAYER_ID", payerId: deal.seller.payerId } : { type: "EMAIL", email: deal.sellerEmail };
     let payout: Awaited<ReturnType<typeof pp.payoutSeller>>;
     try {
       payout = await pp.payoutSeller(deal.id, payee, net, `Payment for ${deal.title}`, paypal.payoutRefusals ?? 0);
     } catch (e) {
-      // A 4xx is PayPal's definite "no": nothing was created, so the next try may use a new key.
-      // Anything else (timeout, 5xx) keeps the key, in case the payout went through after all.
-      if (e instanceof pp.PayPalError && e.status >= 400 && e.status < 500) paypal.payoutRefusals = (paypal.payoutRefusals ?? 0) + 1;
+      // Only PayPal's explicit "insufficient funds" proves no payout was created, so only it moves the
+      // next try to a new key. Anything else (timeouts, 5xx, 409 in progress, 429, auth) keeps the key,
+      // in case the payout went through after all.
+      if (e instanceof pp.PayPalError && REFUSED_FOR_GOOD.has(e.issue ?? "")) paypal.payoutRefusals = (paypal.payoutRefusals ?? 0) + 1;
       // The money is captured and recorded; only the payout is left. Queue it rather than failing the
       // buyer's confirmation: the timer retries with backoff until PayPal accepts it.
       const attempts = (paypal.payoutAttempts ?? 0) + 1;
       paypal.payoutAttempts = attempts;
-      paypal.payoutRetryAt = new Date(Date.now() + payoutBackoff(attempts)).toISOString();
+      paypal.payoutRetryAt = new Date(now + payoutBackoff(attempts)).toISOString();
       if (attempts === 1) log(deal, "handshake", `Payment captured. PayPal didn't accept the payout to ${deal.sellerName} yet, so Handshake will keep retrying it automatically.`);
       console.error("payout queued", deal.id, attempts, e instanceof pp.PayPalError ? `${e.issue} ${e.debugId}` : e);
       await saveDeal(deal);
@@ -220,7 +224,8 @@ export async function settle(deal: Deal, captureCents: number, note: string) {
 export const confirmDelivery = (id: string) =>
   withDeal(id, async (deal) => {
     expect(deal, "SHIPPED");
-    log(deal, "buyer", "Confirmed the item arrived as described.");
+    // Already confirmed and captured: the payout is queued, nothing more to record.
+    if (!deal.paypal.captureId) log(deal, "buyer", "Confirmed the item arrived as described.");
     await settle(deal, deal.priceCents, "Handshake: delivered as described");
     return deal;
   });

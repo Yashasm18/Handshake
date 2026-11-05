@@ -187,8 +187,13 @@ describe("timer actions", () => {
     await expect(flows.openClaim(d.id, { note: "broken", photo: "data:image/png;base64,AA" })).rejects.toThrow(/already being settled/);
     await expect(flows.settle((await getDeal(d.id))!, 5_000, "different amount")).rejects.toThrow(/different amount/);
     expect(pp.captureHold).toHaveBeenCalledTimes(1);
-    // The original release can still finish.
+    // Tapping "confirm" again doesn't jump the queue: the payout waits for its retry time.
     await flows.confirmDelivery(d.id);
+    expect((await getDeal(d.id))!.status).toBe("SHIPPED");
+    expect(pp.payoutSeller).toHaveBeenCalledTimes(1);
+    expect((await getDeal(d.id))!.events.filter((e) => e.text.startsWith("Confirmed the item"))).toHaveLength(0);
+    // The original release can still finish, when it's due.
+    expect((await runTimer(d.id, "PAYOUT", Date.now() + 2 * 60_000)).outcome).toBe("done");
     expect((await getDeal(d.id))!.status).toBe("SETTLED");
   });
 

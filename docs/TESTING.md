@@ -182,7 +182,8 @@ Run by hand on November 5, 2026: a real sign-in on PayPal's sandbox login page, 
 
 **Payouts.** A live deal hit "insufficient funds" on the payout (the sandbox platform balance had run low after many test deals). The capture was already recorded, so nothing was charged twice, but two real gaps showed up, both fixed and tested:
 - The buyer saw a PayPal error for a step that wasn't theirs. A refused payout is now queued: the deal shows "captured, paying the seller", and the timer retries it with backoff (1, 2, 4 … minutes, at most hourly) until PayPal accepts it.
-- After the balance was topped up, the retry still failed: PayPal replays the first answer for a request id, refusals included. A definite refusal (4xx) now moves the next attempt to a new key and batch id; a timeout or 5xx keeps the same key, so a payout that did go through is never repeated.
+- After the balance was topped up, the retry still failed: PayPal replays the first answer for a request id, refusals included. Only PayPal's explicit `INSUFFICIENT_FUNDS` now moves the next attempt to a new key and batch id; anything else (timeouts, 5xx, 409 in progress, 429) keeps the same key, so a payout that did go through is never repeated.
+- Tapping "confirm" again while a payout was queued forced an immediate retry and logged the confirmation again. A queued payout now waits for its retry time whoever taps, and the confirmation is recorded once.
 
 **Privacy.**
 

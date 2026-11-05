@@ -336,7 +336,8 @@ describe("meeting in person", () => {
     const { deadlinesFor } = await import("@/lib/deadlines");
     expect(deadlinesFor(stuck).map((d) => d.kind)).toEqual(["PAYOUT"]);
     await expect(flows.cancel(id, "buyer")).rejects.toMatchObject({ status: 409 });
-    // The seller's next tap (or the buyer's) finishes the payout.
+    // Once the retry time comes, the seller's next tap (or the timer) finishes the payout.
+    await saveDeal({ ...(await getDeal(id))!, paypal: { ...stuck.paypal, payoutRetryAt: new Date(Date.now() - 1000).toISOString() } });
     expect(await flows.startHandover(id)).toEqual({ settled: true });
     expect((await getDeal(id))!.status).toBe("SETTLED");
     expect(pp.captureHold).toHaveBeenCalledTimes(1);

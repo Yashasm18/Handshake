@@ -39,7 +39,7 @@ describe("session cookie", () => {
     const [body, mac] = value.split(".");
     const forged = Buffer.from(JSON.stringify({ a: { ...ACCOUNT, payerId: "ATTACKER" }, exp: Date.now() + 1e9 })).toString("base64url");
     expect(session.openSession(`${forged}.${mac}`, SECRET)).toBeNull();
-    expect(session.openSession(`${body}.${mac.slice(0, -1)}A`, SECRET)).toBeNull();
+    expect(session.openSession(`${body}.${mac.slice(0, -1)}${mac.endsWith("A") ? "B" : "A"}`, SECRET)).toBeNull();
     expect(session.openSession(`${body}.${mac}.x`, SECRET)).toBeNull();
   });
 
