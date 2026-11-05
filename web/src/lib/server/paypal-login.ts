@@ -77,7 +77,8 @@ export function safeNext(next: string | null | undefined) {
   const fallback = "/deals";
   if (!next || next.length > 300 || !next.startsWith("/") || next.startsWith("//") || /[\x00-\x1f\x7f\\]/.test(next)) return fallback;
   const url = new URL(next, "http://handshake.invalid");
-  if (url.origin !== "http://handshake.invalid") return fallback;
+  // Re-check after parsing: dot segments can turn "/.//evil.com" into "//evil.com".
+  if (url.origin !== "http://handshake.invalid" || url.pathname.startsWith("//")) return fallback;
   return url.pathname + url.search;
 }
 

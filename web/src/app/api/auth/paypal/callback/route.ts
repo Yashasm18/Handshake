@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
-import { exchangeCode, fetchAccount, LoginError } from "@/lib/server/paypal-login";
+import { exchangeCode, fetchAccount, LoginError, safeNext } from "@/lib/server/paypal-login";
 import { OAUTH_COOKIE, cookieOptions, sessionSecret, startSession, unseal } from "@/lib/server/session";
 
 type Pending = { state: string; next: string; redirectUri: string };
@@ -15,7 +15,8 @@ export async function GET(req: Request) {
   const pending = unseal<Pending>(jar.get(OAUTH_COOKIE)?.value, sessionSecret());
   jar.set(OAUTH_COOKIE, "", cookieOptions(0));
   const back = (next: string, outcome: string) => {
-    const to = new URL(next, url);
+    let to = new URL(safeNext(next), url);
+    if (to.origin !== url.origin || to.pathname.startsWith("//")) to = new URL("/deals", url);
     to.searchParams.set("signin", outcome);
     return new Response(null, { status: 303, headers: { Location: `${to.pathname}${to.search}`, "Cache-Control": "no-store" } });
   };

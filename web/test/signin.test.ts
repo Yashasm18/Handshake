@@ -92,6 +92,8 @@ describe("where sign-in sends you", () => {
     for (const bad of ["https://evil.example", "//evil.example", "/\\evil.example", "/\t/evil.example", "/\n/evil.example", "/\r\n//evil.example", "/%09/evil.example".replace("%09", "\x00"), "javascript:alert(1)", null, ""]) {
       expect(login.safeNext(bad)).toBe("/deals");
     }
+    // Dot segments can't collapse into a protocol-relative URL.
+    for (const bad of ["/.//evil.example", "/a/..//evil.example", "/././/evil.example/x?y=1", "/%2e//evil.example", "/%2e%2e//evil.example"]) expect(login.safeNext(bad)).toBe("/deals");
     // Encoded tricks stay a harmless path on this site.
     expect(login.safeNext("/%2F%2Fevil.example")).toBe("/%2F%2Fevil.example");
   });
