@@ -32,9 +32,20 @@ function subscribe(l: () => void) {
 // null while loading.
 export const useMe = () => useSyncExternalStore(subscribe, () => current, () => null);
 
-export function signInHref(next?: string) {
-  const here = next ?? (typeof window === "undefined" ? "/deals" : window.location.pathname + window.location.search);
-  return `/api/auth/signin?next=${encodeURIComponent(here)}`;
+const here = () => window.location.pathname + window.location.search;
+
+// Asks Handshake for a one-time PayPal sign-in link, then goes to PayPal directly.
+export async function startSignIn(next?: string) {
+  const target = next ?? here();
+  try {
+    const res = await fetch("/api/auth/signin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ next: target }) });
+    const json = (await res.json()) as { url?: string; unavailable?: boolean; next?: string };
+    if (json.url?.startsWith("https://www.sandbox.paypal.com/") || json.url?.startsWith("https://www.paypal.com/")) return window.location.assign(json.url);
+    const back = json.next ?? target;
+    window.location.assign(`${back}${back.includes("?") ? "&" : "?"}signin=unavailable`);
+  } catch {
+    window.location.assign(`${target}${target.includes("?") ? "&" : "?"}signin=failed`);
+  }
 }
 
 export async function signOut() {
@@ -52,16 +63,22 @@ export function PayPalMark({ className = "size-4" }: { className?: string }) {
 
 // The PayPal-branded sign-in button: PayPal's own page handles the login, Handshake never sees a password.
 export function PayPalSignIn({ next, label = "Sign in with PayPal", size = "md", onBeforeLeave }: { next?: string; label?: string; size?: "sm" | "md" | "lg"; onBeforeLeave?: () => void }) {
+  const [busy, setBusy] = useState(false);
   const sizes = { sm: "h-10 px-4 text-[14px]", md: "h-12 px-6 text-[15px]", lg: "h-14 px-8 text-[16px]" };
   return (
-    <a
-      href={signInHref(next)}
-      onClick={onBeforeLeave}
-      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[#ffc439] font-semibold text-[#003087] transition-all duration-300 hover:brightness-95 active:scale-[0.97] ${sizes[size]}`}
+    <button
+      type="button"
+      disabled={busy}
+      onClick={() => {
+        setBusy(true);
+        onBeforeLeave?.();
+        startSignIn(next);
+      }}
+      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[#ffc439] font-semibold text-[#003087] transition-all duration-300 hover:brightness-95 active:scale-[0.97] disabled:opacity-70 ${sizes[size]}`}
     >
       <PayPalMark className={size === "sm" ? "size-4" : "size-[18px]"} />
-      {label}
-    </a>
+      {busy ? "Opening PayPal…" : label}
+    </button>
   );
 }
 
@@ -130,10 +147,10 @@ export function AccountMenu() {
   if (!me.account) {
     return (
       <div className="relative">
-        <a href={signInHref()} className="flex h-10 items-center gap-2 rounded-full border border-ink/15 px-3 text-[14px] text-ink transition-colors hover:border-ink/40 sm:px-4" aria-label="Sign in with PayPal">
+        <button type="button" onClick={() => startSignIn()} className="flex h-10 items-center gap-2 rounded-full border border-ink/15 px-3 text-[14px] text-ink transition-colors hover:border-ink/40 sm:px-4" aria-label="Sign in with PayPal">
           <PayPalMark className="size-4" />
           <span className="hidden sm:inline">Sign in</span>
-        </a>
+        </button>
         {toast}
       </div>
     );

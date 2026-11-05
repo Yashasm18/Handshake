@@ -113,7 +113,8 @@ describe("where sign-in sends you", () => {
   });
 });
 
-const start = (await import("@/app/api/auth/signin/route")).GET;
+const start = (await import("@/app/api/auth/signin/route")).POST;
+const startGet = (await import("@/app/api/auth/signin/route")).GET;
 const callback = (await import("@/app/api/auth/paypal/callback/route")).GET;
 const me = (await import("@/app/api/auth/me/route")).GET;
 const signout = (await import("@/app/api/auth/signout/route")).POST;
@@ -131,13 +132,29 @@ describe("the sign-in round trip", () => {
   }
 
   async function begin(next = "/check?mode=sell&resume=1") {
-    const res = await start(new Request(`http://localhost:3000/api/auth/signin?next=${encodeURIComponent(next)}`, { headers: { host: "localhost:3000" } }));
-    expect(res.status).toBe(303);
-    return new URL(res.headers.get("location")!).searchParams.get("state")!;
+    const res = await start(new Request("http://localhost:3000/api/auth/signin", { method: "POST", headers: { host: "localhost:3000", origin: "http://localhost:3000", "content-type": "application/json" }, body: JSON.stringify({ next }) }));
+    expect(res.status).toBe(200);
+    const { url } = await res.json();
+    return new URL(url).searchParams.get("state")!;
   }
+
 
   const back = (q: string) => callback(new Request(`http://localhost:3000/api/auth/paypal/callback?${q}`));
   const where = (res: Response) => res.headers.get("location");
+
+  it("never redirects to PayPal from the server: the browser goes there itself (Chrome blocks bounce-to-login)", async () => {
+    const res = await start(new Request("http://localhost:3000/api/auth/signin", { method: "POST", headers: { host: "localhost:3000", origin: "http://localhost:3000" }, body: "{}" }));
+    expect(res.status).toBe(200);
+    expect(new URL((await res.json()).url).origin).toBe("https://www.sandbox.paypal.com");
+    const old = await startGet(new Request("http://localhost:3000/api/auth/signin?next=%2Fcheck", { headers: { host: "localhost:3000" } }));
+    expect(old.headers.get("location")).toBe("/check");
+  });
+
+  it("another site can't start a sign-in", async () => {
+    const res = await start(new Request("http://localhost:3000/api/auth/signin", { method: "POST", headers: { host: "localhost:3000", origin: "https://evil.example" }, body: "{}" }));
+    expect(res.status).toBe(403);
+    expect(jar.has(session.OAUTH_COOKIE)).toBe(false);
+  });
 
   it("signs you in and returns you to where you were", async () => {
     const calls = paypal();
