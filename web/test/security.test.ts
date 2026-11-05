@@ -135,7 +135,7 @@ describe("PayPal client: retries can't move money twice", () => {
   it("a seller signed in with PayPal is paid by payer id, into their own account", async () => {
     const { payoutSeller } = await import("@/lib/server/paypal");
     await payoutSeller("deal-8", { type: "PAYER_ID", payerId: "SELLERPAYER1" }, 10_000, "Payment");
-    expect(JSON.parse(api()[0].body!).items[0]).toMatchObject({ recipient_type: "PAYER_ID", receiver: "SELLERPAYER1" });
+    expect(JSON.parse(api()[0].body!).items[0]).toMatchObject({ recipient_type: "PAYPAL_ID", receiver: "SELLERPAYER1" });
   });
 
   it("every other write still gets a unique key, and reads get none", async () => {

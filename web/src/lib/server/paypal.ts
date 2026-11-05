@@ -137,7 +137,8 @@ export const addTracking = (orderId: string, captureId: string, trackingNumber: 
     notify_payer: false,
   });
 
-// Where a payout goes: the seller's own PayPal account (by payer id, from Sign in with PayPal), or, for a
+// Where a payout goes: the seller's own PayPal account (by payer id, from Sign in with PayPal; the Payouts
+// API calls this recipient type PAYPAL_ID), or, for a
 // guest demo seller, the sandbox seller account by email.
 export type Payee = { type: "PAYER_ID"; payerId: string } | { type: "EMAIL"; email: string };
 
@@ -147,7 +148,7 @@ export async function payoutSeller(dealId: string, payee: Payee, cents: number, 
     "/v1/payments/payouts",
     {
       sender_batch_header: { sender_batch_id: `${dealId}-${Date.now()}`, email_subject: "You've been paid through Handshake", email_message: note },
-      items: [{ recipient_type: payee.type, receiver: payee.type === "PAYER_ID" ? payee.payerId : payee.email, amount: { currency: "USD", value: (cents / 100).toFixed(2) }, note, sender_item_id: dealId }],
+      items: [{ recipient_type: payee.type === "PAYER_ID" ? "PAYPAL_ID" : "EMAIL", receiver: payee.type === "PAYER_ID" ? payee.payerId : payee.email, amount: { currency: "USD", value: (cents / 100).toFixed(2) }, note, sender_item_id: dealId }],
     },
     `payout-${dealId}`,
   );
