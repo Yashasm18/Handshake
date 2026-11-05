@@ -15,7 +15,7 @@ Handshake moves other people's money, so every rule that touches it is tested tw
 
 | | Automated | Live |
 |---|---|---|
-| Count | 225 tests | 35 scenarios |
+| Count | 225 tests | 37 scenarios |
 | Runs | Every push and every deploy | Before each release, and on demand |
 | PayPal, Channel3, Kernel, Elastic, AI | Faked | Real (PayPal sandbox) |
 | Result | All pass | All pass |
@@ -162,6 +162,15 @@ Run by hand on November 5, 2026: a real sign-in on PayPal's sandbox login page, 
 |---|---|---|
 | G1 | A seller signs in with PayPal | **Pass.** PayPal's consent page sent them back signed in as "John Doe · Verified PayPal account"; My deals opened on the account |
 | G2 | The signed-in seller sells a $180 item; a stranger pays with the test card; the seller ships; the buyer confirms | **Pass.** Captured $180 (capture `8SJ71746DP6158500`); **$174.85 paid into the seller's own PayPal account** by payer id (payout batch `JNUKXZ6DKT65W`, item SUCCESS, recipient type `PAYPAL_ID`) |
+
+### Email updates and payouts that heal themselves
+
+Run on November 5, 2026, on the live site, with real emails through Resend to a Gmail inbox.
+
+| # | Scenario | Result |
+|---|---|---|
+| H1 | The seller types their email; the buyer pays | **Pass.** "Confirm email updates for your Handshake deal" arrived in the inbox (not spam); after confirming, "$210 is held for you. Ship it." arrived with the ship-by date and no buyer address |
+| H2 | The buyer confirms delivery while the platform balance can't cover the payout | **Pass.** $210 captured (`0N3154064S304073M`); the payout was queued instead of failing the buyer. After a separate payouts app was configured, the Render timer retried on its own, PayPal reported the item SUCCESS (batch `LLK3GBBY5VG98`, $204.07), the deal settled, and "You've been paid $204.07" arrived with a one-click Unsubscribe |
 
 ### Self-enforcing deadlines
 
