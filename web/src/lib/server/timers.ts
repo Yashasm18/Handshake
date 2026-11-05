@@ -6,7 +6,7 @@ import { allDeals, log, withDeal } from "./deals";
 import { settle } from "./flows";
 import { PayPalError, reauthorizeHold, voidHold } from "./paypal";
 import { createTracker, getTracker, trackingEnabled } from "./easypost";
-import { applyTracker } from "./tracking";
+import { applyTracker, reusedElsewhere } from "./tracking";
 import { announceTracking } from "./notify";
 
 // TIMER_SCALE shrinks every deadline for demos (e.g. 0.0007 ≈ a day per minute). Real deals use 1.
@@ -83,6 +83,13 @@ const ACTIONS: Record<DeadlineKind, Action> = {
   },
 
   async AUTO_RELEASE(deal) {
+    // Two deals could ship the same number at the same moment; check again right before paying out.
+    const t = deal.shipment?.tracking;
+    if (t && reusedElsewhere(deal, await allDeals())) {
+      if (!t.flags.includes("REUSED_NUMBER")) t.flags.push("REUSED_NUMBER");
+      logOnce(deal, "This tracking number is also used on another Handshake deal, so payment won't be released without the buyer's confirmation.");
+      return { outcome: "rescheduled", detail: "Tracking number reused; waiting for the buyer" };
+    }
     logOnce(
       deal,
       deal.shipment?.tracking

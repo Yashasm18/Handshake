@@ -72,9 +72,11 @@ export function deadlinesFor(deal: Deal, scale = 1): Deadline[] {
   // their PayPal address. A tracking number typed by the seller isn't enough.
   const tracking = deal.shipment?.tracking;
   if (deal.status === "SHIPPED" && tracking) {
-    // With carrier tracking, silence only pays the seller once the carrier says it was delivered, and
-    // never when a scam sign shows. The buyer gets 3 days from the delivery scan.
-    if (tracking.status === "delivered" && tracking.deliveredAt && !blocksRelease(tracking)) {
+    // With carrier tracking, silence only pays the seller once the carrier says it was delivered, there's
+    // positive proof it went to the buyer (the delivery ZIP matches their PayPal address, or the label
+    // photo did), and no scam sign shows. The buyer gets 3 days from the delivery scan.
+    const provenAddress = tracking.addressCheck === "match" || Boolean(deal.shipment?.labelCheck?.match);
+    if (tracking.status === "delivered" && tracking.deliveredAt && provenAddress && !blocksRelease(tracking)) {
       out.push({ kind: "AUTO_RELEASE", at: Date.parse(tracking.deliveredAt) + RULES.DELIVERED_WINDOW * scale, who: "buyer", consequence: "payment is released to the seller" });
     }
     if (tracking.status === "return_to_sender") {

@@ -53,7 +53,8 @@ export function applyTracker(deal: Deal, tracker: EasyPostTracker, now = Date.no
   const shippedAt = Date.parse(deal.clock?.shippedAt ?? "");
   if ((t.status === "unknown" || t.status === "error") && (t.test || (Number.isFinite(shippedAt) && now - shippedAt > UNKNOWN_AFTER_MS))) flags.add("UNKNOWN_NUMBER");
   if (t.addressCheck === "mismatch") flags.add("WRONG_ZIP");
-  if (!t.test && t.deliveredAt && Number.isFinite(shippedAt) && Date.parse(t.deliveredAt) < shippedAt - HOUR) flags.add("DELIVERED_BEFORE_SHIPPED");
+  // Only a real delivery scan's time counts here, never a stand-in.
+  if (!t.test && delivered?.datetime && Number.isFinite(shippedAt) && Date.parse(delivered.datetime) < shippedAt - HOUR) flags.add("DELIVERED_BEFORE_SHIPPED");
   if (t.status === "failure" || t.statusDetail === "lost") flags.add("LOST");
   t.flags = [...flags];
 
@@ -69,10 +70,12 @@ export function applyTracker(deal: Deal, tracker: EasyPostTracker, now = Date.no
 }
 
 // The same tracking number on another live deal: one parcel can't be delivered twice.
+// Compared without spaces, dashes or case, so "1Z 999-AA1" and "1z999aa1" are the same parcel.
+const normalize = (n?: string) => (n ?? "").replace(/[^a-z0-9]/gi, "").toUpperCase();
 export function reusedElsewhere(deal: Deal, all: Deal[]) {
-  const n = deal.shipment?.trackingNumber.toUpperCase();
+  const n = normalize(deal.shipment?.trackingNumber);
   if (!n) return false;
-  return all.some((d) => d.id !== deal.id && d.shipment?.trackingNumber.toUpperCase() === n && d.status !== "RELEASED");
+  return all.some((d) => d.id !== deal.id && normalize(d.shipment?.trackingNumber) === n && d.status !== "RELEASED");
 }
 
 // What a stranger with the link may see: how far along it is, not where or the number.

@@ -53,12 +53,13 @@ const webhook = (await import("@/app/api/webhooks/easypost/route")).POST;
 const flush = () => new Promise((r) => setTimeout(r, 30));
 let n = 0;
 function base(over: Partial<Deal> = {}): Deal {
+  ++n;
   return {
-    id: `trk-${++n}-xxxxxxxxxxxxxxx`, createdAt: "", updatedAt: "", title: "Switch OLED", priceCents: 20_000, condition: "Used", checklist: [],
+    id: `trk-${n}-xxxxxxxxxxxxxxx`, createdAt: "", updatedAt: "", title: "Switch OLED", priceCents: 20_000, condition: "Used", checklist: [],
     sellerName: "Sam", sellerEmail: "s@example.com", scan: null, status: "SHIPPED", demo: false,
     paypal: { orderId: "O", authorizationId: "AUTH-T" },
     shipTo: { name: "Bo Buyer", line: "1 Main St, San Jose, CA 95131", address: { address_line_1: "1 Main St", postal_code: "95131" } },
-    shipment: { carrier: "UPS", trackingNumber: "1Z999", labelCheck: null, tracking: { provider: "easypost", test: false, status: "unknown", events: [], flags: [] } },
+    shipment: { carrier: "UPS", trackingNumber: `1Z9${n}A`, labelCheck: null, tracking: { provider: "easypost", test: false, status: "unknown", events: [], flags: [] } },
     clock: { heldAt: iso(T0 - 86_400_000), authorizedAt: iso(T0), reauthorizedAt: iso(T0), shippedAt: iso(T0) },
     events: [],
     contacts: {
@@ -135,6 +136,40 @@ describe("what tracking does to the money", () => {
     const wrong = base();
     applyTracker(wrong, tracker("delivered", [scan("delivered", T0 + 1e8, "10001")]));
     expect(deadlinesFor(wrong)).toEqual([]);
+  });
+
+  it("'delivered' alone isn't proof: without a matching ZIP or a verified label, the buyer must confirm", () => {
+    const noZip = base();
+    applyTracker(noZip, tracker("delivered", [{ status: "delivered", datetime: iso(T0 + 1e8) }]));
+    expect(noZip.shipment!.tracking!.addressCheck).toBe("unknown");
+    expect(deadlinesFor(noZip)).toEqual([]);
+    // A label photo verified against the buyer's PayPal address is positive proof.
+    noZip.shipment!.labelCheck = { match: true, read: "", reason: "" };
+    expect(deadlinesFor(noZip).map((x) => x.kind)).toEqual(["AUTO_RELEASE"]);
+    // Test parcels have made-up places, so they also need the label (or the buyer) to pay out.
+    const test = base();
+    applyTracker(test, tracker("delivered", [scan("delivered", T0 + 1e8)], { mode: "test" }));
+    expect(deadlinesFor(test)).toEqual([]);
+  });
+
+  it("the recycled-number check uses a real delivery scan, never a stand-in time", () => {
+    const d = base();
+    applyTracker(d, tracker("delivered", [], { updated_at: iso(T0 - 9 * 86_400_000) }));
+    expect(d.shipment!.tracking!.flags).not.toContain("DELIVERED_BEFORE_SHIPPED");
+  });
+
+  it("a number reused on another deal is caught again right before an automatic payout", async () => {
+    const d = base();
+    applyTracker(d, tracker("delivered", [scan("delivered", T0)]));
+    await saveDeal(d);
+    // Another deal ships the same parcel, written with spaces and a dash.
+    const spaced = d.shipment!.trackingNumber.toLowerCase().replace(/^(..)(.*)$/, "$1 $2-");
+    await saveDeal(base({ shipment: { carrier: "UPS", trackingNumber: spaced, labelCheck: null } }));
+    expect((await runTimer(d.id, "AUTO_RELEASE", T0 + 4 * 86_400_000)).outcome).toBe("rescheduled");
+    const after = (await getDeal(d.id))!;
+    expect(after.status).toBe("SHIPPED");
+    expect(after.shipment!.tracking!.flags).toContain("REUSED_NUMBER");
+    expect(pp.captureHold).not.toHaveBeenCalled();
   });
 
   it("a parcel returned to the seller releases the buyer's hold", async () => {
