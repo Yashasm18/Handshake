@@ -114,6 +114,15 @@ describe("reading the carrier", () => {
     expect(d.shipment!.tracking).toMatchObject({ test: true, addressCheck: "unknown", flags: [] });
   });
 
+  it("test parcels' fixed old dates are shifted so the last scan lands now, keeping the gaps", () => {
+    const d = base();
+    const now = T0 + 10 * 86_400_000;
+    applyTracker(d, tracker("delivered", [scan("in_transit", T0 - 30 * 86_400_000 - 3_600_000), scan("delivered", T0 - 30 * 86_400_000)], { mode: "test" }), now);
+    const t = d.shipment!.tracking!;
+    expect(t.deliveredAt).toBe(iso(now));
+    expect(t.events.map((e) => e.at)).toEqual([iso(now - 3_600_000), iso(now)]);
+  });
+
   it("each milestone is announced once, however often the carrier repeats it", () => {
     const d = base();
     expect(applyTracker(d, tracker("out_for_delivery", [scan("out_for_delivery", T0 + 1e8)]))).toEqual(["out_for_delivery"]);
