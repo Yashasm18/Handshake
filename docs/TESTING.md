@@ -15,7 +15,7 @@ Handshake moves other people's money, so every rule that touches it is tested tw
 
 | | Automated | Live |
 |---|---|---|
-| Count | 266 tests | 41 scenarios |
+| Count | 266 tests | 42 scenarios |
 | Runs | Every push and every deploy | Before each release, and on demand |
 | PayPal, Channel3, Kernel, Elastic, AI | Faked | Real (PayPal sandbox) |
 | Result | All pass | All pass |
@@ -186,6 +186,12 @@ Run on November 5, 2026, on the live site with EasyPost's test parcels (USPS) an
 | J4 | An unsigned message to the webhook | **Pass.** Refused with 401; only messages signed with our secret count |
 
 The run also found that EasyPost's test parcels carry fixed old dates (a deal made today showed "Delivered Oct 8"). Test timelines are now shifted once so the last scan lands when the update arrives; a fresh test parcel then showed delivered at the moment it shipped.
+
+### Status page
+
+| # | Scenario | Result |
+|---|---|---|
+| X1 | Open /status on the live site after a deploy | **Pass.** "Everything is working": all 8 services answered from Render with real requests (PayPal 215 ms, payouts 324 ms, AI 152 ms, Channel3 842 ms, Kernel, Elastic, EasyPost, email), and the deadline timer reported its sweep within 5 minutes |
 
 ### Self-enforcing deadlines
 
