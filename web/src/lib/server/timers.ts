@@ -117,7 +117,14 @@ const ACTIONS: Record<DeadlineKind, Action> = {
   async TRACKING_CHECK(deal, now) {
     const t = deal.shipment?.tracking;
     if (!t || !trackingEnabled()) return { outcome: "rescheduled", detail: "Tracking is off" };
-    const tracker = t.trackerId ? await getTracker(t.trackerId) : await createTracker(deal.shipment!.trackingNumber, deal.shipment!.carrier);
+    let tracker;
+    try {
+      tracker = t.trackerId ? await getTracker(t.trackerId) : await createTracker(deal.shipment!.trackingNumber, deal.shipment!.carrier);
+    } catch (e) {
+      // EasyPost down or rate limiting: try again in 3 hours, not on every sweep.
+      t.checkedAt = new Date(now).toISOString();
+      return { outcome: "rescheduled", detail: `EasyPost: ${(e as Error).message}` };
+    }
     announceTracking(deal, applyTracker(deal, tracker, now));
     return { outcome: "done", detail: `Parcel is ${deal.shipment!.tracking!.status}` };
   },

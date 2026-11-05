@@ -243,6 +243,17 @@ describe("shipping", () => {
     ep.createTracker.mockReset();
   });
 
+  it("until EasyPost registers the parcel, the label-verified rule still applies and the timer keeps trying", async () => {
+    const d = base({ shipment: { carrier: "UPS", trackingNumber: "1ZPENDING", labelCheck: { match: true, read: "", reason: "" }, tracking: { provider: "easypost", test: true, status: "unknown", events: [], flags: [] } } });
+    expect(deadlinesFor(d).map((x) => x.kind).sort()).toEqual(["AUTO_RELEASE", "TRACKING_CHECK"]);
+    await saveDeal(d);
+    ep.createTracker.mockRejectedValueOnce(new Error("EasyPost 429: rate limited"));
+    expect((await runTimer(d.id, "TRACKING_CHECK", T0 + 4 * 3_600_000)).outcome).toBe("rescheduled");
+    // It waits 3 hours before trying again, rather than hammering EasyPost on every sweep.
+    const next = deadlinesFor((await getDeal(d.id))!).find((x) => x.kind === "TRACKING_CHECK")!;
+    expect(next.at).toBe(T0 + 7 * 3_600_000);
+  });
+
   it("if EasyPost is down, the deal still ships and the timer tries again", async () => {
     vi.spyOn(console, "error").mockImplementationOnce(() => {});
     ep.createTracker.mockRejectedValueOnce(new Error("EasyPost 503"));
