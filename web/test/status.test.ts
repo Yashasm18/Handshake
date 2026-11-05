@@ -94,6 +94,17 @@ describe("the checks", () => {
     expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "Credit nearly used up" });
   });
 
+  it("an OpenRouter account with no balance left says the free backup models are answering", async () => {
+    answer = { "/api/v1/credits": () => Response.json({ data: { total_credits: 0, total_usage: 0.1 } }) };
+    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "Out of credit: running on free backup models" });
+    g.__hsStatus = new Map();
+    answer = { "/api/v1/credits": () => Response.json({ data: { total_credits: 5, total_usage: 4.5 } }) };
+    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "Credit nearly used up" });
+    g.__hsStatus = new Map();
+    answer = { "/api/v1/credits": () => Response.json({ data: { total_credits: 10, total_usage: 1 } }) };
+    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "up" });
+  });
+
   it("results are cached per service, so polling the page never hammers anyone", async () => {
     await status.checkAll({ now: T });
     const calls = fetchMock.mock.calls.length;

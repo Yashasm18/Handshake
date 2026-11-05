@@ -82,6 +82,15 @@ export const PROBES: Probe[] = [
       const j = (await res.json()) as { data?: { limit_remaining?: number | null } };
       const left = j.data?.limit_remaining;
       if (typeof left === "number" && left < 1) return "Credit nearly used up";
+      // The key's own limit says nothing about the account's balance: check that too. At $0 the paid
+      // models are refused and only the free backups answer (about 50 checks a day).
+      const credits = await fetch("https://openrouter.ai/api/v1/credits", { headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}` }, signal: AbortSignal.timeout(TIMEOUT_MS), cache: "no-store" });
+      if (!credits.ok) return;
+      const c = ((await credits.json()) as { data?: { total_credits?: number; total_usage?: number } }).data;
+      if (typeof c?.total_credits !== "number" || typeof c.total_usage !== "number") return;
+      const balance = c.total_credits - c.total_usage;
+      if (balance <= 0) return "Out of credit: running on free backup models";
+      if (balance < 1) return "Credit nearly used up";
     },
   },
   {

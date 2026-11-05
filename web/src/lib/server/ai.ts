@@ -2,8 +2,20 @@ import "server-only";
 import type { z } from "zod";
 import { toJSONSchema } from "zod";
 
-// Primary model first; the next one takes over if it errors or stalls.
-const MODELS = ["anthropic/claude-haiku-5.5", "openai/gpt-6-luna"];
+// Primary model first; the next one takes over if it errors, stalls or is refused. The last two are
+// free vision models: if the OpenRouter account runs out of credit, paid models are refused with 402
+// in about a second and the scam check carries on with these (slower, and rate limited by OpenRouter).
+// AI_MODELS (comma-separated) replaces the list without a code change.
+export const DEFAULT_MODELS = [
+  "anthropic/claude-haiku-5.5",
+  "openai/gpt-6-luna",
+  "nvidia/nemotron-3.5-super-vl:free",
+  "dots-studio/dots-3-note-preview:free",
+];
+export const models = () => {
+  const list = (process.env.AI_MODELS ?? "").split(",").map((m) => m.trim()).filter(Boolean);
+  return list.length ? list : DEFAULT_MODELS;
+};
 
 type Part = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
 
@@ -16,11 +28,12 @@ export async function structured<T extends z.ZodType>(opts: {
 }): Promise<z.infer<T>> {
   const jsonSchema = toJSONSchema(opts.schema, { target: "draft-7" });
   let lastError: unknown;
-  for (const model of MODELS) {
+  for (const model of models()) {
     try {
       const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
-        signal: AbortSignal.timeout(30_000),
+        // Free backups are slower on large screenshots; they only run when the paid models were refused.
+        signal: AbortSignal.timeout(model.endsWith(":free") ? 75_000 : 30_000),
         headers: {
           Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
           "Content-Type": "application/json",
@@ -29,6 +42,9 @@ export async function structured<T extends z.ZodType>(opts: {
         body: JSON.stringify({
           model,
           max_tokens: opts.maxTokens ?? 900,
+          // The free backups are "thinking" models that can spend the whole token budget reasoning and
+          // return no answer. The checks need a direct, schema-shaped answer, so reasoning is off for them.
+          ...(model.endsWith(":free") ? { reasoning: { enabled: false } } : {}),
           messages: [
             { role: "system", content: opts.system },
             { role: "user", content: opts.user },
@@ -44,6 +60,7 @@ export async function structured<T extends z.ZodType>(opts: {
       return opts.schema.parse(JSON.parse(content.replace(/^```(json)?|```$/g, "").trim()));
     } catch (e) {
       lastError = e;
+      console.error("ai fallback", opts.name, model, (e as Error).message?.slice(0, 160));
     }
   }
   throw lastError instanceof Error ? lastError : new Error("AI unavailable");
