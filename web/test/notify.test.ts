@@ -228,7 +228,7 @@ describe("typing in an address", () => {
     const c = (await getDeal(id))!.contacts!.buyer!;
     expect(c).toMatchObject({ email: "new@gmail.com", confirmed: false, source: "typed" });
     expect(outbox).toHaveLength(1);
-    expect(outbox[0].subject).toContain("Confirm email updates");
+    expect(outbox[0].subject).toBe("Confirm buyer updates for your Handshake deal");
     expect(outbox[0].html).toContain(`/email?d=${id}&amp;r=buyer&amp;t=${c.token}&amp;a=confirm`);
 
     outbox.length = 0;

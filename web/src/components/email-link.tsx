@@ -30,8 +30,8 @@ export function EmailLink() {
   }
 
   const copy = {
-    confirm: { eyebrow: "Email updates", title: "Confirm your email", body: "Handshake will email you when this deal needs you: when it's paid, shipped, delivered or settled. Nothing else.", button: "Confirm my email", done: "You'll get an email whenever this deal needs you." },
-    mute: { eyebrow: "Email updates", title: "Stop emails for this deal?", body: "You'll stop getting updates for this deal. The deal itself carries on, and you can turn emails back on from the deal page.", button: "Stop emails", done: "You won't get any more emails for this deal." },
+    confirm: { eyebrow: `Email updates · ${role}`, title: `Confirm ${role} updates`, body: "Handshake will email you when this deal needs you: when it's paid, shipped, delivered or settled. Nothing else.", button: `Confirm ${role} updates`, done: "You'll get an email whenever this deal needs you." },
+    mute: { eyebrow: `Email updates · ${role}`, title: "Stop emails for this deal?", body: "You'll stop getting updates for this deal. The deal itself carries on, and you can turn emails back on from the deal page.", button: "Stop emails", done: "You won't get any more emails for this deal." },
   }[action];
 
   return (

@@ -180,7 +180,9 @@ export async function sendConfirmation(deal: Deal, role: Role) {
     c,
     // Fixed wording only: this goes to an address that hasn't agreed to anything yet, so nothing a
     // stranger wrote (the item title, a name) may appear in it.
-    { subject: "Confirm email updates for your Handshake deal", lead: "Confirm your email for deal updates.", body: ["Someone asked for updates on a Handshake deal to be sent to this address. If that was you, confirm below. If not, ignore this email and nothing more will be sent."], cta: "Confirm my email", ctaUrl: settingsLink(deal, role, c, "confirm") },
+    // The side is named (fixed wording, not stranger-written), so a seller's and a buyer's confirmation
+    // never look identical and get folded into one conversation by the mail app.
+    { subject: `Confirm ${role} updates for your Handshake deal`, lead: `Confirm your email for ${role} updates.`, body: [`Someone asked for updates on a Handshake deal, as the ${role}, to be sent to this address. If that was you, confirm below. If not, ignore this email and nothing more will be sent.`], cta: `Confirm ${role} updates`, ctaUrl: settingsLink(deal, role, c, "confirm") },
     { footer: "confirm", neutral: true },
   );
   await sendEmail({ to: c.email, ...mail, idempotencyKey: `${deal.id}-${role}-confirm-${c.token}` });
