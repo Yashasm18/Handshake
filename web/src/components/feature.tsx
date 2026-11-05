@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Arrow, Button } from "./chrome";
+import { Arrow, Button, Logo } from "./chrome";
 import { FadeIn, RevealText } from "./motion";
 
 // Building blocks shared by the "under the hood" pages (/agents, /paypal, /channel3, /render, /kernel, /elastic), so each one
@@ -144,20 +144,59 @@ export function TryIt({ title }: { title: string }) {
   );
 }
 
+const FOOTER_COLUMNS = [
+  {
+    title: "Product",
+    links: [
+      { href: "/check", label: "Check a deal" },
+      { href: "/check?mode=sell", label: "Sell safely" },
+      { href: "/deals", label: "My deals" },
+      { href: "/#see-how", label: "How it works" },
+    ],
+  },
+  { title: "Under the hood", links: UNDER_THE_HOOD },
+  {
+    title: "Company",
+    links: [
+      { href: "/status", label: "Status" },
+      { href: "/terms", label: "Terms" },
+      { href: "/privacy", label: "Privacy" },
+    ],
+  },
+];
+
+// A standard footer: the brand and what Handshake is on the left, links grouped in labeled columns,
+// and the small print in a bar underneath.
 export function Footer() {
   return (
     <footer className="border-t hairline">
-      <div className="mx-auto flex max-w-[1400px] flex-col justify-between gap-4 px-5 py-10 text-[14px] text-muted md:flex-row md:px-10">
-        <p>Handshake · Built for the PayPal AI Hackathon. Runs on the PayPal sandbox: no real money moves.</p>
-        <nav className="flex flex-wrap gap-x-6 gap-y-2">
-          {UNDER_THE_HOOD.map((l) => (
-            <a key={l.href} href={l.href} className="transition-colors hover:text-ink">{l.label}</a>
+      <div className="mx-auto grid max-w-[1400px] gap-12 px-5 py-14 md:grid-cols-[1.2fr_2fr] md:px-10 md:py-16">
+        <div className="max-w-[340px]">
+          <Logo />
+          <p className="mt-4 text-[16px] leading-relaxed text-muted">Safe deals between strangers. PayPal holds the money until the item is checked.</p>
+        </div>
+        <nav className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3" aria-label="Footer">
+          {FOOTER_COLUMNS.map((col) => (
+            <div key={col.title}>
+              <p className="label text-muted">{col.title}</p>
+              <ul className="mt-4 space-y-2.5 text-[15px]">
+                {col.links.map((l) => (
+                  <li key={l.href}>
+                    <a href={l.href} className="text-ink/75 transition-colors hover:text-ink">
+                      {l.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-          <a href="/deals" className="transition-colors hover:text-ink">My deals</a>
-          <a href="/status" className="transition-colors hover:text-ink">Status</a>
-          <a href="/terms" className="transition-colors hover:text-ink">Terms</a>
-          <a href="/privacy" className="transition-colors hover:text-ink">Privacy</a>
         </nav>
+      </div>
+      <div className="border-t hairline">
+        <div className="mx-auto flex max-w-[1400px] flex-col gap-2 px-5 py-6 text-[13px] text-muted sm:flex-row sm:items-center sm:justify-between md:px-10">
+          <p>© 2026 Handshake · Built for the PayPal AI Hackathon</p>
+          <p>Runs on the PayPal sandbox: no real money moves.</p>
+        </div>
       </div>
     </footer>
   );
