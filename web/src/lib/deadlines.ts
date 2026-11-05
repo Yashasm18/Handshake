@@ -76,8 +76,12 @@ export function deadlinesFor(deal: Deal, scale = 1): Deadline[] {
   // Until EasyPost has actually registered the parcel (no tracker id yet, say it was down or rate
   // limited), the deal keeps the label-verified rule and the timer keeps trying to register it.
   if (deal.status === "SHIPPED" && tracking && !tracking.trackerId) {
-    if (deal.shipment?.labelCheck?.match) out.push({ kind: "AUTO_RELEASE", at: t(c.shippedAt, "AUTO_RELEASE"), who: "buyer", consequence: "payment is released to the seller" });
-    out.push({ kind: "TRACKING_CHECK", at: (Date.parse(tracking.checkedAt ?? c.shippedAt ?? "") || 0) + RULES.TRACKING_CHECK, who: "handshake", consequence: "Handshake asks the carrier for news" });
+    // Only for temporary failures: a number EasyPost rejected carries a blocking flag, so the buyer
+    // has to confirm and there's nothing left to retry.
+    if (!blocksRelease(tracking)) {
+      if (deal.shipment?.labelCheck?.match) out.push({ kind: "AUTO_RELEASE", at: t(c.shippedAt, "AUTO_RELEASE"), who: "buyer", consequence: "payment is released to the seller" });
+      out.push({ kind: "TRACKING_CHECK", at: (Date.parse(tracking.checkedAt ?? c.shippedAt ?? "") || 0) + RULES.TRACKING_CHECK, who: "handshake", consequence: "Handshake asks the carrier for news" });
+    }
   } else if (deal.status === "SHIPPED" && tracking) {
     // With carrier tracking, silence only pays the seller once the carrier says it was delivered, there's
     // positive proof it went to the buyer (the delivery ZIP matches their PayPal address, or the label

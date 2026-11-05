@@ -155,13 +155,13 @@ Full threat model and the issues we've found and fixed: **[SECURITY.md](SECURITY
 
 ## Tests and CI
 
-Handshake is tested two ways: **252 automated tests** that run on every push and deploy, and **37 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel, Elastic and the AI models with real images and real listings.
+Handshake is tested two ways: **253 automated tests** that run on every push and deploy, and **37 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel, Elastic and the AI models with real images and real listings.
 
 | Area | Automated | Live on the sandbox | What it proves |
 |---|---:|---:|---|
 | Sign in with PayPal | 30 | 2 | Sessions can't be forged, edited or replayed; a sign-in can't be started by another site (state check) or bounce to another site; sellers are paid into their own PayPal by payer id; payer ids and emails never reach the browser; a seller can't pay for their own deal |
 | Email updates | 27 | 2 | Each step emails only the person who has to act; nothing goes to an unconfirmed, muted or sandbox address; typed-in addresses must be confirmed from the inbox and can't be used to spam (limits per requester and per real inbox, no stranger-written text before confirming); a buyer whose offer fell through loses access and emails; emails never include the buyer's address; a failing email never undoes a money step |
-| Delivery tracking | 26 | | Each carrier status moves the deal correctly: the buyer's window starts at the delivery scan, an automatic payout needs proof it went to the buyer (matching ZIP or verified label), a returned parcel releases the hold, and nothing pays out on silence when a scam sign shows (made-up number, delivery to another ZIP, a reused or recycled number, a lost parcel). EasyPost's webhook only counts with a valid signature; strangers never see the number or places |
+| Delivery tracking | 27 | | Each carrier status moves the deal correctly: the buyer's window starts at the delivery scan, an automatic payout needs proof it went to the buyer (matching ZIP or verified label), a returned parcel releases the hold, and nothing pays out on silence when a scam sign shows (made-up number, delivery to another ZIP, a reused or recycled number, a lost parcel). EasyPost's webhook only counts with a valid signature; strangers never see the number or places |
 | Deal flow and settlement | 14 | 3 | Holds, captures, payouts and voids happen once, for the right amount, only in the right state |
 | Meet in person | 13 | 6 | Only the seller can show a handover code and only the buyer can use it; codes expire, work once and lock after 5 wrong tries; the seller never sees the buyer's address |
 | Refunds and pricing | 26 | 3 | Refunds come from real part prices, are capped by verdict, and refund plus capture always equals the price |

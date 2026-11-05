@@ -69,6 +69,15 @@ export function applyTracker(deal: Deal, tracker: EasyPostTracker, now = Date.no
   return fresh;
 }
 
+// EasyPost rejected the number outright: treat it as made up, so payout needs the buyer's confirmation.
+export function markRejected(deal: Deal, now = Date.now()) {
+  const t = deal.shipment?.tracking;
+  if (!t) return;
+  t.status = "error";
+  t.checkedAt = new Date(now).toISOString();
+  if (!t.flags.includes("UNKNOWN_NUMBER")) t.flags.push("UNKNOWN_NUMBER");
+}
+
 // The same tracking number on another live deal: one parcel can't be delivered twice.
 // Compared without spaces, dashes or case, so "1Z 999-AA1" and "1z999aa1" are the same parcel.
 const normalize = (n?: string) => (n ?? "").replace(/[^a-z0-9]/gi, "").toUpperCase();

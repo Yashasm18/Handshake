@@ -25,6 +25,15 @@ export type EasyPostTracker = {
   }[];
 };
 
+// Carries EasyPost's HTTP status, so callers can tell "busy, try later" from "that number is wrong".
+export class EasyPostError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+  }
+}
+// 429 and 5xx (or no answer at all) are temporary. Any other 4xx means EasyPost rejected the request.
+export const rejected = (e: unknown) => e instanceof EasyPostError && e.status >= 400 && e.status < 500 && e.status !== 429;
+
 const auth = () => "Basic " + Buffer.from(`${process.env.EASYPOST_API_KEY}:`).toString("base64");
 
 async function call<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
@@ -36,7 +45,7 @@ async function call<T>(method: "GET" | "POST", path: string, body?: unknown): Pr
     signal: AbortSignal.timeout(8000),
   });
   const json = (await res.json().catch(() => ({}))) as T & { error?: { message?: string } };
-  if (!res.ok) throw new Error(`EasyPost ${res.status}: ${json.error?.message ?? "request failed"}`);
+  if (!res.ok) throw new EasyPostError(`EasyPost ${res.status}: ${json.error?.message ?? "request failed"}`, res.status);
   return json;
 }
 

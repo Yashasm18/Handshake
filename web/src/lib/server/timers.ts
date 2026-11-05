@@ -5,8 +5,8 @@ import { usd } from "../types";
 import { allDeals, log, withDeal } from "./deals";
 import { settle } from "./flows";
 import { PayPalError, reauthorizeHold, voidHold } from "./paypal";
-import { createTracker, getTracker, trackingEnabled } from "./easypost";
-import { applyTracker, reusedElsewhere } from "./tracking";
+import { createTracker, getTracker, rejected, trackingEnabled } from "./easypost";
+import { applyTracker, markRejected, reusedElsewhere } from "./tracking";
 import { announceTracking } from "./notify";
 
 // TIMER_SCALE shrinks every deadline for demos (e.g. 0.0007 ≈ a day per minute). Real deals use 1.
@@ -121,6 +121,12 @@ const ACTIONS: Record<DeadlineKind, Action> = {
     try {
       tracker = t.trackerId ? await getTracker(t.trackerId) : await createTracker(deal.shipment!.trackingNumber, deal.shipment!.carrier);
     } catch (e) {
+      if (rejected(e)) {
+        // EasyPost rejected the number itself: a scam sign, not a hiccup.
+        markRejected(deal, now);
+        logOnce(deal, "The carrier service rejected this tracking number, so payment won't be released without the buyer's confirmation.");
+        return { outcome: "done", detail: `Rejected: ${(e as Error).message}` };
+      }
       // EasyPost down or rate limiting: try again in 3 hours, not on every sweep.
       t.checkedAt = new Date(now).toISOString();
       return { outcome: "rescheduled", detail: `EasyPost: ${(e as Error).message}` };

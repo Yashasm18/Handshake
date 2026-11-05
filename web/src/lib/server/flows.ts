@@ -6,8 +6,8 @@ import { usd } from "../types";
 import { median, partComps, searchComps } from "./channel3";
 import { labelMatches, readLabel, reviewClaim } from "./checks";
 import { allDeals, HttpError, log, saveDeal, withDeal } from "./deals";
-import { createTracker, testMode, trackingEnabled } from "./easypost";
-import { applyTracker, newTracking, reusedElsewhere } from "./tracking";
+import { createTracker, rejected, testMode, trackingEnabled } from "./easypost";
+import { applyTracker, markRejected, newTracking, reusedElsewhere } from "./tracking";
 import { runNegotiation, startNegotiation } from "./negotiate";
 import { adoptPayPalEmail, announceTracking } from "./notify";
 import * as pp from "./paypal";
@@ -177,6 +177,10 @@ async function startTracking(deal: Deal) {
     log(deal, "handshake", `Following the parcel with the carrier${deal.shipment.tracking.test ? " (EasyPost test parcel)" : ""}.`);
   } catch (e) {
     console.error("tracker", deal.id, (e as Error).message);
+    if (rejected(e)) {
+      markRejected(deal);
+      log(deal, "handshake", "The carrier service rejected this tracking number, so payment won't be released without the buyer's confirmation.");
+    }
   }
 }
 
