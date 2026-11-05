@@ -36,6 +36,10 @@ services:
         generateValue: true
       - key: RESEND_API_KEY
         sync: false
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
       - key: CHANNEL3_API_KEY
         sync: false
       - key: KERNEL_API_KEY

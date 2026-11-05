@@ -7,6 +7,11 @@ import type { Deal } from "@/lib/types";
 process.env.DATA_DIR = mkdtempSync(path.join(tmpdir(), "hs-notify-"));
 process.env.APP_URL = "https://handshake.example.app";
 delete process.env.RESEND_API_KEY;
+delete process.env.GMAIL_USER;
+delete process.env.GMAIL_APP_PASSWORD;
+
+const smtp = vi.hoisted(() => ({ sendMail: vi.fn(async () => ({ messageId: "<m1@gmail>" })), createTransport: vi.fn() }));
+vi.mock("nodemailer", () => ({ default: { createTransport: (o: unknown) => (smtp.createTransport(o), { sendMail: smtp.sendMail }) } }));
 
 // Email updates: who hears what at each step, that nothing goes to unconfirmed or muted addresses,
 // that typed-in addresses must be confirmed from the inbox, and that emails carry no private details.
@@ -338,5 +343,25 @@ describe("unsubscribe endpoint", () => {
     expect((await route.POST(new Request(url, { method: "POST", body: "List-Unsubscribe=One-Click" }))).status).toBe(200);
     expect((await getDeal(id))!.contacts!.seller!.muted).toBe(true);
     expect((await route.POST(new Request(url.replace(SELLER.token, "wrong-token-xxxxxxxxxx"), { method: "POST" }))).status).toBe(400);
+  });
+});
+
+describe("sending through Gmail", () => {
+  it("is used when configured, sends as the Gmail account, and keeps one-click unsubscribe", async () => {
+    const { sendEmail, emailProvider } = await import("@/lib/server/email");
+    process.env.GMAIL_USER = "handshake.deals@gmail.com";
+    process.env.GMAIL_APP_PASSWORD = "abcd efgh ijkl mnop";
+    process.env.RESEND_API_KEY = "re_also_set";
+    expect(emailProvider()).toBe("gmail");
+    const r = await sendEmail({ to: "judge@outlook.com", subject: "S", html: "<p>H</p>", text: "T", unsubscribeUrl: "https://h.example/u" });
+    expect(r.id).toBe("<m1@gmail>");
+    expect(smtp.createTransport).toHaveBeenCalledWith({ service: "gmail", auth: { user: "handshake.deals@gmail.com", pass: "abcdefghijklmnop" } });
+    expect(smtp.sendMail).toHaveBeenCalledWith(expect.objectContaining({ from: "Handshake <handshake.deals@gmail.com>", to: "judge@outlook.com", headers: expect.objectContaining({ "List-Unsubscribe": "<https://h.example/u>" }) }));
+    // Sandbox addresses are still never sent to, whichever provider.
+    expect(await sendEmail({ to: "sb-1@personal.example.com", subject: "S", html: "", text: "" })).toEqual({ skipped: "undeliverable" });
+    delete process.env.GMAIL_USER;
+    delete process.env.GMAIL_APP_PASSWORD;
+    delete process.env.RESEND_API_KEY;
+    expect(emailProvider()).toBeNull();
   });
 });
