@@ -107,13 +107,13 @@ describe("where sign-in sends you", () => {
   });
 
   it("builds the return URL from the public host Render forwards", () => {
-    const req = new Request("http://localhost:10000/api/auth/paypal", { headers: { "x-forwarded-host": "handshake.example", "x-forwarded-proto": "https" } });
+    const req = new Request("http://localhost:10000/api/auth/signin", { headers: { "x-forwarded-host": "handshake.example", "x-forwarded-proto": "https" } });
     expect(login.callbackUrl(req)).toBe("https://handshake.example/api/auth/paypal/callback");
-    expect(login.callbackUrl(new Request("http://localhost:3000/api/auth/paypal", { headers: { host: "localhost:3000" } }))).toBe("http://localhost:3000/api/auth/paypal/callback");
+    expect(login.callbackUrl(new Request("http://localhost:3000/api/auth/signin", { headers: { host: "localhost:3000" } }))).toBe("http://localhost:3000/api/auth/paypal/callback");
   });
 });
 
-const start = (await import("@/app/api/auth/paypal/route")).GET;
+const start = (await import("@/app/api/auth/signin/route")).GET;
 const callback = (await import("@/app/api/auth/paypal/callback/route")).GET;
 const me = (await import("@/app/api/auth/me/route")).GET;
 const signout = (await import("@/app/api/auth/signout/route")).POST;
@@ -131,7 +131,7 @@ describe("the sign-in round trip", () => {
   }
 
   async function begin(next = "/check?mode=sell&resume=1") {
-    const res = await start(new Request(`http://localhost:3000/api/auth/paypal?next=${encodeURIComponent(next)}`, { headers: { host: "localhost:3000" } }));
+    const res = await start(new Request(`http://localhost:3000/api/auth/signin?next=${encodeURIComponent(next)}`, { headers: { host: "localhost:3000" } }));
     expect(res.status).toBe(303);
     return new URL(res.headers.get("location")!).searchParams.get("state")!;
   }

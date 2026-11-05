@@ -34,7 +34,7 @@ export const useMe = () => useSyncExternalStore(subscribe, () => current, () => 
 
 export function signInHref(next?: string) {
   const here = next ?? (typeof window === "undefined" ? "/deals" : window.location.pathname + window.location.search);
-  return `/api/auth/paypal?next=${encodeURIComponent(here)}`;
+  return `/api/auth/signin?next=${encodeURIComponent(here)}`;
 }
 
 export async function signOut() {
