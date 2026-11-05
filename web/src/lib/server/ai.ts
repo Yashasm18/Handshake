@@ -30,6 +30,12 @@ export const openRouterKeys = () => OPENROUTER_KEY_VARS.map((v) => process.env[v
 const SKIP_MS = 10 * 60_000;
 const g = globalThis as unknown as { __hsKeySkip?: Map<string, { until: number; why: "credit" | "refused" }> };
 const skipped = () => (g.__hsKeySkip ??= new Map());
+// True while OpenRouter has refused this key for lack of credit in the last 10 minutes. A $0 balance
+// alone doesn't mean that: OpenRouter lets a balance dip a little below zero before it refuses.
+export const refusedForCredit = (key: string, now = Date.now()) => {
+  const s = skipped().get(key);
+  return Boolean(s && s.why === "credit" && s.until > now);
+};
 function usable(key: string, free: boolean, now = Date.now()) {
   const s = skipped().get(key);
   if (!s || s.until <= now) return true;

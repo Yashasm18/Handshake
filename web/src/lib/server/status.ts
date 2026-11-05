@@ -1,5 +1,5 @@
 import "server-only";
-import { openRouterKeys } from "./ai";
+import { openRouterKeys, refusedForCredit } from "./ai";
 import { Kernel } from "@onkernel/sdk";
 import nodemailer from "nodemailer";
 import { getDb, usingPostgres } from "./db";
@@ -85,17 +85,19 @@ export const PROBES: Probe[] = [
       const states = await Promise.all(keys.map(keyState));
       const n = keys.length;
       if (states.every((s) => s === "refused" || s === "error")) throw states.includes("refused") ? new Error("401") : new Error("No answer");
-      const usable = states.flatMap((s, i) => (s === "ok" || s === "low" ? [i + 1] : []));
+      const usable = states.flatMap((s, i) => (s === "ok" || s === "low" || s === "zero" ? [i + 1] : []));
       if (!usable.length) {
         throw Object.assign(new Error("all out"), { safeNote: n > 1 ? `All ${n} OpenRouter keys are out of credit: running on free backup models` : "Out of credit: running on free backup models" });
       }
       const empty = states.flatMap((s, i) => (s === "empty" ? [i + 1] : []));
       const bad = states.flatMap((s, i) => (s === "refused" || s === "error" ? [i + 1] : []));
+      const inUse = states[usable[0] - 1];
       const notes = [
-        empty.length ? `${plural("Key", empty)} out of credit` : "",
-        bad.length ? `${plural("Key", bad)} not answering` : "",
+        empty.length ? `${plural("key", empty)} out of credit` : "",
+        bad.length ? `${plural("key", bad)} not answering` : "",
         empty.length || bad.length ? `using key ${usable[0]}` : "",
-        states[usable[0] - 1] === "low" ? `key ${usable[0]} credit nearly used up` : "",
+        inUse === "low" ? `key ${usable[0]} credit nearly used up` : "",
+        inUse === "zero" ? `key ${usable[0]} has $0 credit (still answering, may stop any time)` : "",
       ].filter(Boolean);
       if (notes.length) return notes.join("; ").replace(/^./, (c) => c.toUpperCase());
     },
@@ -222,8 +224,10 @@ async function runProbe(p: Probe, now: number): Promise<Check> {
   }
 }
 
-// One OpenRouter key's account: "ok", "low" (under $1 left), "empty" ($0), "refused" or "error".
-async function keyState(key: string): Promise<"ok" | "low" | "empty" | "refused" | "error"> {
+// One OpenRouter key's account: "ok", "low" (under $1 left), "zero" ($0 or below, but OpenRouter still
+// answers), "empty" (OpenRouter refused it for credit in real use), "refused" (bad key) or "error".
+async function keyState(key: string): Promise<"ok" | "low" | "zero" | "empty" | "refused" | "error"> {
+  if (refusedForCredit(key)) return "empty";
   try {
     const opts = { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(TIMEOUT_MS), cache: "no-store" as const };
     const res = await fetch("https://openrouter.ai/api/v1/key", opts);
@@ -231,14 +235,14 @@ async function keyState(key: string): Promise<"ok" | "low" | "empty" | "refused"
     if (!res.ok) return "error";
     const left = ((await res.json()) as { data?: { limit_remaining?: number | null } }).data?.limit_remaining;
     // The key's own spending limit, then the account's balance (what actually runs out).
-    if (typeof left === "number" && left <= 0) return "empty";
+    if (typeof left === "number" && left <= 0) return "zero";
     const byLimit = typeof left === "number" && left < 1 ? "low" : "ok";
     const credits = await fetch("https://openrouter.ai/api/v1/credits", opts);
     if (!credits.ok) return byLimit;
     const c = ((await credits.json()) as { data?: { total_credits?: number; total_usage?: number } }).data;
     if (typeof c?.total_credits !== "number" || typeof c.total_usage !== "number") return byLimit;
     const balance = Math.min(c.total_credits - c.total_usage, typeof left === "number" ? left : Infinity);
-    return balance <= 0 ? "empty" : balance < 1 ? "low" : "ok";
+    return balance <= 0 ? "zero" : balance < 1 ? "low" : "ok";
   } catch {
     return "error";
   }
