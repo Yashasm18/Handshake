@@ -14,7 +14,7 @@ Agents negotiate a fair price, and every deadline enforces itself.
 
 <br>
 
-[![Live demo](https://img.shields.io/badge/Live_demo-handshake--5rkw.onrender.com-111110?style=for-the-badge)](https://handshake-5rkw.onrender.com)
+[![Live demo](https://img.shields.io/badge/Live_demo-handshake--5rkw.onrender.com-111110?style=for-the-badge)](https://usehandshake.onrender.com)
 [![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/Yashasm18/HandShake/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0a7a4b?style=for-the-badge)](LICENSE)
 
@@ -41,7 +41,7 @@ Agents negotiate a fair price, and every deadline enforces itself.
 
 <br>
 
-[Live demo](https://handshake-5rkw.onrender.com) · [Watch it work (2 min)](https://handshake-5rkw.onrender.com/#see-how) · [Try it in 60 seconds](#try-it-in-60-seconds) · [How it works](#how-it-works) · [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md)
+[Live demo](https://usehandshake.onrender.com) · [Watch it work (2 min)](https://usehandshake.onrender.com/#see-how) · [Try it in 60 seconds](#try-it-in-60-seconds) · [How it works](#how-it-works) · [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md)
 
 </div>
 
@@ -74,7 +74,7 @@ Americans lost a record **$15.9B to fraud in 2025**, and online shopping scams a
 
 Everything runs on the **PayPal sandbox**: no real money moves.
 
-1. Open the **[live demo](https://handshake-5rkw.onrender.com)** and choose **I'm selling**. Paste a listing, for example:
+1. Open the **[live demo](https://usehandshake.onrender.com)** and choose **I'm selling**. Paste a listing, for example:
    > *Selling my Nintendo Switch OLED (white), $230. Small scuff on the back, screen perfect, both Joy-Cons, dock and charger included.*
 2. Create the deal. Leave **Let my agent take offers** on and set a lowest price (say $190).
 3. Copy the deal link and open it in a **private window**. You're now the buyer.

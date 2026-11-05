@@ -1,7 +1,8 @@
 # Render Blueprint: the web app (frontend + API), plus a workflow and a cron job that enforce deal deadlines.
 services:
   - type: web
-    name: handshake
+    # The name is also the address: https://usehandshake.onrender.com
+    name: usehandshake
     runtime: node
     rootDir: web
     plan: starter
@@ -68,7 +69,7 @@ services:
       - key: NODE_VERSION
         value: "22"
       - key: HANDSHAKE_URL
-        value: https://handshake-5rkw.onrender.com
+        value: https://usehandshake.onrender.com
       - fromGroup: handshake-timers
 
   # Workflows don't schedule themselves yet, so this starts one sweep every 5 minutes.

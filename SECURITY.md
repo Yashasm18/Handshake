@@ -19,7 +19,7 @@ We aim to acknowledge reports within **72 hours** and to share a fix plan within
 | In scope | Out of scope |
 |---|---|
 | This repository: the web app, API routes, workflow and Blueprint | PayPal, Channel3, Render, Kernel, Elastic, OpenRouter or Anthropic infrastructure (report to them directly) |
-| The hosted demo at `handshake-5rkw.onrender.com` | Denial of service, load or spam testing |
+| The hosted demo at `usehandshake.onrender.com` | Denial of service, load or spam testing |
 | Logic flaws that could move money incorrectly, even in the sandbox | Social engineering, physical attacks |
 
 The demo runs on the **PayPal sandbox**: no real money moves. Please test only with sandbox accounts and PayPal's published test cards, and never with real payment details.

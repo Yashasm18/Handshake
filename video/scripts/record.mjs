@@ -7,7 +7,7 @@ import { chromium } from "playwright-core";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const BASE = process.env.BASE ?? "https://handshake-5rkw.onrender.com";
+const BASE = process.env.BASE ?? "https://usehandshake.onrender.com";
 // A real Craigslist listing; its page is read by Kernel. Listings expire, so it can be overridden.
 const LISTING = process.env.LISTING ?? "https://www.craigslist.org/view/d/san-francisco-nintendo-switch-oled/8Qa6TAbBDnKHN1FT6RrApq";
 const OUT = fileURLToPath(new URL("../take/", import.meta.url));

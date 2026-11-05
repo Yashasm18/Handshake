@@ -55,7 +55,7 @@ Memory starts with **24 common marketplace scam scripts**, written by us from th
 
 ## Live numbers, with ES|QL
 
-The [Elastic page](https://handshake-5rkw.onrender.com/elastic) reads memory with **ES|QL** on every visit: how many scams are remembered, how often they were met, and which tactics are most common.
+The [Elastic page](https://usehandshake.onrender.com/elastic) reads memory with **ES|QL** on every visit: how many scams are remembered, how often they were met, and which tactics are most common.
 
 ```
 FROM handshake-scams | MV_EXPAND flags | STATS sightings = SUM(seen) BY flags | SORT sightings DESC

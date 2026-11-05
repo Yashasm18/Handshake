@@ -84,7 +84,7 @@ function Window({ side, x, beat, local, enter }) {
           {label}
         </span>
         <span style={{ marginLeft: "auto", fontFamily: mono, fontSize: 13, color: "rgba(243,241,236,.45)", background: "rgba(255,255,255,.06)", padding: "5px 12px", borderRadius: 999 }}>
-          handshake-5rkw.onrender.com
+          usehandshake.onrender.com
         </span>
       </div>
       <OffthreadVideo
@@ -174,7 +174,7 @@ function TitleCard({ local, frames, intro }) {
             ))}
           </div>
         )}
-        {!intro && <div style={{ marginTop: 50, opacity: sponsorIn, fontFamily: mono, fontSize: 20, letterSpacing: "0.08em", color: "rgba(243,241,236,.55)" }}>handshake-5rkw.onrender.com</div>}
+        {!intro && <div style={{ marginTop: 50, opacity: sponsorIn, fontFamily: mono, fontSize: 20, letterSpacing: "0.08em", color: "rgba(243,241,236,.55)" }}>usehandshake.onrender.com</div>}
       </div>
     </AbsoluteFill>
   );
