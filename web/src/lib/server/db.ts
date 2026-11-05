@@ -1,4 +1,5 @@
 import "server-only";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { Pool, type PoolClient } from "pg";
 
 // The Postgres connection. Production uses DATABASE_URL (Render's internal connection string). Tests swap
@@ -17,6 +18,13 @@ export function setDb(db: Db | null) {
   g.__hsDb = db;
 }
 
+// The connection holding the current deal's lock. Every query made while that lock is held (reading and
+// saving the deal, lookups) runs on this same connection, so a locked step needs exactly one connection
+// and a busy server can't deadlock with every connection holding a lock and waiting for another.
+// Background work started inside a step (an email, say) may query after the step ends; once the lock is
+// released it falls back to the pool, never to a connection already handed back.
+const held = new AsyncLocalStorage<{ client: PoolClient; open: boolean }>();
+
 function poolDb(url: string): Db {
   g.__hsPool ??= new Pool({
     connectionString: url,
@@ -30,14 +38,19 @@ function poolDb(url: string): Db {
   const pool = g.__hsPool;
   pool.on("error", (e) => console.error("postgres pool", e.message));
   return {
-    query: (sql, params) => pool.query(sql, params as unknown[]) as never,
+    query: (sql, params) => {
+      const h = held.getStore();
+      return (h?.open ? h.client : pool).query(sql, params as unknown[]) as never;
+    },
     async lock(key, fn) {
       const client: PoolClient = await pool.connect();
+      const h = { client, open: true };
       try {
         await client.query("select pg_advisory_lock(hashtextextended($1, 0))", [key]);
         try {
-          return await fn();
+          return await held.run(h, fn);
         } finally {
+          h.open = false;
           await client.query("select pg_advisory_unlock(hashtextextended($1, 0))", [key]).catch(() => {});
         }
       } finally {
