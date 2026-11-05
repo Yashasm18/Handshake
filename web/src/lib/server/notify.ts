@@ -47,7 +47,7 @@ export const oneClickUnsubscribe = (deal: Deal, role: Role, c: Contact) =>
 
 type Message = { subject: string; lead: string; body: string[]; cta: string; ctaUrl?: string };
 
-function render(deal: Deal, role: Role, c: Contact, m: Message, opts: { footer: "deal" | "confirm" }) {
+function render(deal: Deal, role: Role, c: Contact, m: Message, opts: { footer: "deal" | "confirm"; neutral?: boolean }) {
   const url = m.ctaUrl ?? dealLink(deal, role);
   const unsubscribe = settingsLink(deal, role, c, "mute");
   const footer =
@@ -58,8 +58,8 @@ function render(deal: Deal, role: Role, c: Contact, m: Message, opts: { footer: 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:20px;padding:36px 32px">
 <tr><td style="font-size:15px;font-weight:600;letter-spacing:-0.02em">Handshake</td></tr>
-<tr><td style="padding-top:28px;font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:#6b6760">${esc(deal.title)}</td></tr>
-<tr><td style="padding-top:10px;font-size:26px;line-height:1.2;font-weight:650;letter-spacing:-0.02em">${esc(m.lead)}</td></tr>
+${opts.neutral ? "" : `<tr><td style="padding-top:28px;font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:#6b6760">${esc(deal.title)}</td></tr>`}
+<tr><td style="padding-top:${opts.neutral ? 28 : 10}px;font-size:26px;line-height:1.2;font-weight:650;letter-spacing:-0.02em">${esc(m.lead)}</td></tr>
 ${m.body.map((p) => `<tr><td style="padding-top:14px;font-size:16px;line-height:1.55;color:#3b3a36">${esc(p)}</td></tr>`).join("")}
 <tr><td style="padding-top:28px"><a href="${esc(url)}" style="display:inline-block;background:#141413;color:#f3f1ec;text-decoration:none;font-size:15px;font-weight:600;padding:14px 24px;border-radius:999px">${esc(m.cta)}</a></td></tr>
 <tr><td style="padding-top:28px;font-size:13px;line-height:1.5;color:#6b6760">PayPal holds the money until the item is checked. Handshake will never ask for your password, card or a payment outside PayPal.</td></tr>
@@ -178,8 +178,10 @@ export async function sendConfirmation(deal: Deal, role: Role) {
     deal,
     role,
     c,
-    { subject: `Confirm email updates for ${deal.title}`, lead: "Confirm your email for deal updates.", body: [`Someone (hopefully you) asked for updates on a Handshake deal for ${deal.title} to be sent here.`], cta: "Confirm my email", ctaUrl: settingsLink(deal, role, c, "confirm") },
-    { footer: "confirm" },
+    // Fixed wording only: this goes to an address that hasn't agreed to anything yet, so nothing a
+    // stranger wrote (the item title, a name) may appear in it.
+    { subject: "Confirm email updates for your Handshake deal", lead: "Confirm your email for deal updates.", body: ["Someone asked for updates on a Handshake deal to be sent to this address. If that was you, confirm below. If not, ignore this email and nothing more will be sent."], cta: "Confirm my email", ctaUrl: settingsLink(deal, role, c, "confirm") },
+    { footer: "confirm", neutral: true },
   );
   await sendEmail({ to: c.email, ...mail, idempotencyKey: `${deal.id}-${role}-confirm-${c.token}` });
 }

@@ -116,7 +116,7 @@ export default function RenderPage() {
             stats={[
               { n: "3", t: "timer actions run against PayPal's sandbox: a void, a capture with payout, and a rescheduled renewal.", s: "End to end" },
               { n: "0", t: "duplicate money moves, across repeated sweeps and three simultaneous runs of the same deadline.", s: "Idempotency" },
-              { n: "212", t: "automated tests across the app and the workflow, plus 35 live scenarios on the sandbox. The app's run before every deploy.", s: "Vitest + live runs" },
+              { n: "214", t: "automated tests across the app and the workflow, plus 35 live scenarios on the sandbox. The app's run before every deploy.", s: "Vitest + live runs" },
             ]}
           />
         </Section>

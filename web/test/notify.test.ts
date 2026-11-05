@@ -234,6 +234,23 @@ describe("typing in an address", () => {
     expect(outbox).toHaveLength(0);
   });
 
+  it("a confirmation email carries nothing a stranger wrote: no title, no name", async () => {
+    const id = await newDeal({ contacts: {}, title: "URGENT your PayPal is locked call 1-800-555-0100", sellerName: "PayPal Support" });
+    await contacts.setContactEmail(id, "buyer", "victim@gmail.com");
+    const mail = to("victim@gmail.com")[0];
+    for (const text of [mail.subject, mail.html, mail.text]) {
+      expect(text).not.toContain("URGENT");
+      expect(text).not.toContain("1-800");
+      expect(text).not.toContain("PayPal Support");
+    }
+  });
+
+  it("making more deals can't flood one inbox: 3 confirmations per address per day across all deals", async () => {
+    for (let i = 0; i < 3; i++) await contacts.setContactEmail(await newDeal({ contacts: {} }), "buyer", "target@gmail.com");
+    await expect(contacts.setContactEmail(await newDeal({ contacts: {} }), "buyer", "TARGET@gmail.com")).rejects.toThrow(/enough confirmation emails/);
+    expect(to("target@gmail.com")).toHaveLength(3);
+  });
+
   it("can't be used to spam an inbox: 3 confirmations per side per day", async () => {
     const id = await newDeal({ contacts: {} });
     for (const a of ["a1@gmail.com", "a2@gmail.com", "a3@gmail.com"]) await contacts.setContactEmail(id, "seller", a);

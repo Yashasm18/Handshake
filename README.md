@@ -155,12 +155,12 @@ Full threat model and the issues we've found and fixed: **[SECURITY.md](SECURITY
 
 ## Tests and CI
 
-Handshake is tested two ways: **212 automated tests** that run on every push and deploy, and **35 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel, Elastic and the AI models with real images and real listings.
+Handshake is tested two ways: **214 automated tests** that run on every push and deploy, and **35 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel, Elastic and the AI models with real images and real listings.
 
 | Area | Automated | Live on the sandbox | What it proves |
 |---|---:|---:|---|
 | Sign in with PayPal | 30 | 2 | Sessions can't be forged, edited or replayed; a sign-in can't be started by another site (state check) or bounce to another site; sellers are paid into their own PayPal by payer id; payer ids and emails never reach the browser; a seller can't pay for their own deal |
-| Email updates | 21 | | Each step emails only the person who has to act; nothing goes to an unconfirmed, muted or sandbox address; typed-in addresses must be confirmed from the inbox and can't be used to spam (3 per day); emails never include the buyer's address; a failing email never undoes a money step |
+| Email updates | 23 | | Each step emails only the person who has to act; nothing goes to an unconfirmed, muted or sandbox address; typed-in addresses must be confirmed from the inbox and can't be used to spam (3 per inbox per day, no stranger-written text before confirming); emails never include the buyer's address; a failing email never undoes a money step |
 | Deal flow and settlement | 14 | 3 | Holds, captures, payouts and voids happen once, for the right amount, only in the right state |
 | Meet in person | 13 | 6 | Only the seller can show a handover code and only the buyer can use it; codes expire, work once and lock after 5 wrong tries; the seller never sees the buyer's address |
 | Refunds and pricing | 26 | 3 | Refunds come from real part prices, are capped by verdict, and refund plus capture always equals the price |
