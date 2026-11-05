@@ -19,7 +19,7 @@ flowchart TB
     end
     subgraph Render
         APP["Handshake app<br/>Next.js API routes"]
-        DISK[("Persistent disk<br/>deals.json")]
+        DISK[("Render Postgres<br/>deals (JSONB + indexes)")]
         WF["Render Workflow<br/>sweepDeals · enforceDeadline"]
         CRON["Render Cron<br/>every 5 min"]
     end
@@ -81,4 +81,4 @@ stateDiagram-v2
 
 ## Storage
 
-Deals are stored as JSON on Render's persistent disk, written atomically (temporary file, then rename) and serialized per deal with an in-process lock. That's deliberate for a single-instance hackathon deployment; moving to Postgres would only change [`deals.ts`](../web/src/lib/server/deals.ts).
+Deals are stored in **Render Postgres** ([`deals.ts`](../web/src/lib/server/deals.ts), [`db.ts`](../web/src/lib/server/db.ts)): one row per deal, the deal itself in a JSONB column, and the fields it's looked up by (status, the seller's and buyer's PayPal payer ids, the parcel's tracker id and normalized tracking number) in indexed columns, so My deals, carrier webhooks, the reused-number check and the deadline sweep never scan every deal. Work on a deal is serialized twice: queued per deal inside a server, and under a Postgres advisory lock across servers, so two clicks (or two servers) can never run the same money step at once. Steps that move money save as they go (a capture is written the moment it succeeds), so a later failure in the same step never loses the record. The database is only reachable over Render's private network, with daily backups. On first start with a database, deals from the old JSON file on the disk are imported once (recorded, under a lock) and the file is kept as a backup. Without `DATABASE_URL` (local development) the same functions use a JSON file. The whole test suite runs against both stores, Postgres via PGlite, a real Postgres engine in-process.

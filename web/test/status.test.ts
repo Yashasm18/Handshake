@@ -59,8 +59,9 @@ describe("the checks", () => {
   it("all services answering means everything is working", async () => {
     status.recordTimerSweep(T - 60_000);
     const cs = await status.checkAll({ now: T });
-    expect(cs.map((c) => c.id)).toEqual(["paypal", "payouts", "ai", "channel3", "kernel", "elastic", "easypost", "email", "timers"]);
-    expect(cs.every((c) => c.status === "up")).toBe(true);
+    expect(cs.map((c) => c.id)).toEqual(["database", "paypal", "payouts", "ai", "channel3", "kernel", "elastic", "easypost", "email", "timers"]);
+    // Without DATABASE_URL (this test), the database row says "not set up"; everything else answers.
+    expect(cs.filter((c) => c.id !== "database").every((c) => c.status === "up")).toBe(true);
     expect(status.overall(cs)).toBe("up");
   });
 

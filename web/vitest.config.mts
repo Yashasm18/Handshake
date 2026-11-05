@@ -9,5 +9,5 @@ export default defineConfig({
       "server-only": path.resolve(__dirname, "test/server-only-stub.ts"),
     },
   },
-  test: { include: ["test/**/*.test.ts"] },
+  test: { include: ["test/**/*.test.ts"], setupFiles: ["test/setup-db.ts"] },
 });

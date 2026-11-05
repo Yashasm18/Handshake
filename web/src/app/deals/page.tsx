@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { PayPalSignIn } from "@/components/account";
 import { Arrow, Button, Nav } from "@/components/chrome";
 import { Footer } from "@/components/feature";
-import { allDeals } from "@/lib/server/deals";
+import { dealsForAccount } from "@/lib/server/deals";
 import { currentAccount } from "@/lib/server/session";
 import type { Deal } from "@/lib/types";
 import { usd } from "@/lib/types";
@@ -86,7 +86,7 @@ async function MyDeals() {
       </div>
     );
   }
-  const mine = (await allDeals()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const mine = (await dealsForAccount(account.payerId)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const selling = mine.filter((d) => d.seller?.payerId === account.payerId);
   const buying = mine.filter((d) => d.buyer?.payerId === account.payerId && d.seller?.payerId !== account.payerId);
   const open = [...selling, ...buying].filter((d) => !["SETTLED", "RELEASED"].includes(d.status)).length;

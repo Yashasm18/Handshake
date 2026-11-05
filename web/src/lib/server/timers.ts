@@ -2,7 +2,7 @@ import "server-only";
 import { DAY, RULES, dueNow, type DeadlineKind } from "../deadlines";
 import type { Deal } from "../types";
 import { usd } from "../types";
-import { allDeals, log, withDeal } from "./deals";
+import { dealsWithTrackingNumber, log, openDeals, withDeal } from "./deals";
 import { settle } from "./flows";
 import { PayPalError, reauthorizeHold, voidHold } from "./paypal";
 import { createTracker, getTracker, rejected, trackingEnabled } from "./easypost";
@@ -25,7 +25,7 @@ function span(kind: keyof typeof RULES) {
 
 // Everything past a deadline right now, across all deals. The timer workflow fans these out.
 export async function dueTimers(now = Date.now()) {
-  return (await allDeals()).flatMap((d) => dueNow(d, now, timerScale()).map((t) => ({ dealId: d.id, kind: t.kind, at: t.at })));
+  return (await openDeals()).flatMap((d) => dueNow(d, now, timerScale()).map((t) => ({ dealId: d.id, kind: t.kind, at: t.at })));
 }
 
 export type TimerResult = { dealId: string; kind: DeadlineKind; outcome: "done" | "not-due" | "rescheduled"; detail: string };
@@ -87,7 +87,7 @@ const ACTIONS: Record<DeadlineKind, Action> = {
     // Recomputed each time (only an earlier shipment counts), so a stale flag never sticks.
     const t = deal.shipment?.tracking;
     if (t) {
-      const reused = reusedElsewhere(deal, await allDeals());
+      const reused = reusedElsewhere(deal, await dealsWithTrackingNumber(deal.shipment!.trackingNumber));
       t.flags = t.flags.filter((f) => f !== "REUSED_NUMBER");
       if (reused) {
         t.flags.push("REUSED_NUMBER");

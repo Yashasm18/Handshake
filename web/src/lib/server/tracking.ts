@@ -1,5 +1,6 @@
 import "server-only";
 import type { Deal, ParcelStatus, Tracking, TrackingFlag } from "../types";
+import { normalizeTracking } from "./deals";
 export { blocksRelease } from "../deadlines";
 import type { EasyPostTracker } from "./easypost";
 
@@ -88,16 +89,14 @@ export function markRejected(deal: Deal, now = Date.now()) {
 }
 
 // The same tracking number on another live deal: one parcel can't be delivered twice.
-// Compared without spaces, dashes or case, so "1Z 999-AA1" and "1z999aa1" are the same parcel.
-const normalize = (n?: string) => (n ?? "").replace(/[^a-z0-9]/gi, "").toUpperCase();
 // The first deal to ship a number owns it: only a live deal that shipped it EARLIER counts as reuse.
 // So copying an honest seller's number into a later deal can't stall that seller's payout.
 export function reusedElsewhere(deal: Deal, all: Deal[]) {
-  const n = normalize(deal.shipment?.trackingNumber);
+  const n = normalizeTracking(deal.shipment?.trackingNumber);
   if (!n) return false;
   const mine = Date.parse(deal.clock?.shippedAt ?? "") || Infinity;
   return all.some((d) => {
-    if (d.id === deal.id || d.status === "RELEASED" || normalize(d.shipment?.trackingNumber) !== n) return false;
+    if (d.id === deal.id || d.status === "RELEASED" || normalizeTracking(d.shipment?.trackingNumber) !== n) return false;
     const theirs = Date.parse(d.clock?.shippedAt ?? "") || Infinity;
     return theirs < mine || (theirs === mine && d.id < deal.id);
   });

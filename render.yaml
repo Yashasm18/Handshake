@@ -7,7 +7,8 @@ services:
     rootDir: web
     plan: starter
     # Tests guard the money rules (part pricing, refund caps, negotiation limits, timers); a failure blocks the deploy.
-    buildCommand: npm ci && npm test && npm run build
+    # Tests run twice: on the file store and on a real Postgres engine (the production database path).
+    buildCommand: npm ci && npm test && npm run test:pg && npm run build
     startCommand: npm run start
     healthCheckPath: /api/config
     # Deals live on this disk so they survive redeploys and restarts.
@@ -20,6 +21,12 @@ services:
         value: "22"
       - key: DATA_DIR
         value: /var/data
+      # Deals live in Postgres (below), over Render's private network. The disk keeps the old JSON file,
+      # which is imported once on the first start with a database and then left as a backup.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: handshake-db
+          property: connectionString
       - key: PAYPAL_API_BASE
         value: https://api-m.sandbox.paypal.com
       - key: PAYPAL_CLIENT_ID
@@ -96,6 +103,15 @@ services:
       # A Render API key (Account settings → API Keys) so the cron can start workflow runs.
       - key: RENDER_API_KEY
         sync: false
+
+databases:
+  # Deals, with daily backups. Only reachable from inside Render (empty allow list): no public access.
+  - name: handshake-db
+    databaseName: handshake
+    user: handshake
+    plan: basic-256mb
+    region: oregon
+    ipAllowList: []
 
 envVarGroups:
   # Shared by the web app and the workflow: proves timer calls come from our own workflow.

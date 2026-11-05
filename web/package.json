@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test:pg": "HS_TEST_DB=pglite vitest run"
   },
   "dependencies": {
     "@onkernel/sdk": "0.128.0",
@@ -16,6 +17,7 @@
     "motion": "^14.9.0",
     "next": "16.4.4",
     "nodemailer": "10.2.0",
+    "pg": "8.23.1",
     "qrcode-generator": "2.0.4",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -23,9 +25,11 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.11",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/nodemailer": "8.0.2",
+    "@types/pg": "8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

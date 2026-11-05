@@ -5,7 +5,7 @@ import type { Deal } from "../types";
 import { usd } from "../types";
 import { median, partComps, searchComps } from "./channel3";
 import { labelMatches, readLabel, reviewClaim } from "./checks";
-import { allDeals, HttpError, log, saveDeal, withDeal } from "./deals";
+import { dealsWithTrackingNumber, HttpError, log, saveDeal, withDeal } from "./deals";
 import { createTracker, rejected, testMode, trackingEnabled } from "./easypost";
 import { applyTracker, markRejected, newTracking, reusedElsewhere } from "./tracking";
 import { runNegotiation, startNegotiation } from "./negotiate";
@@ -166,7 +166,7 @@ const REFUSED_FOR_GOOD = new Set(["INSUFFICIENT_FUNDS"]);
 async function startTracking(deal: Deal) {
   if (!trackingEnabled() || !deal.shipment) return;
   const tracking = newTracking(testMode());
-  if (reusedElsewhere(deal, await allDeals())) {
+  if (reusedElsewhere(deal, await dealsWithTrackingNumber(deal.shipment.trackingNumber))) {
     tracking.flags.push("REUSED_NUMBER");
     log(deal, "handshake", "This tracking number is already used on another Handshake deal, so payment won't be released without the buyer's confirmation.");
   }

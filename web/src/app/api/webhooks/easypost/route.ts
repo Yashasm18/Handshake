@@ -1,4 +1,4 @@
-import { allDeals, withDeal } from "@/lib/server/deals";
+import { dealByTracker, withDeal } from "@/lib/server/deals";
 import { type EasyPostTracker, testMode, verifyWebhook } from "@/lib/server/easypost";
 import { announceTracking } from "@/lib/server/notify";
 import { applyTracker } from "@/lib/server/tracking";
@@ -22,9 +22,7 @@ export async function POST(req: Request) {
   // Only tracker events, and only from the mode our key is in (a test event can't touch a real deal).
   if (!event.description?.startsWith("tracker.") || !tracker?.id || (event.mode && (event.mode === "test") !== testMode())) return new Response("Ignored", { status: 200 });
 
-  const deal = (await allDeals()).find(
-    (d) => d.status === "SHIPPED" && (d.shipment?.tracking?.trackerId === tracker.id || (!d.shipment?.tracking?.trackerId && d.shipment?.trackingNumber.toUpperCase() === tracker.tracking_code?.toUpperCase())),
-  );
+  const deal = await dealByTracker(tracker.id, tracker.tracking_code ?? "");
   // Unknown parcels are acknowledged, so EasyPost doesn't keep retrying.
   if (!deal) return new Response("Not ours", { status: 200 });
   await withDeal(deal.id, async (d) => {

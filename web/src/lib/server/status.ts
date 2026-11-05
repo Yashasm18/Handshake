@@ -1,6 +1,7 @@
 import "server-only";
 import { Kernel } from "@onkernel/sdk";
 import nodemailer from "nodemailer";
+import { getDb, usingPostgres } from "./db";
 import { sendEmail } from "./email";
 
 // Live health of everything Handshake depends on, for /status and for alert emails. Each check is the
@@ -43,6 +44,16 @@ const g = globalThis as unknown as {
 export const recordTimerSweep = (at = Date.now()) => (g.__hsTimerSweep = at);
 
 export const PROBES: Probe[] = [
+  {
+    id: "database",
+    name: "Database",
+    role: "Postgres: every deal and its history",
+    ttlMs: 5 * MIN,
+    enabled: () => usingPostgres(),
+    run: async () => {
+      await getDb()!.query("select 1");
+    },
+  },
   {
     id: "paypal",
     name: "PayPal payments",
