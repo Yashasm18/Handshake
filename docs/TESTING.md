@@ -10,12 +10,12 @@
 
 Handshake moves other people's money, so every rule that touches it is tested twice:
 
-1. **Automated tests (266).** They run on every push in GitHub Actions and again on Render before every deploy. External services are replaced with fakes, so these tests check *our* rules: amounts, limits, states, retries and who can see what.
+1. **Automated tests (267).** They run on every push in GitHub Actions and again on Render before every deploy. External services are replaced with fakes, so these tests check *our* rules: amounts, limits, states, retries and who can see what.
 2. **Live end-to-end scenarios (33).** A script drives a running Handshake server through real deals on the **PayPal sandbox**, with live **Channel3** prices, **Kernel** cloud browsers reading real listings, **Elastic** scam memory, and the real **AI models** reading real images. These check that everything works together.
 
 | | Automated | Live |
 |---|---|---|
-| Count | 266 tests | 42 scenarios |
+| Count | 267 tests | 42 scenarios |
 | Runs | Every push and every deploy | Before each release, and on demand |
 | PayPal, Channel3, Kernel, Elastic, AI | Faked | Real (PayPal sandbox) |
 | Result | All pass | All pass |
@@ -23,7 +23,7 @@ Handshake moves other people's money, so every rule that touches it is tested tw
 ## Automated tests
 
 ```bash
-npm --prefix web test         # 258 tests
+npm --prefix web test         # 259 tests
 npm --prefix workflows test   # 8 tests
 ```
 
@@ -33,7 +33,7 @@ npm --prefix workflows test   # 8 tests
 | [`timers.test.ts`](../web/test/timers.test.ts) | 19 | Every deadline: when it's due, what it does, that it does nothing the second time, that a failed payout resumes without capturing twice, and that three simultaneous runs move money once. |
 | [`signin.test.ts`](../web/test/signin.test.ts) | 26 | Sign in with PayPal: signed sessions that can't be forged, edited, re-signed with another key or used after 30 days; the full OAuth round trip against a fake PayPal (the server never redirects to PayPal itself, only this site can start a sign-in, state must match and works once, cancel and bad codes, profiles without a payer id, no redirects off the site); the payer id never reaches the browser; a PayPal account opens its own side of a deal on any device and nothing else; a seller can't pay for their own deal. |
 | [`tracking.test.ts`](../web/test/tracking.test.ts) | 28 | Delivery tracking through EasyPost: scans read in order with places; the buyer's 3-day window starts at the delivery scan, and only with proof it went to the buyer (the delivery ZIP matches their PayPal address, or the label photo did); the reuse check runs again right before an automatic payout and only counts a deal that shipped the number earlier (so copying an honest seller's number into a later deal can't stall them), on numbers compared without spaces or dashes; no payout on silence before delivery or when a scam sign shows (a number the carrier doesn't know after a day, delivery to a different ZIP, a number reused on another deal, a delivery dated before shipping, a lost parcel); a returned parcel voids the hold; the timer polls when a webhook is missed; shipping still works when EasyPost is down; the webhook checks EasyPost's own HMAC scheme and refuses forged or test-mode events; each milestone emails once; strangers see progress but not the number or places. |
-| [`status.test.ts`](../web/test/status.test.ts) | 12 | The /status page and alerts: every service checked with a cheap real request (PayPal payments and payouts, the AI, Channel3, Kernel, Elastic, EasyPost, email) plus the deadline timer's heartbeat; down reasons in a few safe words; per-service caching (Channel3 hourly, since searches may cost credits); PayPal down is the one outage that stops payments; one alert email when a service goes down and one when it recovers, even when a page visit saw the outage first; visitors arriving together share one probe; unexpected server errors counted and emailed at most hourly; the public API never shows a key, host or raw error. |
+| [`status.test.ts`](../web/test/status.test.ts) | 13 | The /status page and alerts: every service checked with a cheap real request (PayPal payments and payouts, the AI, Channel3, Kernel, Elastic, EasyPost, email) plus the deadline timer's heartbeat; down reasons in a few safe words; per-service caching (Channel3 hourly, since searches may cost credits); PayPal down is the one outage that stops payments; one alert email when a service goes down and one when it recovers, even when a page visit saw the outage first; visitors arriving together share one probe; unexpected server errors counted and emailed at most hourly; the public API never shows a key, host or raw error. |
 | [`notify.test.ts`](../web/test/notify.test.ts) | 28 | Email updates: who hears what at each step (held, shipped, paid, cancelled, in person); nothing to unconfirmed, muted or PayPal sandbox addresses; typed-in addresses need an inbox confirmation and are limited to 3 per side, 2 per requester per inbox and 10 per inbox a day (Gmail dots and +tags count as the same inbox, and one person can't use up the owner's allowance), and their confirmation email carries no text a stranger wrote; confirm and stop links only work with their own token and die when the address changes; opening an unsubscribe link changes nothing until the one-click POST; listing text is escaped; the buyer's address never appears in an email; a failing email never undoes a money step. |
 | [`security.test.ts`](../web/test/security.test.ts) | 19 | What a stranger, the buyer and the seller can each see; the label address check; PayPal idempotency keys and error details; the secret-guarded timer API. |
 | [`negotiation.test.ts`](../web/test/negotiation.test.ts) | 20 | The referee that clamps every agent offer to its owner's limit, moves in steps and blocks early accepts, and the filter that rejects any message revealing a limit in digits or words. |

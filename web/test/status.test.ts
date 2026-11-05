@@ -108,6 +108,11 @@ describe("the checks", () => {
 });
 
 describe("the deadline timer's heartbeat", () => {
+  it("right after a restart it's fine while the first sweep is on its way, but not forever", async () => {
+    expect(byId(await status.checkAll({ now: T, upSince: T - 2 * 60_000 }), "timers")).toMatchObject({ status: "up" });
+    expect(byId(await status.checkAll({ now: T, upSince: T - 15 * 60_000 }), "timers")).toMatchObject({ status: "slow", note: "No sweep since the last restart" });
+  });
+
   it("is working while it sweeps every few minutes, and down when it stops", async () => {
     status.recordTimerSweep(T - 3 * 60_000);
     expect(byId(await status.checkAll({ now: T }), "timers")).toMatchObject({ status: "up", note: "Last sweep 3 min ago" });

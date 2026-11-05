@@ -94,7 +94,7 @@ export default function Home() {
           <p className="label mb-8 text-muted">Under the hood</p>
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {[
-              { href: "/agents", k: "Agents", n: "0", t: "times an agent crossed its owner's limit, across 266 automated tests and live prompt-injection runs." },
+              { href: "/agents", k: "Agents", n: "0", t: "times an agent crossed its owner's limit, across 267 automated tests and live prompt-injection runs." },
               { href: "/paypal", k: "PayPal", n: "7", t: "PayPal calls take a deal from hold to payout, each one run live on the sandbox in our end-to-end tests." },
               { href: "/channel3", k: "Channel3", n: "25k", t: "stores priced live to catch bait, set a fair range and price damaged parts." },
               { href: "/render", k: "Render", n: "4", t: "deadlines enforced by a Render Workflow, tested to fire exactly once, so no deal can stall." },

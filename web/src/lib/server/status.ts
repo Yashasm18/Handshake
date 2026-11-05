@@ -146,11 +146,18 @@ export const PROBES: Probe[] = [
 ];
 
 // The deadline timer is healthy when it has swept recently (it runs every 5 minutes on Render).
-function timerCheck(now: number): Check {
+// After a restart (every deploy), the timer's first sweep can take up to 5 minutes to arrive.
+const startedAt = Date.now();
+
+function timerCheck(now: number, upSince = startedAt): Check {
   const base = { id: "timers", name: "Deadline timer", role: "Render Workflow that enforces every deal's deadlines", checkedAt: new Date(now).toISOString() };
   if (!process.env.TIMERS_SECRET) return { ...base, status: "off", note: "Deadlines are enforced when a deal is opened" };
   const last = g.__hsTimerSweep;
-  if (!last) return { ...base, status: "slow", note: "Waiting for the first sweep since the last restart" };
+  if (!last) {
+    return now - upSince < 10 * MIN
+      ? { ...base, status: "up", note: "Restarted just now; the first sweep is due within 5 minutes" }
+      : { ...base, status: "slow", note: "No sweep since the last restart" };
+  }
   const age = now - last;
   const mins = Math.round(age / MIN);
   return { ...base, status: age < 12 * MIN ? "up" : age < 30 * MIN ? "slow" : "down", note: `Last sweep ${mins < 1 ? "under a minute" : `${mins} min`} ago` };
@@ -179,7 +186,7 @@ const inflight = () => (g.__hsInflight ??= new Map());
 // Runs every check whose cached result is older than its interval (or all of them, when forced).
 // Visitors arriving together share one probe in flight, so a burst of page loads can't fan out into a
 // burst of calls to our partners. Alerts are judged on every real probe, whoever triggered it.
-export async function checkAll(opts: { force?: boolean; now?: number } = {}): Promise<Check[]> {
+export async function checkAll(opts: { force?: boolean; now?: number; upSince?: number } = {}): Promise<Check[]> {
   const now = opts.now ?? Date.now();
   const c = cache();
   const running = inflight();
@@ -200,7 +207,7 @@ export async function checkAll(opts: { force?: boolean; now?: number } = {}): Pr
       return job;
     }),
   );
-  const timers = timerCheck(now);
+  const timers = timerCheck(now, opts.upSince);
   c.set("timers", timers);
   await alertOnChange(timers);
   return [...fresh, timers];
