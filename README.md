@@ -14,7 +14,7 @@ Agents negotiate a fair price, and every deadline enforces itself.
 
 <br>
 
-[![Live demo](https://img.shields.io/badge/Live_demo-handshake--5rkw.onrender.com-111110?style=for-the-badge)](https://usehandshake.onrender.com)
+[![Live demo](https://img.shields.io/badge/Live_demo-usehandshake.onrender.com-111110?style=for-the-badge)](https://usehandshake.onrender.com)
 [![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/Yashasm18/HandShake/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0a7a4b?style=for-the-badge)](LICENSE)
 
@@ -67,6 +67,11 @@ Americans lost a record **$15.9B to fraud in 2025**, and online shopping scams a
 | **Label check** | The seller's shipping label is read and matched to the buyer's PayPal-verified address before anything ships. |
 | **Fair damage refunds** | A photo of the damage, priced from real replacement parts, settles in minutes with a partial capture. |
 | **Self-enforcing deadlines** | No shipment in 3 days? Released. Buyer silent after a verified delivery? Paid. Run by a Render Workflow. |
+| **Sign in with PayPal** | Sellers sign in on PayPal's own page and are paid into their own PayPal account by payer id. Buyers see a "Verified PayPal" badge, and My deals works on any device. |
+| **Live delivery tracking** | The parcel is followed with the carrier through EasyPost. The buyer's check window starts at the delivery scan, and fake or recycled tracking numbers, or deliveries to a different ZIP, block the payout. |
+| **Email updates** | Each side hears when the deal needs them: paid, ship by, on its way, delivered, paid out, cancelled. Typed-in addresses are confirmed from the inbox first. |
+| **Payouts that heal themselves** | A payout PayPal refuses is retried with backoff, and a seller is only told they're paid once PayPal confirms the payout completed. |
+| **Live status page** | [/status](https://usehandshake.onrender.com/status) checks every service with a real request; outages and recoveries are emailed to the team. |
 
 > **The AI advises. Code moves the money.** Models read, argue and suggest; every amount, limit and refund is computed in code, tested, and paid through PayPal.
 
