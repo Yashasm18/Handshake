@@ -62,11 +62,11 @@ ${opts.neutral ? "" : `<tr><td style="padding-top:28px;font-size:13px;letter-spa
 <tr><td style="padding-top:${opts.neutral ? 28 : 10}px;font-size:26px;line-height:1.2;font-weight:650;letter-spacing:-0.02em">${esc(m.lead)}</td></tr>
 ${m.body.map((p) => `<tr><td style="padding-top:14px;font-size:16px;line-height:1.55;color:#3b3a36">${esc(p)}</td></tr>`).join("")}
 <tr><td style="padding-top:28px"><a href="${esc(url)}" style="display:inline-block;background:#141413;color:#f3f1ec;text-decoration:none;font-size:15px;font-weight:600;padding:14px 24px;border-radius:999px">${esc(m.cta)}</a></td></tr>
-<tr><td style="padding-top:28px;font-size:13px;line-height:1.5;color:#6b6760">PayPal holds the money until the item is checked. Handshake will never ask for your password, card or a payment outside PayPal.</td></tr>
+<tr><td style="padding-top:28px;font-size:13px;line-height:1.5;color:#6b6760">The money stays on hold until the item is checked, and every step happens on the deal page.</td></tr>
 </table>
 <p style="max-width:520px;font-size:12px;line-height:1.5;color:#6b6760;margin:18px auto 0">${footer}</p>
 </td></tr></table></body></html>`;
-  const text = [m.lead, "", ...m.body, "", `${m.cta}: ${url}`, "", "PayPal holds the money until the item is checked. Handshake will never ask for your password, card or a payment outside PayPal.", "", opts.footer === "deal" ? `Stop emails for this deal: ${unsubscribe}` : "If you didn't ask for this, ignore this email."].join("\n");
+  const text = [m.lead, "", ...m.body, "", `${m.cta}: ${url}`, "", "The money stays on hold until the item is checked, and every step happens on the deal page.", "", opts.footer === "deal" ? `Stop emails for this deal: ${unsubscribe}` : "If you didn't ask for this, ignore this email."].join("\n");
   return { subject: m.subject, html, text };
 }
 
