@@ -64,6 +64,10 @@ describe("deadlines", () => {
   it("payout retries back off: 1, 2, 4 … minutes, at most an hour", () => {
     expect([1, 2, 3, 4, 7, 8, 20].map((a) => flows.payoutBackoff(a) / 60_000)).toEqual([1, 2, 4, 8, 60, 60, 60]);
   });
+  it("a payout PayPal is still processing is checked every 30 seconds for 10 minutes, then backs off", () => {
+    expect([1, 2, 10, 20].map((c) => flows.payoutCheckDelay(c) / 1000)).toEqual([30, 30, 30, 30]);
+    expect([21, 22, 23, 30].map((c) => flows.payoutCheckDelay(c) / 60_000)).toEqual([1, 2, 4, 60]);
+  });
   it("a declined claim never auto-settles", () => {
     const d = deal({ status: "CLAIM_OPEN", clock: { authorizedAt: iso(T0), reauthorizedAt: iso(T0), claimAt: iso(T0) } });
     expect(deadlinesFor(d).map((x) => x.kind)).toEqual(["CLAIM_SETTLE"]);
@@ -189,7 +193,10 @@ describe("timer actions", () => {
     await runTimer(d.id, "AUTO_RELEASE", T0 + 8 * DAY);
     const mid = (await getDeal(d.id))!;
     expect(mid.status).toBe("SHIPPED");
-    expect(mid.paypal).toMatchObject({ payoutBatchId: "BATCH-1", payoutStatus: "pending" });
+    expect(mid.paypal).toMatchObject({ payoutBatchId: "BATCH-1", payoutStatus: "pending", payoutChecks: 1 });
+    // Still processing is not a failure: no error backoff, just a quick re-check.
+    expect(mid.paypal.payoutAttempts).toBeUndefined();
+    expect(mid.events.some((e) => e.text.includes("keep checking automatically"))).toBe(true);
     expect(mid.events.some((e) => e.text.startsWith("Paid"))).toBe(false);
     expect(deadlinesFor(mid).map((x) => x.kind)).toEqual(["PAYOUT"]);
     // Later, PayPal says it completed: settled, without sending a second payout.

@@ -155,6 +155,8 @@ export type Deal = {
     // A payout PayPal refused (for example, the platform balance was short): when to try again.
     payoutRetryAt?: string;
     payoutAttempts?: number;
+    // Status checks of a payout PayPal accepted and is still processing.
+    payoutChecks?: number;
     // How many payouts PayPal definitely refused; each refusal moves to a fresh idempotency key.
     payoutRefusals?: number;
     // A payout batch is only a request: the seller is paid once PayPal says its item completed.

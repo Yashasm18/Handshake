@@ -159,6 +159,10 @@ export const ship = (id: string, input: { label?: string; carrier: string; track
 
 // 1, 2, 4, 8 … minutes, capped at an hour.
 export const payoutBackoff = (attempts: number) => Math.min(60, 2 ** (attempts - 1)) * 60_000;
+// A payout PayPal accepted and is still processing only needs a status check, a cheap read. It is
+// checked every 30 seconds for the first 10 minutes (sandbox payouts often take a few), then on the
+// normal backoff, so a payout left pending for days isn't polled forever.
+export const payoutCheckDelay = (checks: number) => (checks <= 20 ? 30_000 : payoutBackoff(checks - 20));
 const REFUSED_FOR_GOOD = new Set(["INSUFFICIENT_FUNDS"]);
 
 // Asks the carrier (through EasyPost) to follow the parcel. Shipping never fails because of this: if
@@ -239,6 +243,13 @@ async function payOut(deal: Deal, now: number): Promise<boolean> {
     if (attempts === 1) log(deal, "handshake", `Payment captured. ${why}, so Handshake will keep retrying automatically.`);
     console.error("payout queued", deal.id, attempts, e instanceof pp.PayPalError ? `${e.issue} ${e.debugId}` : (e ?? why));
   };
+  // The payout was sent and PayPal is still working on it: look again soon. Not an error.
+  const checkLater = () => {
+    const checks = (paypal.payoutChecks ?? 0) + 1;
+    paypal.payoutChecks = checks;
+    paypal.payoutRetryAt = new Date(now + payoutCheckDelay(checks)).toISOString();
+    if (checks === 1 && !paypal.payoutAttempts) log(deal, "handshake", "Payment captured. PayPal is still processing the payout, so Handshake will keep checking automatically.");
+  };
 
   if (!paypal.payoutBatchId) {
     const payee: pp.Payee = deal.seller ? { type: "PAYER_ID", payerId: deal.seller.payerId } : { type: "EMAIL", email: deal.sellerEmail };
@@ -288,7 +299,7 @@ async function payOut(deal: Deal, now: number): Promise<boolean> {
       return false;
     }
   }
-  queue("PayPal is still processing the payout");
+  checkLater();
   return false;
 }
 

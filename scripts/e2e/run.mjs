@@ -74,6 +74,15 @@ async function shippedDeal() {
   return d;
 }
 const flagTypes = (scan) => scan.flags.map((f) => f.type);
+// The money is captured at once; the seller's payout can take PayPal (sandbox especially) a minute or
+// more, and Handshake's timer finishes it. A deal counts as settled when that happens, within 4 minutes.
+async function settled(d, who, r) {
+  let v = r.json;
+  const t0 = Date.now();
+  while (v.status !== "SETTLED" && Date.now() - t0 < 240_000) { await sleep(10_000); v = (await d[who].get(`/api/deals/${d.id}`)).json; }
+  v.settledAfterS = Math.round((Date.now() - t0) / 1000);
+  return v;
+}
 
 // ---------- AI scam check ----------
 await scenario("S1", "Scam check", "A chat screenshot with Friends & Family, urgency, an address change and a fake pay link", async () => {
@@ -107,22 +116,28 @@ await scenario("E1", "Full deal", "Hold, verified label, delivery, capture, trac
   const shipped = (await d.seller.get(`/api/deals/${d.id}`)).json;
   check(shipped.shipment.labelCheck.match === true, "label did not match");
   const r = await d.buyer.post(`/api/deals/${d.id}/deliver`, {});
-  check(r.status === 200 && r.json.status === "SETTLED", `deliver ${r.status} ${JSON.stringify(r.json).slice(0, 300)}`);
-  const p = r.json.paypal;
+  check(r.status === 200 && r.json.paypal.captureId, `deliver ${r.status} ${JSON.stringify(r.json).slice(0, 300)}`);
+  const v = await settled(d, "buyer", r);
+  check(v.status === "SETTLED", `not settled after ${v.settledAfterS}s: ${v.status}`);
+  const p = v.paypal;
   check(p.captureId && p.payoutBatchId, "missing capture or payout");
   check(p.capturedCents === 23_000, `captured ${p.capturedCents}`);
   check(p.netCents + p.feeCents === 23_000, "fee + net != price");
-  return { authorization: d.view.paypal.authorizationId, capture: p.captureId, payoutBatch: p.payoutBatchId, capturedUsd: p.capturedCents / 100, feeUsd: p.feeCents / 100, paidToSellerUsd: p.payoutCents / 100, carrier: shipped.shipment.carrier, tracking: shipped.shipment.trackingNumber, trackingAttached: p.trackingAttached };
+  return { authorization: d.view.paypal.authorizationId, capture: p.captureId, payoutBatch: p.payoutBatchId, payoutDoneAfterS: v.settledAfterS, capturedUsd: p.capturedCents / 100, feeUsd: p.feeCents / 100, paidToSellerUsd: p.payoutCents / 100, carrier: shipped.shipment.carrier, tracking: shipped.shipment.trackingNumber, trackingAttached: p.trackingAttached };
 });
 
 await scenario("E2", "Full deal", "Confirming delivery twice never pays twice", async () => {
   const d = await shippedDeal();
   const a = await d.buyer.post(`/api/deals/${d.id}/deliver`, {});
+  // A second tap: refused once settled, or (while the payout is still finishing) it only resumes the payout.
   const b = await d.buyer.post(`/api/deals/${d.id}/deliver`, {});
-  check(a.status === 200 && b.status === 409, `statuses ${a.status} ${b.status}`);
-  const captures = a.json.events.filter((e) => e.text.startsWith("Captured")).length;
-  check(captures === 1, `captures ${captures}`);
-  return { first: a.status, second: b.status, captures };
+  check(a.status === 200 && (b.status === 409 || b.status === 200), `statuses ${a.status} ${b.status}`);
+  const v = await settled(d, "buyer", a);
+  check(v.status === "SETTLED", `not settled: ${v.status}`);
+  const captures = v.events.filter((e) => e.text.startsWith("Captured")).length;
+  const payouts = v.events.filter((e) => e.text.startsWith("Paid ")).length;
+  check(captures === 1 && payouts === 1, `captures ${captures}, payouts ${payouts}`);
+  return { first: a.status, second: b.status, captures, payouts };
 });
 
 await scenario("E3", "Full deal", "Cancelling before shipping voids the whole PayPal hold", async () => {
@@ -163,6 +178,7 @@ await scenario("C1", "Damage claim", "A photo of a cracked Joy-Con gets a refund
   check(cl.refundCents + cl.captureCents === 23_000, "refund + capture != price");
   await d.buyer.post(`/api/deals/${d.id}/respond`, { role: "buyer", accept: true });
   const s = await d.seller.post(`/api/deals/${d.id}/respond`, { role: "seller", accept: true });
+  s.json = await settled(d, "seller", s);
   check(s.json.status === "SETTLED" && s.json.paypal.capturedCents === cl.captureCents, `settle ${s.json.status} ${s.json.paypal?.capturedCents}`);
   return { verdict: cl.verdict, part: cl.damagedPart, partPriceUsd: cl.partPriceCents / 100, partListing: cl.partComp?.title, refundUsd: cl.refundCents / 100, capturedUsd: s.json.paypal.capturedCents / 100, capture: s.json.paypal.captureId };
 });
@@ -379,8 +395,10 @@ await scenario("P1", "Meet in person", "At the meetup the buyer types the seller
   const code = await d.seller.post(`/api/deals/${d.id}/meet-code`, {});
   check(code.status === 200 && /^\d{6}$/.test(code.json.code), `code ${code.status} ${JSON.stringify(code.json)}`);
   const r = await d.buyer.post(`/api/deals/${d.id}/meet-confirm`, { code: code.json.code });
-  check(r.status === 200 && r.json.status === "SETTLED", `confirm ${r.status} ${JSON.stringify(r.json).slice(0, 200)}`);
-  const p = r.json.paypal;
+  check(r.status === 200 && r.json.paypal.captureId, `confirm ${r.status} ${JSON.stringify(r.json).slice(0, 200)}`);
+  const v = await settled(d, "buyer", r);
+  check(v.status === "SETTLED", `not settled after ${v.settledAfterS}s: ${v.status}`);
+  const p = v.paypal;
   check(p.capturedCents === 23_000 && p.payoutBatchId && !p.trackingAttached, JSON.stringify(p));
   return { capturedUsd: p.capturedCents / 100, feeUsd: p.feeCents / 100, paidToSellerUsd: p.payoutCents / 100, capture: p.captureId, payoutBatch: p.payoutBatchId };
 });
@@ -389,8 +407,9 @@ await scenario("P2", "Meet in person", "The QR path: the scanned handover token 
   const d = await meetDeal();
   const code = await d.seller.post(`/api/deals/${d.id}/meet-code`, {});
   const r = await d.buyer.post(`/api/deals/${d.id}/meet-confirm`, { token: code.json.token });
-  check(r.json.status === "SETTLED", `${r.status} ${r.json.status}`);
-  return { status: r.json.status, capture: r.json.paypal.captureId };
+  const v = await settled(d, "buyer", r);
+  check(v.status === "SETTLED", `${r.status} ${v.status}`);
+  return { status: v.status, capture: v.paypal.captureId, payoutDoneAfterS: v.settledAfterS };
 });
 
 await scenario("P3", "Meet in person", "Only the seller can show a code and only the buyer can use it; 5 wrong codes lock it until a new one", async () => {
