@@ -121,6 +121,9 @@ describe("reading the carrier", () => {
     const t = d.shipment!.tracking!;
     expect(t.deliveredAt).toBe(iso(now));
     expect(t.events.map((e) => e.at)).toEqual([iso(now - 3_600_000), iso(now)]);
+    // A repeated update an hour later doesn't push the delivery time (or the buyer's window) later.
+    applyTracker(d, tracker("delivered", [scan("in_transit", T0 - 30 * 86_400_000 - 3_600_000), scan("delivered", T0 - 30 * 86_400_000)], { mode: "test" }), now + 3_600_000);
+    expect(d.shipment!.tracking!.deliveredAt).toBe(iso(now));
   });
 
   it("each milestone is announced once, however often the carrier repeats it", () => {

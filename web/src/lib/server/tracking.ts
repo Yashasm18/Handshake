@@ -35,13 +35,15 @@ export function applyTracker(deal: Deal, tracker: EasyPostTracker, now = Date.no
   t.checkedAt = new Date(now).toISOString();
 
   let details = [...(tracker.tracking_details ?? [])]
-    .filter((d) => d.datetime)
+    .filter((d) => d.datetime && Number.isFinite(Date.parse(d.datetime)))
     .sort((a, b) => Date.parse(a.datetime!) - Date.parse(b.datetime!));
   // EasyPost's test parcels carry fixed dates from the past. Shift the whole timeline (keeping the gaps
   // between scans) so its last scan lands now: a demo deal isn't "delivered a month ago", and the
   // buyer's window starts today. Real parcels keep their real times.
+  // The shift is worked out once and kept, so repeated updates never move the delivery time later.
   if (t.test && details.length) {
-    const shift = now - Date.parse(details[details.length - 1].datetime!);
+    t.shiftMs ??= now - Date.parse(details[details.length - 1].datetime!);
+    const shift = t.shiftMs;
     details = details.map((d) => ({ ...d, datetime: new Date(Date.parse(d.datetime!) + shift).toISOString() }));
   }
   t.events = details.slice(-20).map((d) => ({ at: d.datetime!, status: asStatus(d.status), message: (d.message ?? "").slice(0, 160), place: place(d.tracking_location) }));

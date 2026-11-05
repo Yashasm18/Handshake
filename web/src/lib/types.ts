@@ -209,6 +209,8 @@ export type Tracking = {
   checkedAt?: string;
   // Milestones already emailed, so a repeated webhook never emails twice.
   notified?: string[];
+  // Test parcels only: how far their fixed old dates were moved forward, fixed at the first update.
+  shiftMs?: number;
 };
 
 export type PartyAccount = { payerId: string; name: string; email?: string; verified: boolean };
