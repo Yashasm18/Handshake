@@ -30,15 +30,15 @@ export function EmailLink() {
   }
 
   const copy = {
-    confirm: { eyebrow: "Email updates", title: "Confirm your email", body: "Handshake will email you when this deal needs you: when it's paid, shipped, delivered or settled. Nothing else.", button: "Confirm my email", done: "Confirmed. You'll get updates for this deal." },
-    mute: { eyebrow: "Email updates", title: "Stop emails for this deal?", body: "You'll stop getting updates for this deal. The deal itself carries on, and you can turn emails back on from the deal page.", button: "Stop emails", done: "Done. No more emails for this deal." },
+    confirm: { eyebrow: "Email updates", title: "Confirm your email", body: "Handshake will email you when this deal needs you: when it's paid, shipped, delivered or settled. Nothing else.", button: "Confirm my email", done: "You'll get an email whenever this deal needs you." },
+    mute: { eyebrow: "Email updates", title: "Stop emails for this deal?", body: "You'll stop getting updates for this deal. The deal itself carries on, and you can turn emails back on from the deal page.", button: "Stop emails", done: "You won't get any more emails for this deal." },
   }[action];
 
   return (
     <div>
       <p className="label text-muted">{copy.eyebrow}</p>
-      <h1 className="display mt-4 text-[clamp(40px,6vw,76px)]">{state === "done" ? copy.done.split(".")[0] + "." : copy.title}</h1>
-      <p className="mt-6 text-[18px] leading-relaxed text-muted">{state === "done" ? `${copy.done}${title ? ` (${title})` : ""}` : copy.body}</p>
+      <h1 className="display mt-4 text-[clamp(40px,6vw,76px)]">{state === "done" ? (action === "confirm" ? "Confirmed." : "Emails stopped.") : copy.title}</h1>
+      <p className="mt-6 text-[18px] leading-relaxed text-muted">{state === "done" ? `${copy.done}${title ? ` Deal: ${title}.` : ""}` : copy.body}</p>
       {state === "error" && <p className="mt-6 text-[16px] text-alert" role="alert">{error}</p>}
       <div className="mt-10 flex flex-wrap gap-3">
         {state !== "done" ? (
