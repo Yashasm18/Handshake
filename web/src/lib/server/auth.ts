@@ -5,6 +5,7 @@ import { deadlinesFor } from "../deadlines";
 import type { Deal, DealView, Viewer } from "../types";
 import { timerScale } from "./timers";
 import { HttpError, newToken } from "./deals";
+import { currentAccount, type Account } from "./session";
 
 type Party = "seller" | "buyer";
 
@@ -15,13 +16,27 @@ function same(a?: string, b?: string) {
   return timingSafeEqual(Buffer.from(a), Buffer.from(b));
 }
 
-// The party is proven by an HttpOnly cookie issued to that browser, never by anything in the request body.
+// The party is proven by an HttpOnly cookie issued to that browser, or by being signed in with the PayPal
+// account linked to that side of the deal. Never by anything in the request body.
+export function viewerFor(deal: Deal, cookie: { seller?: string; buyer?: string }, account: Account | null): Viewer {
+  const owns = (side?: { payerId: string }) => Boolean(account && side && same(account.payerId, side.payerId));
+  return {
+    seller: same(cookie.seller, deal.sellerToken) || owns(deal.seller),
+    buyer: same(cookie.buyer, deal.buyerToken) || owns(deal.buyer),
+  };
+}
+
 export async function viewerOf(deal: Deal): Promise<Viewer> {
   const jar = await cookies();
-  return {
-    seller: same(jar.get(cookieName("seller", deal.id))?.value, deal.sellerToken),
-    buyer: same(jar.get(cookieName("buyer", deal.id))?.value, deal.buyerToken),
-  };
+  return viewerFor(deal, { seller: jar.get(cookieName("seller", deal.id))?.value, buyer: jar.get(cookieName("buyer", deal.id))?.value }, await currentAccount());
+}
+
+// A seller signed in with PayPal can't also be the buyer of their own deal.
+export async function refuseOwnDeal(deal: Deal) {
+  const account = await currentAccount();
+  if (account && deal.seller && same(account.payerId, deal.seller.payerId)) {
+    throw new HttpError(400, "This is your own deal. To try the buyer side, open the link in another browser or sign out first.");
+  }
 }
 
 export async function requireParty(deal: Deal, party: Party) {
@@ -69,7 +84,9 @@ export async function issueToken(deal: Deal, party: Party) {
 
 // Strangers holding the link see the item and its status, not who is involved or where it ships.
 export function publicDeal(deal: Deal, viewer: Viewer): DealView {
-  const rest: Partial<Deal> & Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail" | "pendingOfferCents" | "meetup"> = { ...deal };
+  const rest: Partial<Deal> & Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail" | "pendingOfferCents" | "meetup" | "seller" | "buyer"> = { ...deal };
+  delete rest.seller;
+  delete rest.buyer;
   delete rest.pendingOfferCents;
   delete rest.meetup;
   delete rest.sellerToken;
@@ -99,5 +116,6 @@ export function publicDeal(deal: Deal, viewer: Viewer): DealView {
     // Log entries cite PayPal ids (authorization, capture, payout batch); like the ids above, only the parties see them.
     events: party ? rest.events : rest.events.map((e) => ({ ...e, ref: undefined })),
     viewer,
+    sellerPayPal: { signedIn: Boolean(deal.seller), verified: Boolean(deal.seller?.verified) },
   };
 }

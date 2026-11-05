@@ -27,6 +27,9 @@ services:
         sync: false
       - key: SELLER_EMAIL
         sync: false
+      # Signs Sign in with PayPal sessions.
+      - key: SESSION_SECRET
+        generateValue: true
       - key: CHANNEL3_API_KEY
         sync: false
       - key: KERNEL_API_KEY

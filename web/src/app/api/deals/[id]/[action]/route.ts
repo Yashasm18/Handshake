@@ -1,13 +1,20 @@
 import { z } from "zod";
 import * as flows from "@/lib/server/flows";
-import { holdsPayNonce, issuePayNonce, issueToken, publicDeal, requireParty, requirePayNonce, viewerOf } from "@/lib/server/auth";
+import { holdsPayNonce, issuePayNonce, issueToken, publicDeal, refuseOwnDeal, requireParty, requirePayNonce, viewerOf } from "@/lib/server/auth";
+import { currentAccount } from "@/lib/server/session";
 import { getDeal, HttpError } from "@/lib/server/deals";
 import { handle } from "@/lib/server/http";
 import type { Deal } from "@/lib/types";
 
 const Role = z.enum(["buyer", "seller"]);
 const Photo = z.string().startsWith("data:image/").max(4_000_000);
-const asBuyer = (deal: Deal) => issueToken(deal, "buyer");
+// The paying browser gets the buyer cookie. A buyer signed in with PayPal is also linked by account,
+// unless PayPal checkout already linked the account that actually paid.
+const asBuyer = async (deal: Deal) => {
+  await issueToken(deal, "buyer");
+  const a = await currentAccount();
+  if (a && !deal.buyer) deal.buyer = { payerId: a.payerId, name: a.name, email: a.email, verified: a.verified };
+};
 const Offer = z.object({ offerCents: z.number().int().min(100).max(1_000_000).optional() });
 
 // The no-login test card exists for judging on the sandbox only.
@@ -19,13 +26,17 @@ const testCardEnabled = () =>
 const actions: Record<string, (deal: Deal, body: unknown) => Promise<unknown>> = {
   // Anyone with the link may start paying; the browser that starts checkout is the only one that can finish it.
   // offerCents makes it a backed offer: the hold is at the buyer's max and the agents negotiate the price.
-  pay: (d, b) => flows.startPayment(d.id, { ownsCheckout: holdsPayNonce, claimCheckout: issuePayNonce }, Offer.parse(b).offerCents),
+  pay: async (d, b) => {
+    await refuseOwnDeal(d);
+    return flows.startPayment(d.id, { ownsCheckout: holdsPayNonce, claimCheckout: issuePayNonce }, Offer.parse(b).offerCents);
+  },
   "confirm-payment": async (d, b) => {
     await requirePayNonce(d);
     return flows.confirmPayment(d.id, z.object({ orderId: z.string().min(5) }).parse(b).orderId, asBuyer);
   },
-  "test-card": (d, b) => {
+  "test-card": async (d, b) => {
     if (!testCardEnabled()) throw new HttpError(404, "Unknown action.");
+    await refuseOwnDeal(d);
     return flows.fundWithTestCard(d.id, asBuyer, Offer.parse(b).offerCents);
   },
   ship: async (d, b) => {

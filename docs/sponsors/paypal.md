@@ -18,19 +18,31 @@ Every money movement in Handshake is a PayPal API call. Nothing is simulated: th
 
 ## What we use
 
-Handshake makes **seven** PayPal REST calls across a deal. All of them live in [`web/src/lib/server/paypal.ts`](../../web/src/lib/server/paypal.ts).
+Handshake makes **nine** PayPal REST calls: two to sign sellers in with PayPal ([`paypal-login.ts`](../../web/src/lib/server/paypal-login.ts)) and seven across a deal ([`paypal.ts`](../../web/src/lib/server/paypal.ts)).
 
 | Step | API | Why Handshake needs it |
 |---|---|---|
+| Sign in | `POST /v1/oauth2/token` with `grant_type=authorization_code` | **Log in with PayPal.** The seller signs in on PayPal's own page; Handshake swaps the one-time code for a token and never sees a password. |
+| Know who's paid | `GET /v1/identity/oauth2/userinfo?schema=paypalv1.1` | Returns the seller's name, email, verification status and **payer id**, which is where their payout goes. Buyers see a "Verified PayPal" badge. |
 | Reserve | `POST /v2/checkout/orders` with `intent: AUTHORIZE` | Creates the hold at the deal price, or at the buyer's secret max for an agent-negotiated offer. |
 | Confirm | `POST /v2/checkout/orders/{id}/authorize` | Turns the buyer's approval into a hold and returns their **PayPal-verified shipping address**. |
 | Keep reserved | `POST /v2/payments/authorizations/{id}/reauthorize` | Renews the hold after PayPal's 3-day honor period, run on schedule by a [Render Workflow](render.md). |
 | Charge what's fair | `POST /v2/payments/authorizations/{id}/capture` with `final_capture: true` | Captures the agreed price, or less after a damage refund. PayPal releases the rest of the hold automatically. |
 | Prove it shipped | `POST /v2/checkout/orders/{id}/track` | Attaches carrier and tracking to the capture, which Seller Protection looks for. |
-| Pay the seller | `POST /v1/payments/payouts` | Sends the seller their share after PayPal's fee. |
+| Pay the seller | `POST /v1/payments/payouts` | Sends the seller their share after PayPal's fee, into **their own PayPal account** (`recipient_type: PAYER_ID`). Guest demo sellers are paid into the sandbox seller account by email. |
 | Release everything | `POST /v2/payments/authorizations/{id}/void` | Cancels the hold when a deal is cancelled, the agents can't agree, or the seller misses the shipping deadline. |
 
 On the client, the **PayPal JS SDK** (`intent=authorize`) renders PayPal's own checkout buttons ([`paypal-button.tsx`](../../web/src/components/paypal-button.tsx)). For judges without a sandbox login, a test-card path funds the same `AUTHORIZE` order with PayPal's published sandbox card.
+
+## Sign in with PayPal
+
+Sellers sign in with PayPal ([OpenID Connect authorization code flow](https://developer.paypal.com/docs/log-in-with-paypal/)) with the scopes `openid profile email https://uri.paypal.com/services/paypalattributes`.
+
+- **No forged sign-ins.** A random `state` is kept in a signed, 10-minute cookie and must match on the way back, so another site can't sign you into its account. It works once.
+- **Signed sessions.** The session is an HMAC-signed HttpOnly, SameSite=Lax cookie that lasts 30 days ([`session.ts`](../../web/src/lib/server/session.ts)). Editing it, or signing it with another key, signs you out.
+- **Accounts on deals.** A deal records the seller's payer id, and the buyer's when they pay through PayPal checkout. Either one can open their side of the deal from any device, and **My deals** lists them. Payer ids and emails never reach the browser.
+- **No self-dealing.** A seller can't pay for their own deal; if their PayPal account approves the checkout anyway, the hold is voided at once.
+- Setup: in the Developer Dashboard, open the app → **Log in with PayPal** → set the Return URL to `https://<host>/api/auth/paypal/callback`, tick Full name, Email, Account verification status and PayPal account ID (payer ID), and set the privacy and user agreement URLs to `/privacy` and `/terms`.
 
 ## How a deal moves through PayPal
 

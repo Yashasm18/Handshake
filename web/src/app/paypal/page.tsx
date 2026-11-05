@@ -92,13 +92,14 @@ export default function PayPalPage() {
         <Section eyebrow="What we call" title="Every PayPal API we use.">
           <ApiList
             items={[
+              { name: "Log in with PayPal", call: "POST /v1/oauth2/token · GET /v1/identity/oauth2/userinfo", why: "Sellers sign in on PayPal's own page. Handshake gets their verified status and payer id, never a password." },
               { name: "Create order", call: "POST /v2/checkout/orders", why: "intent AUTHORIZE at the deal price, or at the buyer's max for a backed offer." },
               { name: "Authorize", call: "POST /v2/checkout/orders/{id}/authorize", why: "Turns the buyer's approval into a hold and returns their PayPal-verified shipping address." },
               { name: "Capture", call: "POST /v2/payments/authorizations/{id}/capture", why: "Captures the agreed amount, or less after a refund, with final_capture so the rest is released." },
               { name: "Reauthorize", call: "POST /v2/payments/authorizations/{id}/reauthorize", why: "Renews the hold after PayPal's 3-day honor period, run on schedule by a Render Workflow." },
               { name: "Void", call: "POST /v2/payments/authorizations/{id}/void", why: "Releases the whole hold on cancel, when the agents can't agree, or when the seller misses the shipping deadline." },
               { name: "Add tracking", call: "POST /v2/checkout/orders/{id}/track", why: "Attaches the carrier and tracking number to the capture for Seller Protection." },
-              { name: "Payouts", call: "POST /v1/payments/payouts", why: "Sends the seller their net amount after PayPal's fee." },
+              { name: "Payouts", call: "POST /v1/payments/payouts", why: "Sends the seller their net amount after PayPal's fee, into their own PayPal account by payer id." },
               { name: "JS SDK Buttons", call: "intent=authorize", why: "PayPal's own checkout window, plus the sandbox test card for judges without a login." },
             ]}
           />

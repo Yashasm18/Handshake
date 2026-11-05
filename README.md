@@ -147,17 +147,19 @@ The AI layer (Claude, routed through OpenRouter, with every answer checked by Zo
 - **Holds, not payments.** Handshake never holds funds; PayPal does.
 - **Code-computed money.** Refunds are capped by verdict and can never exceed what was paid.
 - **Idempotent and resumable.** Per-deal locks, PayPal request ids and step-by-step settlement mean retries never charge twice.
-- **Private by default.** Roles come from HttpOnly cookies; addresses, emails and each side's negotiation limit are only shown to the people allowed to see them.
+- **Real accounts.** Sellers sign in with PayPal on PayPal's own page and are paid into their own account by payer id; buyers see a "Verified PayPal" badge. Sessions are HMAC-signed HttpOnly cookies; Handshake never sees a password.
+- **Private by default.** Roles come from HttpOnly cookies or the PayPal account linked to each side; addresses, emails and each side's negotiation limit are only shown to the people allowed to see them.
 - **Prompt-injection resistant.** Strangers' text is untrusted evidence; a code referee checks every agent offer and message.
 
 Full threat model and the issues we've found and fixed: **[SECURITY.md](SECURITY.md)**.
 
 ## Tests and CI
 
-Handshake is tested two ways: **161 automated tests** that run on every push and deploy, and **33 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel, Elastic and the AI models with real images and real listings.
+Handshake is tested two ways: **189 automated tests** that run on every push and deploy, and **33 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel, Elastic and the AI models with real images and real listings.
 
 | Area | Automated | Live on the sandbox | What it proves |
 |---|---:|---:|---|
+| Sign in with PayPal | 28 | | Sessions can't be forged, edited or replayed; a sign-in can't be started by another site (state check) or bounce to another site; sellers are paid into their own PayPal by payer id; payer ids and emails never reach the browser; a seller can't pay for their own deal |
 | Deal flow and settlement | 14 | 3 | Holds, captures, payouts and voids happen once, for the right amount, only in the right state |
 | Meet in person | 13 | 6 | Only the seller can show a handover code and only the buyer can use it; codes expire, work once and lock after 5 wrong tries; the seller never sees the buyer's address |
 | Refunds and pricing | 26 | 3 | Refunds come from real part prices, are capped by verdict, and refund plus capture always equals the price |

@@ -162,14 +162,22 @@ export type Deal = {
   shipment?: { carrier: string; trackingNumber: string; labelCheck: { match: boolean; read: string; reason: string } | null };
   claim?: Claim;
   events: { at: string; actor: "buyer" | "seller" | "handshake" | "paypal"; text: string; ref?: string }[];
+  // Server-only: the PayPal accounts behind each side. The seller's payer id is where the payout goes;
+  // either side signed in with PayPal can open the deal from any device.
+  seller?: PartyAccount;
+  buyer?: PartyAccount;
   // Server-only party secrets; never sent to the browser (see publicDeal).
   sellerToken?: string;
   buyerToken?: string;
 };
 
+export type PartyAccount = { payerId: string; name: string; email?: string; verified: boolean };
+
 export type Viewer = { seller: boolean; buyer: boolean };
-export type DealView = Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail" | "pendingOfferCents" | "meetup"> & {
+export type DealView = Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail" | "pendingOfferCents" | "meetup" | "seller" | "buyer"> & {
   viewer: Viewer;
+  // What a buyer may know about the seller's PayPal: whether they signed in with it, and whether PayPal verified them.
+  sellerPayPal: { signedIn: boolean; verified: boolean };
   acceptsOffers: boolean;
   deadlines: import("./deadlines").Deadline[];
   // True when deadlines run at demo speed (TIMER_SCALE < 1), so the UI can say so.

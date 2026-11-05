@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { issueToken, publicDeal } from "@/lib/server/auth";
 import { HttpError, log, newId, saveDeal } from "@/lib/server/deals";
+import { currentAccount } from "@/lib/server/session";
 import { handle } from "@/lib/server/http";
 import type { Deal, Scan } from "@/lib/types";
 import { usd } from "@/lib/types";
@@ -83,7 +84,8 @@ const Body = z.object({
   condition: z.string().max(200).default(""),
   checklist: z.array(z.string().max(160)).max(6).default([]),
   photo: z.string().startsWith("data:image/").max(2_000_000).optional(),
-  sellerName: z.string().min(1).max(60),
+  // Optional when signed in with PayPal (the PayPal first name is used); required for a guest demo seller.
+  sellerName: z.string().trim().max(60).optional(),
   scan: ScanSchema.nullable().default(null),
   // Optional and private: the lowest price the seller's agent may accept. Setting it opens the deal to offers.
   floorCents: z.number().int().min(100).max(1_000_000).optional(),
@@ -94,19 +96,27 @@ export async function POST(req: Request) {
   return handle(async () => {
     const b = Body.parse(await req.json());
     if (b.floorCents != null && b.floorCents > b.priceCents) throw new HttpError(400, "Your lowest price can't be above the asking price.");
+    const account = await currentAccount();
+    // Production setting: only sellers signed in with PayPal may create deals (no demo payouts).
+    if (!account && process.env.REQUIRE_SIGN_IN === "true") throw new HttpError(401, "Sign in with PayPal to create a deal, so you can be paid.");
+    const sellerName = b.sellerName || account?.firstName;
+    if (!sellerName) throw new HttpError(400, "Add your first name so the buyer knows who they're dealing with.");
     const now = new Date().toISOString();
     const deal: Deal = {
       id: newId(),
       createdAt: now,
       updatedAt: now,
       ...b,
-      // Payouts go to the sandbox seller account; in production this is the seller's verified PayPal email.
-      sellerEmail: process.env.SELLER_EMAIL ?? "",
+      sellerName,
+      // Signed in with PayPal: paid into their own account by payer id. Guest demo sellers: the sandbox seller account.
+      seller: account ? { payerId: account.payerId, name: account.name, email: account.email, verified: account.verified } : undefined,
+      sellerEmail: account ? "" : (process.env.SELLER_EMAIL ?? ""),
       status: "AWAITING_PAYMENT",
       demo: false,
       paypal: {},
       events: [],
     };
+    if (account) log(deal, "paypal", `${sellerName} signed in with PayPal${account.verified ? " (a verified account)" : ""}. The payout goes straight to their PayPal.`);
     log(deal, "seller", `Created a protected deal for ${b.title} at ${usd(b.priceCents)}${b.floorCents != null ? ". Open to PayPal-backed offers" : ""}${b.handoff === "meet" ? ". To be handed over in person" : ""}.`);
     await issueToken(deal, "seller");
     await saveDeal(deal);

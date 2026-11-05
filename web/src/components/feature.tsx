@@ -153,6 +153,9 @@ export function Footer() {
           {UNDER_THE_HOOD.map((l) => (
             <a key={l.href} href={l.href} className="transition-colors hover:text-ink">{l.label}</a>
           ))}
+          <a href="/deals" className="transition-colors hover:text-ink">My deals</a>
+          <a href="/terms" className="transition-colors hover:text-ink">Terms</a>
+          <a href="/privacy" className="transition-colors hover:text-ink">Privacy</a>
         </nav>
       </div>
     </footer>

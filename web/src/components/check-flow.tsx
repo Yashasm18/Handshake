@@ -7,6 +7,7 @@ import { api, compressImage } from "@/lib/client";
 import type { Deal, ListingPhoto, MemoryMatch, Scan } from "@/lib/types";
 import { usd } from "@/lib/types";
 import { fairBand } from "@/lib/fair";
+import { PayPalMark, PayPalSignIn, useMe, VerifiedTick } from "./account";
 import { Arrow, Button } from "./chrome";
 import { EASE, RevealText } from "./motion";
 
@@ -20,14 +21,59 @@ const SAMPLES = {
 
 type Phase = "input" | "scanning" | "result" | "create";
 
+// A deal in progress survives the round trip to PayPal's sign-in page: this tab only, for 30 minutes,
+// cleared once the deal is created. Reading it doesn't remove it, so a remount can read it again.
+type Draft = { scan: Scan; title: string; price: string; checklist: string; photo: string | null; offers: boolean; floor: string; handoff: "ship" | "meet" };
+const DRAFT_KEY = "hs_draft";
+const DRAFT_MS = 30 * 60_000;
+function saveDraft(d: Draft) {
+  const put = (v: Draft) => sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ ...v, at: Date.now() }));
+  try {
+    put(d);
+  } catch {
+    // A large photo can overflow storage; keep everything else.
+    try {
+      put({ ...d, photo: null });
+    } catch {}
+  }
+}
+function readDraft(): Draft | null {
+  try {
+    const d = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? "null") as (Draft & { at: number }) | null;
+    return d && Date.now() - d.at < DRAFT_MS ? d : null;
+  } catch {
+    return null;
+  }
+}
+function clearDraft() {
+  try {
+    sessionStorage.removeItem(DRAFT_KEY);
+  } catch {}
+}
+
 export function CheckFlow() {
   const params = useSearchParams();
   const [mode, setMode] = useState<"buy" | "sell">(params.get("mode") === "sell" ? "sell" : "buy");
-  const [phase, setPhase] = useState<Phase>("input");
+  // Back from PayPal sign-in, start on the deal form so no animation has to play out first.
+  const resuming = params.get("resume") === "1";
+  const [phase, setPhase] = useState<Phase>(resuming ? "create" : "input");
   const [text, setText] = useState("");
   const [image, setImage] = useState<string | null>(null);
   const [scan, setScan] = useState<Scan | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
+
+  // Back from signing in with PayPal: reopen the deal the seller was filling in.
+  useEffect(() => {
+    if (!resuming) return;
+    const d = readDraft();
+    queueMicrotask(() => {
+      if (!d) return setPhase("input");
+      setDraft(d);
+      setScan(d.scan);
+      setMode("sell");
+    });
+  }, [resuming]);
 
   async function run() {
     if (!text.trim() && !image) {
@@ -87,7 +133,7 @@ export function CheckFlow() {
         )}
         {phase === "create" && scan && (
           <Step key="create">
-            <CreateDeal scan={scan} />
+            <CreateDeal scan={scan} draft={draft} />
           </Step>
         )}
       </AnimatePresence>
@@ -493,16 +539,19 @@ function MarketPanel({ scan }: { scan: Scan }) {
   );
 }
 
-function CreateDeal({ scan }: { scan: Scan }) {
+function CreateDeal({ scan, draft }: { scan: Scan; draft: Draft | null }) {
   const router = useRouter();
-  const [title, setTitle] = useState(scan.item);
-  const [price, setPrice] = useState(scan.priceCents ? String(scan.priceCents / 100) : "");
+  const me = useMe();
+  const account = me?.account ?? null;
+  const [title, setTitle] = useState(draft?.title ?? scan.item);
+  const [price, setPrice] = useState(draft?.price ?? (scan.priceCents ? String(scan.priceCents / 100) : ""));
   const [name, setName] = useState("");
-  const [checklist, setChecklist] = useState(scan.checklist.join("\n"));
-  const [photo, setPhoto] = useState<string | null>(null);
-  const [offers, setOffers] = useState(true);
-  const [floor, setFloor] = useState("");
-  const [handoff, setHandoff] = useState<"ship" | "meet">("ship");
+  const [checklist, setChecklist] = useState(draft?.checklist ?? scan.checklist.join("\n"));
+  const [photo, setPhoto] = useState<string | null>(draft?.photo ?? null);
+  const [offers, setOffers] = useState(draft?.offers ?? true);
+  const [floor, setFloor] = useState(draft?.floor ?? "");
+  const [handoff, setHandoff] = useState<"ship" | "meet">(draft?.handoff ?? "ship");
+  const keep = () => saveDraft({ scan, title, price, checklist, photo, offers, floor, handoff });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fair = fairBand(scan.condition, scan.market);
@@ -510,7 +559,7 @@ function CreateDeal({ scan }: { scan: Scan }) {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const cents = Math.round(Number(price) * 100);
-    if (!name.trim()) return setError("Add your first name so the buyer knows who they're dealing with.");
+    if (!account && !name.trim()) return setError("Add your first name so the buyer knows who they're dealing with.");
     if (!cents || cents < 100) return setError("Enter a price of at least $1.");
     const floorCents = offers ? Math.round(Number(floor) * 100) : undefined;
     if (offers && (!floorCents || floorCents > cents)) return setError("Set the lowest price your agent may accept, at or below your asking price.");
@@ -523,11 +572,12 @@ function CreateDeal({ scan }: { scan: Scan }) {
         condition: scan.condition,
         checklist: checklist.split("\n").map((s) => s.trim()).filter(Boolean),
         photo: photo ?? undefined,
-        sellerName: name.trim(),
+        sellerName: name.trim() || undefined,
         scan,
         floorCents,
         handoff,
       });
+      clearDraft();
       router.push(`/d/${deal.id}?as=seller`);
     } catch (err) {
       setError((err as Error).message);
@@ -541,10 +591,7 @@ function CreateDeal({ scan }: { scan: Scan }) {
       <RevealText as="h1" text="Your protected deal" className="display text-[clamp(40px,6vw,84px)]" />
       <p className="mt-5 text-[18px] text-muted">Check the details. Your buyer sees exactly this, and the condition list is what the item is checked against on delivery.</p>
       <div className="mt-10 grid gap-5">
-        <label className="grid gap-2">
-          <span className="label text-muted">Your first name</span>
-          <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="Sam" autoFocus />
-        </label>
+        <PayoutField me={me} name={name} setName={setName} field={field} onSignIn={keep} />
         <div className="grid gap-5 md:grid-cols-[1fr_200px]">
           <label className="grid gap-2">
             <span className="label text-muted">Item</span>
@@ -571,6 +618,46 @@ function CreateDeal({ scan }: { scan: Scan }) {
         {busy ? "Creating…" : "Create deal link"} {!busy && <Arrow />}
       </Button>
     </form>
+  );
+}
+
+// Who gets paid. Signed in with PayPal, the payout goes to the seller's own account; a guest is a demo seller.
+function PayoutField({ me, name, setName, field, onSignIn }: { me: ReturnType<typeof useMe>; name: string; setName: (v: string) => void; field: string; onSignIn: () => void }) {
+  if (me?.account) {
+    const a = me.account;
+    return (
+      <div className="flex items-center gap-4 rounded-2xl border border-safe/30 bg-safe-soft px-5 py-4">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#003087] text-white">
+          <PayPalMark className="size-5" />
+        </span>
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 font-display text-[18px] font-semibold tracking-tight">
+            Paid to {a.name}&apos;s PayPal {a.verified && <VerifiedTick className="size-4 text-safe" />}
+          </p>
+          <p className="truncate text-[14px] text-muted">
+            {a.email ? `${a.email} · ` : ""}Buyers see you as {a.verified ? "a verified PayPal seller" : "signed in with PayPal"}.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="grid gap-4">
+      {me?.enabled && (
+        <div className="grid gap-4 rounded-2xl border hairline bg-card p-5 md:grid-cols-[1fr_auto] md:items-center">
+          <div>
+            <p className="font-display text-[18px] font-semibold tracking-tight">Get paid into your own PayPal</p>
+            <p className="mt-1 text-[15px] text-muted">Sign in on PayPal&apos;s page. We never see your password, and buyers see you&apos;re a real PayPal account.</p>
+          </div>
+          <PayPalSignIn next="/check?mode=sell&resume=1" onBeforeLeave={onSignIn} />
+        </div>
+      )}
+      <label className="grid gap-2">
+        <span className="label text-muted">{me?.enabled ? "Or try it as a demo seller · your first name" : "Your first name"}</span>
+        <input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="Sam" />
+      </label>
+      {me?.enabled && <p className="-mt-2 text-[13px] text-muted">Demo sellers are paid into Handshake&apos;s sandbox seller account.</p>}
+    </div>
   );
 }
 

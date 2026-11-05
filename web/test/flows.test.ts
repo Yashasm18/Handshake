@@ -26,6 +26,12 @@ const pp = vi.hoisted(() => ({
   })),
   addTracking: vi.fn(async () => ({})),
   payoutSeller: vi.fn(async () => ({ batch_header: { payout_batch_id: "BATCH-T", batch_status: "PENDING" } })),
+  authorizeOrder: vi.fn(async (id: string) => ({
+    id,
+    status: "COMPLETED",
+    payer: { payer_id: "BUYERPAYER1", email_address: "bo@example.com", name: { given_name: "Bo", surname: "Buyer" } },
+    purchase_units: [{ payments: { authorizations: [{ id: "AUTH-P", status: "CREATED", amount: { value: "230.00" } }] } }],
+  })),
 }));
 vi.mock("@/lib/server/paypal", async (orig) => ({ ...(await orig<typeof import("@/lib/server/paypal")>()), ...pp }));
 
@@ -142,7 +148,7 @@ describe("settling", () => {
     const deal = await flows.confirmDelivery(id);
     expect(pp.captureHold).toHaveBeenCalledWith("AUTH-T", 23_000, `HS-${id}`, expect.any(String));
     expect(pp.addTracking).toHaveBeenCalledWith("ORDER-T", "CAP-T", "1Z999AA1", "UPS");
-    expect(pp.payoutSeller).toHaveBeenCalledWith(id, "seller@example.com", 22_900, expect.any(String));
+    expect(pp.payoutSeller).toHaveBeenCalledWith(id, { type: "EMAIL", email: "seller@example.com" }, 22_900, expect.any(String));
     expect(deal.status).toBe("SETTLED");
   });
 
@@ -249,7 +255,7 @@ describe("meeting in person", () => {
     const deal = await flows.confirmHandover(id, { code });
     expect(deal.status).toBe("SETTLED");
     expect(pp.captureHold).toHaveBeenCalledWith("AUTH-T", 23_000, `HS-${id}`, expect.stringContaining("in person"));
-    expect(pp.payoutSeller).toHaveBeenCalledWith(id, "seller@example.com", 22_900, expect.any(String));
+    expect(pp.payoutSeller).toHaveBeenCalledWith(id, { type: "EMAIL", email: "seller@example.com" }, 22_900, expect.any(String));
     expect(pp.addTracking).not.toHaveBeenCalled();
     expect(deal.meetup).toBeUndefined();
   });
@@ -345,3 +351,33 @@ describe("meeting in person", () => {
   });
 });
 
+
+describe("sellers signed in with PayPal", () => {
+  const SELLER = { payerId: "SELLERPAYER1", name: "Sam Seller", email: "sam@example.com", verified: true };
+
+  it("are paid by payer id, into their own PayPal account", async () => {
+    const id = await heldDeal({ seller: SELLER, sellerEmail: "" });
+    ai.readLabel.mockResolvedValueOnce(LABEL);
+    await flows.ship(id, { label: "data:image/png;base64,AAAA", carrier: "", trackingNumber: "" });
+    await flows.confirmDelivery(id);
+    expect(pp.payoutSeller).toHaveBeenCalledWith(id, { type: "PAYER_ID", payerId: "SELLERPAYER1" }, 22_900, expect.any(String));
+    expect((await getDeal(id))!.events.at(-1)!.text).toContain("into their own PayPal account");
+  });
+
+  it("a buyer who pays by logging in to PayPal is linked to the deal by their payer id", async () => {
+    const id = await newDeal({ seller: SELLER, paypal: { orderId: "ORDER-P" } });
+    await flows.confirmPayment(id, "ORDER-P", becomeBuyer);
+    const deal = (await getDeal(id))!;
+    expect(deal.status).toBe("HELD");
+    expect(deal.buyer).toMatchObject({ payerId: "BUYERPAYER1", name: "Bo Buyer" });
+  });
+
+  it("the seller's own PayPal account can't fund their deal: the hold is voided at once", async () => {
+    const id = await newDeal({ seller: { ...SELLER, payerId: "BUYERPAYER1" }, paypal: { orderId: "ORDER-S" } });
+    await expect(flows.confirmPayment(id, "ORDER-S", becomeBuyer)).rejects.toThrow(/seller's own PayPal/);
+    expect(pp.voidHold).toHaveBeenCalledWith("AUTH-P");
+    const deal = (await getDeal(id))!;
+    expect(deal.status).toBe("AWAITING_PAYMENT");
+    expect(deal.buyer).toBeUndefined();
+  });
+});

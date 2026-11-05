@@ -13,6 +13,7 @@ import { EASE } from "./motion";
 import { PayPalButton } from "./paypal-button";
 import { DealClock, DeadlineNotice } from "./deadline";
 import { Headline, Panel } from "./deal-ui";
+import { PayPalMark, PayPalSignIn, VerifiedTick } from "./account";
 import { negotiatedFrom, NegotiationLive, NegotiationRecap, NoDealNotice, OfferForm } from "./negotiation";
 
 type Role = "buyer" | "seller";
@@ -132,7 +133,15 @@ export function DealRoom() {
         <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, ease: EASE, delay: 0.1 }} className="md:text-right">
           {negotiatedFrom(deal) != null && <p className="text-[18px] text-muted line-through decoration-1 md:text-right">{usd(negotiatedFrom(deal)!)}</p>}
           <p className="display text-[clamp(40px,5vw,72px)]">{usd(deal.priceCents)}</p>
-          <p className="text-[15px] text-muted">Sold by {deal.sellerName}</p>
+          <p className="flex items-center gap-1.5 text-[15px] text-muted md:justify-end">
+            Sold by {deal.sellerName}
+            {deal.sellerPayPal?.signedIn && (
+              <span className={`label ml-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${deal.sellerPayPal.verified ? "bg-safe-soft text-safe" : "border hairline"}`} title={deal.sellerPayPal.verified ? "This seller signed in with a PayPal account that PayPal has verified." : "This seller signed in with PayPal."}>
+                {deal.sellerPayPal.verified ? <VerifiedTick className="size-3.5" /> : <PayPalMark className="size-3" />}
+                {deal.sellerPayPal.verified ? "Verified PayPal" : "PayPal account"}
+              </span>
+            )}
+          </p>
         </motion.div>
       </div>
 
@@ -146,7 +155,8 @@ export function DealRoom() {
                 <ActionCard deal={deal} role={role} counterpart={counterpart} act={act} busy={busy} onHeld={onHeld} onPayError={onPayError} />
               ) : (
                 <Panel>
-                  <Headline eyebrow="Private deal" title={`This deal is between ${deal.sellerName} and a buyer.`} body="Only the two of them can take action here. If it's yours, open it in the browser you used to create it or pay for it." />
+                  <Headline eyebrow="Private deal" title={`This deal is between ${deal.sellerName} and a buyer.`} body="Only the two of them can take action here. If it's yours, sign in with the PayPal account you used, or open it in the browser you used to create it or pay for it." />
+                  <div className="mt-6"><PayPalSignIn /></div>
                 </Panel>
               )}
             </motion.div>

@@ -62,7 +62,7 @@ const money = (cents: number) => ({ currency_code: "USD", value: (cents / 100).t
 type Order = {
   id: string;
   status: string;
-  payer?: { email_address?: string; name?: { given_name?: string; surname?: string } };
+  payer?: { payer_id?: string; email_address?: string; name?: { given_name?: string; surname?: string } };
   purchase_units: {
     shipping?: { name?: { full_name?: string }; address?: Address };
     payments?: { authorizations?: { id: string; status: string; amount: { value: string } }[] };
@@ -137,13 +137,17 @@ export const addTracking = (orderId: string, captureId: string, trackingNumber: 
     notify_payer: false,
   });
 
-export async function payoutSeller(dealId: string, sellerEmail: string, cents: number, note: string) {
+// Where a payout goes: the seller's own PayPal account (by payer id, from Sign in with PayPal), or, for a
+// guest demo seller, the sandbox seller account by email.
+export type Payee = { type: "PAYER_ID"; payerId: string } | { type: "EMAIL"; email: string };
+
+export async function payoutSeller(dealId: string, payee: Payee, cents: number, note: string) {
   return call<{ batch_header: { payout_batch_id: string; batch_status: string } }>(
     "POST",
     "/v1/payments/payouts",
     {
       sender_batch_header: { sender_batch_id: `${dealId}-${Date.now()}`, email_subject: "You've been paid through Handshake", email_message: note },
-      items: [{ recipient_type: "EMAIL", receiver: sellerEmail, amount: { currency: "USD", value: (cents / 100).toFixed(2) }, note, sender_item_id: dealId }],
+      items: [{ recipient_type: payee.type, receiver: payee.type === "PAYER_ID" ? payee.payerId : payee.email, amount: { currency: "USD", value: (cents / 100).toFixed(2) }, note, sender_item_id: dealId }],
     },
     `payout-${dealId}`,
   );
@@ -156,6 +160,9 @@ export function holdFrom(order: Order) {
     authorizationId: auth?.id,
     authorizationStatus: auth?.status,
     buyerEmail: order.payer?.email_address,
+    buyer: order.payer?.payer_id
+      ? { payerId: order.payer.payer_id, name: [order.payer.name?.given_name, order.payer.name?.surname].filter(Boolean).join(" "), email: order.payer.email_address }
+      : undefined,
     shipTo: unit?.shipping ? { name: unit.shipping.name?.full_name, address: unit.shipping.address } : undefined,
   };
 }

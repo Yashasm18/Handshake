@@ -127,9 +127,15 @@ describe("PayPal client: retries can't move money twice", () => {
 
   it("a payout uses one key per deal", async () => {
     const { payoutSeller } = await import("@/lib/server/paypal");
-    await payoutSeller("deal-7", "s@example.com", 22_355, "Payment");
+    await payoutSeller("deal-7", { type: "EMAIL", email: "s@example.com" }, 22_355, "Payment");
     expect(api()[0].headers["PayPal-Request-Id"]).toBe("payout-deal-7");
     expect(JSON.parse(api()[0].body!).items[0].amount).toEqual({ currency: "USD", value: "223.55" });
+  });
+
+  it("a seller signed in with PayPal is paid by payer id, into their own account", async () => {
+    const { payoutSeller } = await import("@/lib/server/paypal");
+    await payoutSeller("deal-8", { type: "PAYER_ID", payerId: "SELLERPAYER1" }, 10_000, "Payment");
+    expect(JSON.parse(api()[0].body!).items[0]).toMatchObject({ recipient_type: "PAYER_ID", receiver: "SELLERPAYER1" });
   });
 
   it("every other write still gets a unique key, and reads get none", async () => {

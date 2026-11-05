@@ -71,6 +71,8 @@ function recordHold(deal: Deal, order: Awaited<ReturnType<typeof pp.authorizeOrd
   deal.paypal.orderId = order.id;
   deal.paypal.authorizationId = hold.authorizationId;
   deal.paypal.buyerEmail = hold.buyerEmail;
+  // Paid by logging in to PayPal: link the deal to that account, so signing in with it later finds the deal.
+  if (hold.buyer) deal.buyer = { ...hold.buyer, verified: false };
   deal.shipTo = hold.shipTo ? { name: hold.shipTo.name, line: addressLine(hold.shipTo.address), address: hold.shipTo.address } : undefined;
   const now = new Date().toISOString();
   deal.clock = { heldAt: now, authorizedAt: now };
@@ -96,7 +98,15 @@ export const confirmPayment = (id: string, orderId: string, becomeBuyer: BecomeB
   withDeal(id, async (deal) => {
     expect(deal, "AWAITING_PAYMENT");
     if (deal.paypal.orderId !== orderId) throw new HttpError(400, "That payment belongs to a different deal.");
-    recordHold(deal, await pp.authorizeOrder(orderId));
+    const order = await pp.authorizeOrder(orderId);
+    // The seller's own PayPal account can't fund their own deal: release the hold straight away.
+    const payer = order.payer?.payer_id;
+    if (payer && deal.seller && payer === deal.seller.payerId) {
+      const auth = pp.holdFrom(order).authorizationId;
+      if (auth) await pp.voidHold(auth).catch(() => {});
+      throw new HttpError(400, "That's the seller's own PayPal account. A deal has to be paid by someone else.");
+    }
+    recordHold(deal, order);
     await becomeBuyer(deal);
     return deal;
   }).then(kickOff);
@@ -171,10 +181,12 @@ export async function settle(deal: Deal, captureCents: number, note: string) {
 
   if (!paypal.payoutBatchId) {
     const net = paypal.netCents!;
-    const payout = await pp.payoutSeller(deal.id, deal.sellerEmail, net, `Payment for ${deal.title}`);
+    const payee: pp.Payee = deal.seller ? { type: "PAYER_ID", payerId: deal.seller.payerId } : { type: "EMAIL", email: deal.sellerEmail };
+    const payout = await pp.payoutSeller(deal.id, payee, net, `Payment for ${deal.title}`);
     paypal.payoutBatchId = payout.batch_header.payout_batch_id;
     paypal.payoutCents = net;
-    log(deal, "paypal", `Paid ${deal.sellerName} ${usd(net)} after PayPal's ${usd(paypal.feeCents ?? 0)} fee.`, paypal.payoutBatchId);
+    const where = deal.seller ? " into their own PayPal account" : "";
+    log(deal, "paypal", `Paid ${deal.sellerName} ${usd(net)}${where} after PayPal's ${usd(paypal.feeCents ?? 0)} fee.`, paypal.payoutBatchId);
   }
   deal.status = "SETTLED";
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, useMotionValueEvent, useScroll } from "motion/react";
+import { AccountMenu } from "./account";
 import { Suspense, useState, useSyncExternalStore, type ComponentProps, type MouseEvent } from "react";
 
 export function Logo({ className = "" }: { className?: string }) {
@@ -12,7 +13,7 @@ export function Logo({ className = "" }: { className?: string }) {
         <circle cx="12" cy="16" r="9" fill="none" stroke="currentColor" strokeWidth="2.4" />
         <circle cx="20" cy="16" r="9" fill="none" stroke="currentColor" strokeWidth="2.4" className="transition-transform duration-500 group-hover:-translate-x-1" />
       </svg>
-      <span className="font-display text-[19px] font-semibold tracking-[-0.03em]">Handshake</span>
+      <span className="font-display text-[17px] font-semibold tracking-[-0.03em] sm:text-[19px]">Handshake</span>
     </Link>
   );
 }
@@ -56,9 +57,10 @@ export function Nav() {
         <Suspense fallback={<NavLinks path={null} />}>
           <ActiveNavLinks />
         </Suspense>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <ThemeToggle />
-          <Button href="/check" size="sm">Check a deal</Button>
+          <AccountMenu />
+          <Button href="/check" size="sm" className="whitespace-nowrap max-sm:px-4">Check a deal</Button>
         </div>
       </nav>
     </motion.header>
