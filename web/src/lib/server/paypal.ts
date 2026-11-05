@@ -142,15 +142,19 @@ export const addTracking = (orderId: string, captureId: string, trackingNumber: 
 // guest demo seller, the sandbox seller account by email.
 export type Payee = { type: "PAYER_ID"; payerId: string } | { type: "EMAIL"; email: string };
 
-export async function payoutSeller(dealId: string, payee: Payee, cents: number, note: string) {
+// `attempt` changes only after PayPal definitely refused a payout (so none was created). PayPal remembers
+// a request id's first answer, refusals included, so a retry after, say, a top-up needs a new key; a
+// retry after a timeout keeps the same key and batch id, so a payout that did go through isn't repeated.
+export async function payoutSeller(dealId: string, payee: Payee, cents: number, note: string, attempt = 0) {
+  const key = attempt ? `payout-${dealId}-r${attempt}` : `payout-${dealId}`;
   return call<{ batch_header: { payout_batch_id: string; batch_status: string } }>(
     "POST",
     "/v1/payments/payouts",
     {
-      sender_batch_header: { sender_batch_id: `${dealId}-${Date.now()}`, email_subject: "You've been paid through Handshake", email_message: note },
+      sender_batch_header: { sender_batch_id: key, email_subject: "You've been paid through Handshake", email_message: note },
       items: [{ recipient_type: payee.type === "PAYER_ID" ? "PAYPAL_ID" : "EMAIL", receiver: payee.type === "PAYER_ID" ? payee.payerId : payee.email, amount: { currency: "USD", value: (cents / 100).toFixed(2) }, note, sender_item_id: dealId }],
     },
-    `payout-${dealId}`,
+    key,
   );
 }
 

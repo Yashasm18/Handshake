@@ -148,7 +148,7 @@ describe("settling", () => {
     const deal = await flows.confirmDelivery(id);
     expect(pp.captureHold).toHaveBeenCalledWith("AUTH-T", 23_000, `HS-${id}`, expect.any(String));
     expect(pp.addTracking).toHaveBeenCalledWith("ORDER-T", "CAP-T", "1Z999AA1", "UPS");
-    expect(pp.payoutSeller).toHaveBeenCalledWith(id, { type: "EMAIL", email: "seller@example.com" }, 22_900, expect.any(String));
+    expect(pp.payoutSeller).toHaveBeenCalledWith(id, { type: "EMAIL", email: "seller@example.com" }, 22_900, expect.any(String), 0);
     expect(deal.status).toBe("SETTLED");
   });
 
@@ -255,7 +255,7 @@ describe("meeting in person", () => {
     const deal = await flows.confirmHandover(id, { code });
     expect(deal.status).toBe("SETTLED");
     expect(pp.captureHold).toHaveBeenCalledWith("AUTH-T", 23_000, `HS-${id}`, expect.stringContaining("in person"));
-    expect(pp.payoutSeller).toHaveBeenCalledWith(id, { type: "EMAIL", email: "seller@example.com" }, 22_900, expect.any(String));
+    expect(pp.payoutSeller).toHaveBeenCalledWith(id, { type: "EMAIL", email: "seller@example.com" }, 22_900, expect.any(String), 0);
     expect(pp.addTracking).not.toHaveBeenCalled();
     expect(deal.meetup).toBeUndefined();
   });
@@ -327,12 +327,14 @@ describe("meeting in person", () => {
     const id = await meetDeal();
     const { code } = await showCode(id);
     pp.payoutSeller.mockRejectedValueOnce(new Error("PayPal down"));
-    await expect(flows.confirmHandover(id, { code })).rejects.toThrow("PayPal down");
+    vi.spyOn(console, "error").mockImplementationOnce(() => {});
+    // The buyer's confirmation succeeds: the money is captured and the payout is queued.
+    await flows.confirmHandover(id, { code });
     const stuck = (await getDeal(id))!;
-    expect(stuck).toMatchObject({ status: "HELD", paypal: { captureId: "CAP-T" } });
-    // Captured money can't be voided by a deadline, or by walking away.
+    expect(stuck).toMatchObject({ status: "HELD", paypal: { captureId: "CAP-T", payoutAttempts: 1 } });
+    // Captured money can't be voided by a deadline, or by walking away; only the payout retry is left.
     const { deadlinesFor } = await import("@/lib/deadlines");
-    expect(deadlinesFor(stuck)).toEqual([]);
+    expect(deadlinesFor(stuck).map((d) => d.kind)).toEqual(["PAYOUT"]);
     await expect(flows.cancel(id, "buyer")).rejects.toMatchObject({ status: 409 });
     // The seller's next tap (or the buyer's) finishes the payout.
     expect(await flows.startHandover(id)).toEqual({ settled: true });
@@ -360,7 +362,7 @@ describe("sellers signed in with PayPal", () => {
     ai.readLabel.mockResolvedValueOnce(LABEL);
     await flows.ship(id, { label: "data:image/png;base64,AAAA", carrier: "", trackingNumber: "" });
     await flows.confirmDelivery(id);
-    expect(pp.payoutSeller).toHaveBeenCalledWith(id, { type: "PAYER_ID", payerId: "SELLERPAYER1" }, 22_900, expect.any(String));
+    expect(pp.payoutSeller).toHaveBeenCalledWith(id, { type: "PAYER_ID", payerId: "SELLERPAYER1" }, 22_900, expect.any(String), 0);
     expect((await getDeal(id))!.events.at(-1)!.text).toContain("into their own PayPal account");
   });
 

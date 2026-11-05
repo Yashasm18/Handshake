@@ -152,6 +152,11 @@ export type Deal = {
     netCents?: number;
     payoutBatchId?: string;
     payoutCents?: number;
+    // A payout PayPal refused (for example, the platform balance was short): when to try again.
+    payoutRetryAt?: string;
+    payoutAttempts?: number;
+    // How many payouts PayPal definitely refused; each refusal moves to a fresh idempotency key.
+    payoutRefusals?: number;
     trackingAttached?: boolean;
     // Server-only: binds "confirm payment" to the browser that opened the PayPal checkout.
     payNonce?: string;

@@ -132,6 +132,16 @@ describe("PayPal client: retries can't move money twice", () => {
     expect(JSON.parse(api()[0].body!).items[0].amount).toEqual({ currency: "USD", value: "223.55" });
   });
 
+  it("the payout key and batch id are fixed per attempt, so a retried request can never pay twice", async () => {
+    const { payoutSeller } = await import("@/lib/server/paypal");
+    await payoutSeller("deal-9", { type: "EMAIL", email: "s@example.com" }, 1_000, "Payment");
+    await payoutSeller("deal-9", { type: "EMAIL", email: "s@example.com" }, 1_000, "Payment", 1);
+    const [a, b] = api();
+    expect(a.headers["PayPal-Request-Id"]).toBe("payout-deal-9");
+    expect(JSON.parse(a.body!).sender_batch_header.sender_batch_id).toBe("payout-deal-9");
+    expect(b.headers["PayPal-Request-Id"]).toBe("payout-deal-9-r1");
+  });
+
   it("a seller signed in with PayPal is paid by payer id, into their own account", async () => {
     const { payoutSeller } = await import("@/lib/server/paypal");
     await payoutSeller("deal-8", { type: "PAYER_ID", payerId: "SELLERPAYER1" }, 10_000, "Payment");

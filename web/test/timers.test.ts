@@ -55,9 +55,13 @@ describe("deadlines", () => {
     d.shipment = { ...typed, labelCheck: { match: false, read: "", reason: "" } };
     expect(deadlinesFor(d).map((x) => x.kind)).toEqual(["REAUTHORIZE"]);
   });
-  it("doesn't renew a hold that's already captured", () => {
-    const d = deal({ status: "SHIPPED", shipment: VERIFIED, paypal: { orderId: "O", authorizationId: "A", captureId: "CAP" }, clock: { authorizedAt: iso(T0), shippedAt: iso(T0) } });
-    expect(deadlinesFor(d).map((x) => x.kind)).toEqual(["AUTO_RELEASE"]);
+  it("once captured, the only thing left is retrying the payout: no renewal, release or claim", () => {
+    const d = deal({ status: "SHIPPED", shipment: VERIFIED, paypal: { orderId: "O", authorizationId: "A", captureId: "CAP", capturedCents: 23_000, payoutRetryAt: iso(T0 + 60_000) }, clock: { authorizedAt: iso(T0), shippedAt: iso(T0) } });
+    expect(deadlinesFor(d)).toMatchObject([{ kind: "PAYOUT", at: T0 + 60_000, who: "handshake" }]);
+  });
+
+  it("payout retries back off: 1, 2, 4 … minutes, at most an hour", () => {
+    expect([1, 2, 3, 4, 7, 8, 20].map((a) => flows.payoutBackoff(a) / 60_000)).toEqual([1, 2, 4, 8, 60, 60, 60]);
   });
   it("a declined claim never auto-settles", () => {
     const d = deal({ status: "CLAIM_OPEN", clock: { authorizedAt: iso(T0), reauthorizedAt: iso(T0), claimAt: iso(T0) } });
@@ -143,11 +147,16 @@ describe("timer actions", () => {
   it("a payout failure resumes without capturing twice", async () => {
     pp.payoutSeller.mockRejectedValueOnce(new PayPalError("Server error", 500));
     const d = await saveDeal(deal({ status: "SHIPPED", shipment: VERIFIED, clock: { authorizedAt: iso(T0), reauthorizedAt: iso(T0), shippedAt: iso(T0) } }));
-    await expect(runTimer(d.id, "AUTO_RELEASE", T0 + 8 * DAY)).rejects.toThrow();
+    // The capture is recorded and the payout queued, not failed.
+    await runTimer(d.id, "AUTO_RELEASE", T0 + 8 * DAY);
     const mid = (await getDeal(d.id))!;
-    expect(mid.paypal.captureId).toBe("CAP-1"); // the capture is recorded even though the run failed
+    expect(mid.paypal.captureId).toBe("CAP-1");
+    expect(mid.paypal).toMatchObject({ payoutAttempts: 1 });
     expect(mid.status).toBe("SHIPPED");
-    expect((await runTimer(d.id, "AUTO_RELEASE", T0 + 8 * DAY)).outcome).toBe("done");
+    expect(mid.events.filter((e) => e.text.includes("keep retrying"))).toHaveLength(1);
+    // Not due yet: the backoff is respected.
+    expect((await runTimer(d.id, "PAYOUT", Date.now())).outcome).toBe("not-due");
+    expect((await runTimer(d.id, "PAYOUT", Date.now() + 2 * 60_000)).outcome).toBe("done");
     expect(pp.captureHold).toHaveBeenCalledTimes(1);
     expect(pp.payoutSeller).toHaveBeenCalledTimes(2);
     const after = (await getDeal(d.id))!;
@@ -156,10 +165,25 @@ describe("timer actions", () => {
     expect(after.events.filter((e) => e.text.startsWith("Captured"))).toHaveLength(1);
   });
 
+  it("a refused payout retries under a new key; a timeout retries under the same one", async () => {
+    // PayPal replays a request id's first answer, so after "insufficient funds" the same key fails forever.
+    pp.payoutSeller.mockRejectedValueOnce(new PayPalError("Sender does not have sufficient funds.", 422, "INSUFFICIENT_FUNDS"));
+    const d = await saveDeal(deal({ status: "SHIPPED", shipment: VERIFIED, clock: { authorizedAt: iso(T0), reauthorizedAt: iso(T0), shippedAt: iso(T0) } }));
+    await runTimer(d.id, "AUTO_RELEASE", T0 + 8 * DAY);
+    expect((pp.payoutSeller.mock.calls.at(-1) as unknown[])[4]).toBe(0);
+    pp.payoutSeller.mockRejectedValueOnce(new PayPalError("Internal error", 500));
+    await runTimer(d.id, "PAYOUT", Date.now() + 2 * 60_000);
+    expect((pp.payoutSeller.mock.calls.at(-1) as unknown[])[4]).toBe(1); // new key after the refusal
+    await runTimer(d.id, "PAYOUT", Date.now() + 10 * 60_000);
+    expect((pp.payoutSeller.mock.calls.at(-1) as unknown[])[4]).toBe(1); // same key after the 500: it may have gone through
+    expect((await getDeal(d.id))!.status).toBe("SETTLED");
+    expect(pp.captureHold).toHaveBeenCalledTimes(1);
+  });
+
   it("after a capture, no claim or cancel can change the outcome", async () => {
     pp.payoutSeller.mockRejectedValueOnce(new PayPalError("Server error", 500));
     const d = await saveDeal(deal({ status: "SHIPPED", shipment: VERIFIED, clock: { authorizedAt: iso(T0), reauthorizedAt: iso(T0), shippedAt: iso(T0) } }));
-    await expect(runTimer(d.id, "AUTO_RELEASE", T0 + 8 * DAY)).rejects.toThrow(); // captured, payout pending
+    await runTimer(d.id, "AUTO_RELEASE", T0 + 8 * DAY); // captured, payout queued
     await expect(flows.openClaim(d.id, { note: "broken", photo: "data:image/png;base64,AA" })).rejects.toThrow(/already being settled/);
     await expect(flows.settle((await getDeal(d.id))!, 5_000, "different amount")).rejects.toThrow(/different amount/);
     expect(pp.captureHold).toHaveBeenCalledTimes(1);

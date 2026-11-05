@@ -69,6 +69,7 @@ const TITLES: Record<Deadline["kind"], string> = {
   REAUTHORIZE: "Renew PayPal hold",
   AUTO_RELEASE: "Buyer responds by",
   CLAIM_SETTLE: "Claim settles",
+  PAYOUT: "Paying the seller",
 };
 
 // Sidebar: every running timer on the deal, and who enforces them.

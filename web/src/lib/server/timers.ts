@@ -85,6 +85,13 @@ const ACTIONS: Record<DeadlineKind, Action> = {
     return { outcome: "done", detail: `Captured ${usd(deal.priceCents)}` };
   },
 
+  async PAYOUT(deal) {
+    // settle resumes after the recorded capture, so this only ever retries the payout itself.
+    await settle(deal, deal.paypal.capturedCents!, "Handshake payout");
+    if (deal.status === "SETTLED") return { outcome: "done", detail: `Paid out ${usd(deal.paypal.payoutCents ?? 0)}` };
+    return { outcome: "rescheduled", detail: `Payout retries at ${deal.paypal.payoutRetryAt}` };
+  },
+
   async CLAIM_SETTLE(deal) {
     const claim = deal.claim!;
     logOnce(deal, `Nobody declined the proposal within ${span("CLAIM_SETTLE")}, so it settled automatically.`);

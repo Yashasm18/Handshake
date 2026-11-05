@@ -10,12 +10,12 @@
 
 Handshake moves other people's money, so every rule that touches it is tested twice:
 
-1. **Automated tests (218).** They run on every push in GitHub Actions and again on Render before every deploy. External services are replaced with fakes, so these tests check *our* rules: amounts, limits, states, retries and who can see what.
+1. **Automated tests (221).** They run on every push in GitHub Actions and again on Render before every deploy. External services are replaced with fakes, so these tests check *our* rules: amounts, limits, states, retries and who can see what.
 2. **Live end-to-end scenarios (33).** A script drives a running Handshake server through real deals on the **PayPal sandbox**, with live **Channel3** prices, **Kernel** cloud browsers reading real listings, **Elastic** scam memory, and the real **AI models** reading real images. These check that everything works together.
 
 | | Automated | Live |
 |---|---|---|
-| Count | 218 tests | 35 scenarios |
+| Count | 221 tests | 35 scenarios |
 | Runs | Every push and every deploy | Before each release, and on demand |
 | PayPal, Channel3, Kernel, Elastic, AI | Faked | Real (PayPal sandbox) |
 | Result | All pass | All pass |
@@ -23,7 +23,7 @@ Handshake moves other people's money, so every rule that touches it is tested tw
 ## Automated tests
 
 ```bash
-npm --prefix web test         # 210 tests
+npm --prefix web test         # 213 tests
 npm --prefix workflows test   # 8 tests
 ```
 
@@ -179,6 +179,10 @@ Run by hand on November 5, 2026: a real sign-in on PayPal's sandbox login page, 
 - Chrome's phishing check blocked our server's redirect to the PayPal login page (a free-hosting address bouncing straight to a PayPal login looks like a phishing kit). The browser now goes to PayPal itself from the button, and Chrome shows PayPal's page normally.
 - The first payout to a signed-in seller was refused: the Payouts API calls the payer-id recipient type `PAYPAL_ID`, not `PAYER_ID`. The capture had already been recorded, so the retry paid the seller without capturing again, which is the resumable settlement working as designed.
 - An automated security review found two ways to make the sign-in return path point off-site (a tab character, and dot segments that collapse into `//`). Both are refused and tested.
+
+**Payouts.** A live deal hit "insufficient funds" on the payout (the sandbox platform balance had run low after many test deals). The capture was already recorded, so nothing was charged twice, but two real gaps showed up, both fixed and tested:
+- The buyer saw a PayPal error for a step that wasn't theirs. A refused payout is now queued: the deal shows "captured, paying the seller", and the timer retries it with backoff (1, 2, 4 … minutes, at most hourly) until PayPal accepts it.
+- After the balance was topped up, the retry still failed: PayPal replays the first answer for a request id, refusals included. A definite refusal (4xx) now moves the next attempt to a new key and batch id; a timeout or 5xx keeps the same key, so a payout that did go through is never repeated.
 
 **Privacy.**
 

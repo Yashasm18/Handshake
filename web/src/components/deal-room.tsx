@@ -228,6 +228,19 @@ type ActProps = {
 
 function ActionCard(p: ActProps) {
   const { deal, role } = p;
+  // Captured, payout still going through: nothing for either person to do.
+  if (deal.paypal.captureId && !deal.paypal.payoutBatchId && deal.status !== "SETTLED" && deal.status !== "RELEASED") {
+    const captured = usd(deal.paypal.capturedCents ?? deal.priceCents);
+    return (
+      <Panel tone="safe">
+        <Headline
+          eyebrow="Paying out"
+          title={role === "seller" ? `${captured} is captured. Your payout is on its way.` : `Done. ${captured} was captured, and ${deal.sellerName} is being paid.`}
+          body="PayPal hasn't confirmed the payout yet, so Handshake keeps retrying it automatically. Nothing is charged again, and you don't need to do anything."
+        />
+      </Panel>
+    );
+  }
   switch (deal.status) {
     case "AWAITING_PAYMENT":
       return role === "buyer" ? <BuyerPay {...p} /> : <SellerWaitingPayment {...p} />;
