@@ -10,12 +10,12 @@
 
 Handshake moves other people's money, so every rule that touches it is tested twice:
 
-1. **Automated tests (189).** They run on every push in GitHub Actions and again on Render before every deploy. External services are replaced with fakes, so these tests check *our* rules: amounts, limits, states, retries and who can see what.
+1. **Automated tests (191).** They run on every push in GitHub Actions and again on Render before every deploy. External services are replaced with fakes, so these tests check *our* rules: amounts, limits, states, retries and who can see what.
 2. **Live end-to-end scenarios (33).** A script drives a running Handshake server through real deals on the **PayPal sandbox**, with live **Channel3** prices, **Kernel** cloud browsers reading real listings, **Elastic** scam memory, and the real **AI models** reading real images. These check that everything works together.
 
 | | Automated | Live |
 |---|---|---|
-| Count | 189 tests | 33 scenarios |
+| Count | 191 tests | 35 scenarios |
 | Runs | Every push and every deploy | Before each release, and on demand |
 | PayPal, Channel3, Kernel, Elastic, AI | Faked | Real (PayPal sandbox) |
 | Result | All pass | All pass |
@@ -23,7 +23,7 @@ Handshake moves other people's money, so every rule that touches it is tested tw
 ## Automated tests
 
 ```bash
-npm --prefix web test         # 181 tests
+npm --prefix web test         # 183 tests
 npm --prefix workflows test   # 8 tests
 ```
 
@@ -31,7 +31,7 @@ npm --prefix workflows test   # 8 tests
 |---|---:|---|
 | [`flows.test.ts`](../web/test/flows.test.ts) | 33 | The deal state machine: paying with the test card, backed offers, shipping with a label photo, confirming delivery, damage claims, both-sides acceptance, cancelling, and meeting in person (handover codes that work once, expire, lock after 5 wrong tries and are stored only as hashes; no shipping around the code; a failed payout resumes without a second capture). Sellers signed in with PayPal are paid by payer id; a buyer who pays through PayPal is linked by theirs; the seller's own account can't fund the deal (the hold is voided). Checks the exact PayPal calls and amounts, and that each step is refused in the wrong state. |
 | [`timers.test.ts`](../web/test/timers.test.ts) | 19 | Every deadline: when it's due, what it does, that it does nothing the second time, that a failed payout resumes without capturing twice, and that three simultaneous runs move money once. |
-| [`signin.test.ts`](../web/test/signin.test.ts) | 24 | Sign in with PayPal: signed sessions that can't be forged, edited, re-signed with another key or used after 30 days; the full OAuth round trip against a fake PayPal (state must match and works once, cancel and bad codes, profiles without a payer id, no redirects off the site); the payer id never reaches the browser; a PayPal account opens its own side of a deal on any device and nothing else; a seller can't pay for their own deal. |
+| [`signin.test.ts`](../web/test/signin.test.ts) | 26 | Sign in with PayPal: signed sessions that can't be forged, edited, re-signed with another key or used after 30 days; the full OAuth round trip against a fake PayPal (the server never redirects to PayPal itself, only this site can start a sign-in, state must match and works once, cancel and bad codes, profiles without a payer id, no redirects off the site); the payer id never reaches the browser; a PayPal account opens its own side of a deal on any device and nothing else; a seller can't pay for their own deal. |
 | [`security.test.ts`](../web/test/security.test.ts) | 19 | What a stranger, the buyer and the seller can each see; the label address check; PayPal idempotency keys and error details; the secret-guarded timer API. |
 | [`negotiation.test.ts`](../web/test/negotiation.test.ts) | 20 | The referee that clamps every agent offer to its owner's limit, moves in steps and blocks early accepts, and the filter that rejects any message revealing a limit in digits or words. |
 | [`money.test.ts`](../web/test/money.test.ts) | 16 | Refund caps (including a sweep of 72 price and part combinations where refund plus capture must always equal the price), the fair price band, market medians and the deadline clock. |
@@ -153,6 +153,15 @@ Real PayPal sandbox deals handed over at a meetup.
 
 The QR code was also checked in the browser: decoded with the browser's own QR reader, it opens the deal with the one-time handover token, and the buyer's page asks before releasing anything.
 
+### Sign in with PayPal
+
+Run by hand on November 5, 2026: a real sign-in on PayPal's sandbox login page, in Chrome.
+
+| # | Scenario | Result |
+|---|---|---|
+| G1 | A seller signs in with PayPal | **Pass.** PayPal's consent page sent them back signed in as "John Doe · Verified PayPal account"; My deals opened on the account |
+| G2 | The signed-in seller sells a $180 item; a stranger pays with the test card; the seller ships; the buyer confirms | **Pass.** Captured $180 (capture `8SJ71746DP6158500`); **$174.85 paid into the seller's own PayPal account** by payer id (payout batch `JNUKXZ6DKT65W`, item SUCCESS, recipient type `PAYPAL_ID`) |
+
 ### Self-enforcing deadlines
 
 | # | Scenario | Result |
@@ -164,6 +173,11 @@ The QR code was also checked in the browser: decoded with the browser's own QR r
 **Scam memory (Elastic).** Live runs found two bugs before release, both now fixed and covered by tests:
 - A phone number reported by two different buyers in two *different* messages wasn't confirmed, because witnesses were counted per message. They are now counted across every stored scam that shares the detail.
 - A high-risk scan saving itself in the background and its buyer's report a moment later both wrote the same record, and one failed with a version conflict. Writes now retry on conflict.
+
+**Sign in with PayPal.** The live run found three things, all fixed:
+- Chrome's phishing check blocked our server's redirect to the PayPal login page (a free-hosting address bouncing straight to a PayPal login looks like a phishing kit). The browser now goes to PayPal itself from the button, and Chrome shows PayPal's page normally.
+- The first payout to a signed-in seller was refused: the Payouts API calls the payer-id recipient type `PAYPAL_ID`, not `PAYER_ID`. The capture had already been recorded, so the retry paid the seller without capturing again, which is the resumable settlement working as designed.
+- An automated security review found two ways to make the sign-in return path point off-site (a tab character, and dot segments that collapse into `//`). Both are refused and tested.
 
 **Privacy.**
 
