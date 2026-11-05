@@ -71,9 +71,14 @@ export async function fetchAccount(accessToken: string): Promise<Account> {
 }
 
 // Only same-site paths: a sign-in link can never bounce someone to another website.
+// Control characters and backslashes are refused outright (URL parsers drop tabs and newlines, so
+// "/\t/evil.com" would become "//evil.com"), and the result must still resolve to this site.
 export function safeNext(next: string | null | undefined) {
-  if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\") || next.length > 300) return "/deals";
-  return next;
+  const fallback = "/deals";
+  if (!next || next.length > 300 || !next.startsWith("/") || next.startsWith("//") || /[\x00-\x1f\x7f\\]/.test(next)) return fallback;
+  const url = new URL(next, "http://handshake.invalid");
+  if (url.origin !== "http://handshake.invalid") return fallback;
+  return url.pathname + url.search;
 }
 
 // The URL PayPal sends people back to. It has to match the Return URL set in the PayPal app exactly.

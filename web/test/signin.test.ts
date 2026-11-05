@@ -89,7 +89,11 @@ describe("PayPal profile", () => {
 describe("where sign-in sends you", () => {
   it("only to a path on this site", () => {
     expect(login.safeNext("/check?mode=sell&resume=1")).toBe("/check?mode=sell&resume=1");
-    for (const bad of ["https://evil.example", "//evil.example", "/\\evil.example", "javascript:alert(1)", null, ""]) expect(login.safeNext(bad)).toBe("/deals");
+    for (const bad of ["https://evil.example", "//evil.example", "/\\evil.example", "/\t/evil.example", "/\n/evil.example", "/\r\n//evil.example", "/%09/evil.example".replace("%09", "\x00"), "javascript:alert(1)", null, ""]) {
+      expect(login.safeNext(bad)).toBe("/deals");
+    }
+    // Encoded tricks stay a harmless path on this site.
+    expect(login.safeNext("/%2F%2Fevil.example")).toBe("/%2F%2Fevil.example");
   });
 
   it("asks PayPal for the payer id scope on the sandbox login page", () => {

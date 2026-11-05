@@ -7,7 +7,10 @@ import { OAUTH_COOKIE, OAUTH_MS, cookieOptions, seal, sessionSecret } from "@/li
 export async function GET(req: Request) {
   const next = safeNext(new URL(req.url).searchParams.get("next"));
   const secret = sessionSecret();
-  if (!loginEnabled() || !secret) return Response.redirect(new URL(`${next}${next.includes("?") ? "&" : "?"}signin=unavailable`, req.url), 303);
+  if (!loginEnabled() || !secret) {
+    // A relative Location, built from the checked path: never an absolute URL from user input.
+    return new Response(null, { status: 303, headers: { Location: `${next}${next.includes("?") ? "&" : "?"}signin=unavailable`, "Cache-Control": "no-store" } });
+  }
   const state = randomBytes(24).toString("base64url");
   const redirectUri = callbackUrl(req);
   (await cookies()).set(OAUTH_COOKIE, seal({ state, next, redirectUri }, secret, OAUTH_MS), cookieOptions(OAUTH_MS / 1000));
