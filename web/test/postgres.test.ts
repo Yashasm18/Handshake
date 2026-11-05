@@ -103,6 +103,15 @@ describe("Postgres store", () => {
     expect((await store.getDeal(d.id))!.priceCents).toBe(20);
   });
 
+  it("a test run never connects to the real database, even with DATABASE_URL set (as in Render's build)", async () => {
+    const { getDb } = await import("@/lib/server/db");
+    process.env.DATABASE_URL = "postgres://prod.example/handshake";
+    setDb(undefined as never);
+    expect(getDb()).toBeNull();
+    delete process.env.DATABASE_URL;
+    setDb(db);
+  });
+
   it("a fetched deal is a copy: changing it saves nothing until saveDeal", async () => {
     const d = fresh();
     await store.saveDeal(d);

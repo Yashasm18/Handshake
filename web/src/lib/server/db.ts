@@ -62,7 +62,9 @@ function poolDb(url: string): Db {
 
 export function getDb(): Db | null {
   if (g.__hsDb !== undefined) return g.__hsDb;
-  const url = process.env.DATABASE_URL;
+  // A test run (Vitest) never connects to a real database, even if DATABASE_URL is set: tests use
+  // PGlite through setDb, or the file store.
+  const url = process.env.VITEST ? undefined : process.env.DATABASE_URL;
   g.__hsDb = url ? poolDb(url) : null;
   return g.__hsDb;
 }
