@@ -5,7 +5,7 @@ import { sendEmail } from "./email";
 
 // Live health of everything Handshake depends on, for /status and for alert emails. Each check is the
 // cheapest real request that proves the service answers with our credentials; none of them creates
-// anything or spends credits (Channel3, whose searches may cost credits, is checked hourly).
+// anything or spends credits (Channel3, whose searches may cost credits, is checked every 6 hours).
 export type ServiceStatus = "up" | "slow" | "down" | "off";
 export type Check = { id: string; name: string; role: string; status: ServiceStatus; ms?: number; checkedAt: string; note?: string };
 
@@ -77,7 +77,8 @@ export const PROBES: Probe[] = [
     id: "channel3",
     name: "Channel3",
     role: "Real store prices for price checks and repairs",
-    ttlMs: 60 * MIN,
+    // Searches may cost credits: check every 6 hours (about 240 searches over two months).
+    ttlMs: 6 * 60 * MIN,
     enabled: () => Boolean(process.env.CHANNEL3_API_KEY),
     run: async () => {
       const res = await fetch("https://api.trychannel3.com/v1/search", {

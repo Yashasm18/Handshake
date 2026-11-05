@@ -98,7 +98,7 @@ describe("the checks", () => {
     const calls = fetchMock.mock.calls.length;
     await status.checkAll({ now: T + 60_000 });
     expect(fetchMock.mock.calls.length).toBe(calls);
-    // Channel3 (searches may cost credits) is only rechecked hourly; the rest after 5 to 15 minutes.
+    // Channel3 (searches may cost credits) is only rechecked every 6 hours; the rest after 5 to 15 minutes.
     fetchMock.mockClear();
     await status.checkAll({ now: T + 20 * 60_000 });
     const hosts = fetchMock.mock.calls.map((c) => String(c[0]));
