@@ -5,6 +5,7 @@ import { HttpError } from "@/lib/server/deals";
 import { handle } from "@/lib/server/http";
 import { dueTimers, runTimer } from "@/lib/server/timers";
 import { checkAll, recordTimerSweep } from "@/lib/server/status";
+import { sendDueReminders } from "@/lib/server/reminders";
 
 // Called only by the Render Workflow that enforces deadlines (see /workflows). A shared secret from
 // the Blueprint's env group proves the caller; without TIMERS_SECRET set, these routes don't exist.
@@ -23,6 +24,8 @@ export async function GET(req: Request) {
     // has /status open. In the background: the sweep itself never waits on it.
     recordTimerSweep();
     checkAll().catch((e) => console.error("status", e));
+    // Reminder emails a day before a deadline: in the background too, so they never slow the sweep.
+    sendDueReminders().catch((e) => console.error("reminders", e));
     return { now: Date.now(), due: await dueTimers() };
   });
 }

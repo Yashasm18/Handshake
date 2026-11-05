@@ -178,6 +178,8 @@ export type Deal = {
   // Server-only: where each side gets email updates. From PayPal (already verified), or typed in and
   // confirmed from the inbox before anything else is sent. The token signs confirm and unsubscribe links.
   contacts?: { seller?: Contact; buyer?: Contact };
+  // Deadline reminders already sent ("SHIP_BY@<deadline ms>"), so each is sent once, whichever server sends it.
+  reminded?: string[];
   // Server-only party secrets; never sent to the browser (see publicDeal).
   sellerToken?: string;
   buyerToken?: string;

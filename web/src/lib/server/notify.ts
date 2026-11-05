@@ -1,6 +1,6 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
-import { deadlinesFor } from "../deadlines";
+import { countdown, deadlinesFor, type Deadline } from "../deadlines";
 import type { Contact, ContactView, Deal, DealStatus } from "../types";
 import { usd } from "../types";
 import { deliverable, emailEnabled, maskEmail, sendEmail } from "./email";
@@ -228,4 +228,55 @@ export async function sendConfirmation(deal: Deal, role: Role) {
     { footer: "confirm", neutral: true },
   );
   await sendEmail({ to: c.email, ...mail, idempotencyKey: `${deal.id}-${role}-confirm-${c.token}` });
+}
+
+// ── Deadline reminders ───────────────────────────────────────────────────
+// A day before a deadline the timer would act on, whoever has to act hears about it once, with the exact
+// time and what happens otherwise. Fixed wording; nothing here moves money.
+export function reminderMessages(deal: Deal, d: Deadline, now: number): Partial<Record<Role, Message>> {
+  const at = when(d.at);
+  const left = countdown(d.at - now);
+  const price = usd(deal.priceCents);
+  switch (d.kind) {
+    case "SHIP_BY":
+      return {
+        seller: { subject: `Reminder: ship ${deal.title} by ${at}`, lead: `${left} left to ship.`, body: [`Ship it and add a photo of your shipping label by ${at}.`, `If it isn't shipped by then, the buyer's ${price} hold is released and you won't be paid.`], cta: "Ship it" },
+      };
+    case "MEET_BY":
+      return {
+        seller: { subject: `Reminder: meet your buyer by ${at}`, lead: `${left} left to meet.`, body: [`Hand over ${deal.title} by ${at}. At the meetup, the buyer checks it and scans your code, and PayPal pays you on the spot.`, `If you don't meet by then, the buyer's hold is released and you won't be paid.`], cta: "Open your deal" },
+        buyer: { subject: `Reminder: meet ${deal.sellerName} by ${at}`, lead: `${left} left to meet.`, body: [`Meet in a public place and check ${deal.title} before you scan the seller's code.`, `If you don't meet by ${at}, your ${price} hold is released in full. You won't be charged.`], cta: "Open your deal" },
+      };
+    case "AUTO_RELEASE":
+      return {
+        buyer: { subject: `Reminder: check ${deal.title} by ${at}`, lead: `${left} left to check it.`, body: [`If it arrived as described, confirm it. If anything's wrong, report it with a photo before ${at}.`, `If you don't respond by then, the payment is released to ${deal.sellerName}.`], cta: "Check it" },
+      };
+    case "CLAIM_SETTLE": {
+      const c = deal.claim;
+      const terms = c ? `The buyer is refunded ${usd(c.refundCents)} and the seller is paid ${usd(c.captureCents)}.` : "";
+      const body = [terms, `If neither of you declines by ${at}, it settles automatically.`].filter(Boolean);
+      return {
+        seller: { subject: `Reminder: the refund proposal on ${deal.title} settles ${at}`, lead: `${left} until the proposal settles.`, body, cta: "Review the proposal" },
+        buyer: { subject: `Reminder: the refund proposal on ${deal.title} settles ${at}`, lead: `${left} until the proposal settles.`, body, cta: "Review the proposal" },
+      };
+    }
+    default:
+      return {};
+  }
+}
+
+// Sends one deadline's reminder to each side that should hear it. Never throws.
+export async function sendReminder(deal: Deal, d: Deadline, now: number) {
+  const msgs = reminderMessages(deal, d, now);
+  await Promise.all(
+    (Object.keys(msgs) as Role[]).map(async (role) => {
+      const c = deal.contacts?.[role];
+      const m = msgs[role];
+      if (!c || !m || !c.confirmed || c.muted) return;
+      const mail = render(deal, role, c, m, { footer: "deal" });
+      await sendEmail({ to: c.email, ...mail, unsubscribeUrl: oneClickUnsubscribe(deal, role, c), idempotencyKey: `${deal.id}-${role}-remind-${d.kind}-${d.at}` }).catch((e) =>
+        console.error("reminder email", deal.id, role, d.kind, (e as Error).message),
+      );
+    }),
+  );
 }
