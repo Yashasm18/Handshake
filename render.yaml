@@ -30,6 +30,8 @@ services:
       # Signs Sign in with PayPal sessions.
       - key: SESSION_SECRET
         generateValue: true
+      - key: RESEND_API_KEY
+        sync: false
       - key: CHANNEL3_API_KEY
         sync: false
       - key: KERNEL_API_KEY

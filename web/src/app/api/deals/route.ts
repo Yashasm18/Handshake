@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { issueToken, publicDeal } from "@/lib/server/auth";
-import { HttpError, log, newId, saveDeal } from "@/lib/server/deals";
+import { announce, HttpError, log, newId, saveDeal } from "@/lib/server/deals";
+import { adoptPayPalEmail } from "@/lib/server/notify";
 import { currentAccount } from "@/lib/server/session";
 import { handle } from "@/lib/server/http";
 import type { Deal, Scan } from "@/lib/types";
@@ -118,8 +119,10 @@ export async function POST(req: Request) {
     };
     if (account) log(deal, "paypal", `${sellerName} signed in with PayPal${account.verified ? " (a verified account)" : ""}. The payout goes straight to their PayPal.`);
     log(deal, "seller", `Created a protected deal for ${b.title} at ${usd(b.priceCents)}${b.floorCents != null ? ". Open to PayPal-backed offers" : ""}${b.handoff === "meet" ? ". To be handed over in person" : ""}.`);
+    if (account) adoptPayPalEmail(deal, "seller", account.email);
     await issueToken(deal, "seller");
     await saveDeal(deal);
+    announce(deal, "NEW");
     return publicDeal(deal, { seller: true, buyer: false });
   });
 }

@@ -166,16 +166,26 @@ export type Deal = {
   // either side signed in with PayPal can open the deal from any device.
   seller?: PartyAccount;
   buyer?: PartyAccount;
+  // Server-only: where each side gets email updates. From PayPal (already verified), or typed in and
+  // confirmed from the inbox before anything else is sent. The token signs confirm and unsubscribe links.
+  contacts?: { seller?: Contact; buyer?: Contact };
   // Server-only party secrets; never sent to the browser (see publicDeal).
   sellerToken?: string;
   buyerToken?: string;
 };
 
+export type Contact = { email: string; confirmed: boolean; token: string; muted?: boolean; source: "paypal" | "typed"; confirmSends?: string[] };
+
+// What the viewer may see of their own email settings.
+export type ContactView = { email: string; confirmed: boolean; muted: boolean; deliverable: boolean; source: "paypal" | "typed" };
+
 export type PartyAccount = { payerId: string; name: string; email?: string; verified: boolean };
 
 export type Viewer = { seller: boolean; buyer: boolean };
-export type DealView = Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail" | "pendingOfferCents" | "meetup" | "seller" | "buyer"> & {
+export type DealView = Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail" | "pendingOfferCents" | "meetup" | "seller" | "buyer" | "contacts"> & {
   viewer: Viewer;
+  // The viewer's own email settings, per side they hold. Masked; never the other side's.
+  notify: { seller?: ContactView | null; buyer?: ContactView | null; enabled: boolean };
   // What a buyer may know about the seller's PayPal: whether they signed in with it, and whether PayPal verified them.
   sellerPayPal: { signedIn: boolean; verified: boolean };
   acceptsOffers: boolean;

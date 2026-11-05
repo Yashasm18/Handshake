@@ -11,6 +11,7 @@ export default function PrivacyPage() {
           <li><b>When you create a deal:</b> the item, price, condition promises, an optional photo, your lowest price if you take offers, and how the item is handed over.</li>
           <li><b>When you pay:</b> PayPal tells us the shipping address on your PayPal account and the ids of the payment, so we can check the label and move the money. Card details go to PayPal, never to us.</li>
           <li><b>When you check a deal:</b> the text, screenshot or link you give us. Scams we catch are remembered (see below).</li>
+          <li><b>Email updates:</b> the email PayPal shares with us, or one you type in and confirm from your inbox. It&apos;s only used to tell you when your deal needs you, and every email has a link to stop them.</li>
           <li><b>Rate limits:</b> a one-way, keyed hash of your network address, so abuse can be limited without storing the address itself.</li>
         </ul>
       </Clause>
@@ -25,6 +26,7 @@ export default function PrivacyPage() {
           <li><b>Kernel</b> to open a listing link in a cloud browser.</li>
           <li><b>Elastic</b> for scam memory: the wording, contact details and photo fingerprints of high-risk listings, so the next buyer can be warned.</li>
           <li><b>Render</b> to host the site and store deals.</li>
+          <li><b>Resend</b> to send deal emails.</li>
         </ul>
         <p>We don&apos;t sell personal data or use it for advertising.</p>
       </Clause>

@@ -6,6 +6,7 @@ import type { Deal, DealView, Viewer } from "../types";
 import { timerScale } from "./timers";
 import { HttpError, newToken } from "./deals";
 import { currentAccount, type Account } from "./session";
+import { contactView, notifyEnabled } from "./notify";
 
 type Party = "seller" | "buyer";
 
@@ -84,7 +85,8 @@ export async function issueToken(deal: Deal, party: Party) {
 
 // Strangers holding the link see the item and its status, not who is involved or where it ships.
 export function publicDeal(deal: Deal, viewer: Viewer): DealView {
-  const rest: Partial<Deal> & Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail" | "pendingOfferCents" | "meetup" | "seller" | "buyer"> = { ...deal };
+  const rest: Partial<Deal> & Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail" | "pendingOfferCents" | "meetup" | "seller" | "buyer" | "contacts"> = { ...deal };
+  delete rest.contacts;
   delete rest.seller;
   delete rest.buyer;
   delete rest.pendingOfferCents;
@@ -117,5 +119,11 @@ export function publicDeal(deal: Deal, viewer: Viewer): DealView {
     events: party ? rest.events : rest.events.map((e) => ({ ...e, ref: undefined })),
     viewer,
     sellerPayPal: { signedIn: Boolean(deal.seller), verified: Boolean(deal.seller?.verified) },
+    // Each person sees only their own (masked) email settings.
+    notify: {
+      enabled: notifyEnabled(),
+      seller: viewer.seller ? contactView(deal.contacts?.seller) : undefined,
+      buyer: viewer.buyer ? contactView(deal.contacts?.buyer) : undefined,
+    },
   };
 }

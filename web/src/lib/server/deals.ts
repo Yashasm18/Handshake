@@ -57,13 +57,22 @@ export async function withDeal<T>(id: string, fn: (deal: Deal) => Promise<T>): P
   const next = prev.then(async () => {
     const deal = await getDeal(id);
     if (!deal) throw new HttpError(404, "This deal doesn't exist.");
+    const before = deal.status;
     const out = await fn(deal);
     deal.updatedAt = new Date().toISOString();
     await saveDeal(deal);
+    // Every status change, from a click or a timer, emails whoever needs to act next. In the background,
+    // so a slow or failing email can never hold up or undo a money step.
+    if (deal.status !== before) announce(deal, before);
     return out;
   });
   locks.set(id, next.catch(() => {}));
   return next;
+}
+
+export function announce(deal: Deal, prev: Deal["status"] | "NEW") {
+  const snapshot = structuredClone(deal);
+  import("./notify").then((m) => m.notifyChange(snapshot, prev)).catch((e) => console.error("notify", deal.id, e));
 }
 
 export function log(deal: Deal, actor: Deal["events"][number]["actor"], text: string, ref?: string) {

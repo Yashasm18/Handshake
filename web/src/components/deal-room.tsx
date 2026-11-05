@@ -14,6 +14,7 @@ import { PayPalButton } from "./paypal-button";
 import { DealClock, DeadlineNotice } from "./deadline";
 import { Headline, Panel } from "./deal-ui";
 import { PayPalMark, PayPalSignIn, VerifiedTick } from "./account";
+import { EmailUpdates } from "./email-updates";
 import { negotiatedFrom, NegotiationLive, NegotiationRecap, NoDealNotice, OfferForm } from "./negotiation";
 
 type Role = "buyer" | "seller";
@@ -171,6 +172,7 @@ export function DealRoom() {
         <aside className="space-y-6">
           {role && <NegotiationRecap deal={deal} role={role} />}
           {role && <DealClock deal={deal} />}
+          {role && deal.viewer[role] && <EmailUpdates deal={deal} role={role} act={act} busy={busy} />}
           <DealFacts deal={deal} />
           <Ledger deal={deal} />
           <Activity deal={deal} />

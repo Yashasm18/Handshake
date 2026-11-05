@@ -7,6 +7,7 @@ import { median, partComps, searchComps } from "./channel3";
 import { labelMatches, readLabel, reviewClaim } from "./checks";
 import { HttpError, log, saveDeal, withDeal } from "./deals";
 import { runNegotiation, startNegotiation } from "./negotiate";
+import { adoptPayPalEmail } from "./notify";
 import * as pp from "./paypal";
 
 const dollars = (v?: string) => Math.round(Number(v ?? 0) * 100);
@@ -73,6 +74,8 @@ function recordHold(deal: Deal, order: Awaited<ReturnType<typeof pp.authorizeOrd
   deal.paypal.buyerEmail = hold.buyerEmail;
   // Paid by logging in to PayPal: link the deal to that account, so signing in with it later finds the deal.
   if (hold.buyer) deal.buyer = { ...hold.buyer, verified: false };
+  // PayPal checkout's email is the buyer's PayPal-verified address; updates go there unless they choose another.
+  if (hold.buyer) adoptPayPalEmail(deal, "buyer", hold.buyerEmail);
   deal.shipTo = hold.shipTo ? { name: hold.shipTo.name, line: addressLine(hold.shipTo.address), address: hold.shipTo.address } : undefined;
   const now = new Date().toISOString();
   deal.clock = { heldAt: now, authorizedAt: now };

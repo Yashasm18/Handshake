@@ -2,11 +2,15 @@ import { z } from "zod";
 import * as flows from "@/lib/server/flows";
 import { holdsPayNonce, issuePayNonce, issueToken, publicDeal, refuseOwnDeal, requireParty, requirePayNonce, viewerOf } from "@/lib/server/auth";
 import { currentAccount } from "@/lib/server/session";
+import { adoptPayPalEmail } from "@/lib/server/notify";
+import { setContactEmail, setMuted } from "@/lib/server/contacts";
+import { visitorOf, windowLimiter } from "@/lib/server/visitor";
 import { getDeal, HttpError } from "@/lib/server/deals";
 import { handle } from "@/lib/server/http";
 import type { Deal } from "@/lib/types";
 
 const Role = z.enum(["buyer", "seller"]);
+const emailLimiter = windowLimiter(10, 60 * 60_000);
 const Photo = z.string().startsWith("data:image/").max(4_000_000);
 // The paying browser gets the buyer cookie. A buyer signed in with PayPal is also linked by account,
 // unless PayPal checkout already linked the account that actually paid.
@@ -14,6 +18,7 @@ const asBuyer = async (deal: Deal) => {
   await issueToken(deal, "buyer");
   const a = await currentAccount();
   if (a && !deal.buyer) deal.buyer = { payerId: a.payerId, name: a.name, email: a.email, verified: a.verified };
+  if (a) adoptPayPalEmail(deal, "buyer", a.email);
 };
 const Offer = z.object({ offerCents: z.number().int().min(100).max(1_000_000).optional() });
 
@@ -23,7 +28,7 @@ const testCardEnabled = () =>
 
 // Each action states who may run it. The role always comes from the caller's cookie, not the body;
 // where a body names a role (respond, cancel) the caller must actually hold it.
-const actions: Record<string, (deal: Deal, body: unknown) => Promise<unknown>> = {
+const actions: Record<string, (deal: Deal, body: unknown, req: Request) => Promise<unknown>> = {
   // Anyone with the link may start paying; the browser that starts checkout is the only one that can finish it.
   // offerCents makes it a backed offer: the hold is at the buyer's max and the agents negotiate the price.
   pay: async (d, b) => {
@@ -67,6 +72,18 @@ const actions: Record<string, (deal: Deal, body: unknown) => Promise<unknown>> =
     const input = z.object({ code: z.string().regex(/^\d{6}$/).optional(), token: z.string().min(16).max(64).optional() }).refine((x) => x.code || x.token).parse(b);
     return flows.confirmHandover(d.id, input);
   },
+  // Email updates: each side manages only its own address.
+  email: async (d, b, req) => {
+    const { role, email } = z.object({ role: Role, email: z.string().max(254) }).parse(b);
+    await requireParty(d, role);
+    if (!emailLimiter.take(visitorOf(req))) throw new HttpError(429, "Too many email changes. Try again in a while.");
+    return setContactEmail(d.id, role, email);
+  },
+  "email-mute": async (d, b) => {
+    const { role, muted } = z.object({ role: Role, muted: z.boolean() }).parse(b);
+    await requireParty(d, role);
+    return setMuted(d.id, role, muted);
+  },
   cancel: async (d, b) => {
     const { role } = z.object({ role: Role }).parse(b);
     await requireParty(d, role);
@@ -82,7 +99,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/deals/[id]/[act
     const deal = await getDeal(id);
     if (!deal) throw new HttpError(404, "This deal doesn't exist.");
     const body = await req.json().catch(() => ({}));
-    const result = await run(deal, body);
+    const result = await run(deal, body, req);
     // Flows return the full deal; only ever send the public view back.
     if (result && typeof result === "object" && "events" in result) {
       const fresh = (await getDeal(id))!;
