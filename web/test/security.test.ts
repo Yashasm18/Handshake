@@ -106,7 +106,7 @@ describe("PayPal client: retries can't move money twice", () => {
     calls.length = 0;
     vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
       calls.push({ url, headers: init.headers as Record<string, string>, body: init.body as string });
-      if (url.endsWith("/oauth2/token")) return Response.json({ access_token: "tok", expires_in: 3600 });
+      if (url.endsWith("/oauth2/token")) return Response.json({ access_token: `tok-${(init.headers as Record<string, string>).Authorization.slice(6, 18)}`, expires_in: 3600 });
       if (url.includes("FAIL")) return Response.json({ name: "UNPROCESSABLE_ENTITY", details: [{ issue: "AUTHORIZATION_VOIDED", description: "Authorization was voided." }] }, { status: 422, headers: { "paypal-debug-id": "dbg-1" } });
       return Response.json({ id: "X", batch_header: { payout_batch_id: "B" } });
     }));
@@ -140,6 +140,23 @@ describe("PayPal client: retries can't move money twice", () => {
     expect(a.headers["PayPal-Request-Id"]).toBe("payout-deal-9");
     expect(JSON.parse(a.body!).sender_batch_header.sender_batch_id).toBe("payout-deal-9");
     expect(b.headers["PayPal-Request-Id"]).toBe("payout-deal-9-r1");
+  });
+
+  it("with a separate payouts app, only payouts use it; holds and captures stay on the main app", async () => {
+    process.env.PAYPAL_PAYOUT_CLIENT_ID = "payout-app";
+    process.env.PAYPAL_PAYOUT_CLIENT_SECRET = "payout-secret";
+    const { payoutSeller, captureHold, getPayoutBatch } = await import("@/lib/server/paypal");
+    await payoutSeller("deal-10", { type: "EMAIL", email: "s@example.com" }, 1_000, "Payment");
+    await getPayoutBatch("B-1");
+    await captureHold("AUTH-10", 1_000, "HS-10", "note");
+    const bearer = (path: string) => calls.find((c) => c.url.includes(path))!.headers.Authorization;
+    const basic = (id: string) => "Basic " + Buffer.from(`${id}:${id === "payout-app" ? "payout-secret" : process.env.PAYPAL_CLIENT_SECRET}`).toString("base64");
+    const tokens = calls.filter((c) => c.url.endsWith("/oauth2/token")).map((c) => c.headers.Authorization);
+    expect(tokens).toContain(basic("payout-app"));
+    expect(bearer("/v1/payments/payouts")).toBe(bearer("/v1/payments/payouts/B-1"));
+    expect(bearer("/v1/payments/payouts")).not.toBe(bearer("/capture"));
+    delete process.env.PAYPAL_PAYOUT_CLIENT_ID;
+    delete process.env.PAYPAL_PAYOUT_CLIENT_SECRET;
   });
 
   it("a seller signed in with PayPal is paid by payer id, into their own account", async () => {

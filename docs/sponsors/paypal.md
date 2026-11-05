@@ -35,6 +35,10 @@ Handshake makes **nine** PayPal REST calls: two to sign sellers in with PayPal (
 
 On the client, the **PayPal JS SDK** (`intent=authorize`) renders PayPal's own checkout buttons ([`paypal-button.tsx`](../../web/src/components/paypal-button.tsx)). For judges without a sandbox login, a test-card path funds the same `AUTHORIZE` order with PayPal's published sandbox card.
 
+## Two PayPal apps
+
+Handshake can use two sandbox apps. The **main** app takes payments: orders, holds, captures, tracking and Log in with PayPal. An optional **payouts** app pays sellers from its own business account. PayPal holds incoming payments on new business accounts, so a platform that pays sellers from the same balance it collects into can run dry while the money it took is still on hold; we hit exactly this in testing. Set `PAYPAL_PAYOUT_CLIENT_ID` and `PAYPAL_PAYOUT_CLIENT_SECRET` to split them; without them, payouts use the main app. With PayPal's marketplace program (Multiparty), the buyer's payment would go to the seller directly at capture instead.
+
 ## Sign in with PayPal
 
 Sellers sign in with PayPal ([OpenID Connect authorization code flow](https://developer.paypal.com/docs/log-in-with-paypal/)) with the scopes `openid profile email https://uri.paypal.com/services/paypalattributes`.

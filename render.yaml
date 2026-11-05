@@ -27,6 +27,10 @@ services:
         sync: false
       - key: SELLER_EMAIL
         sync: false
+      - key: PAYPAL_PAYOUT_CLIENT_ID
+        sync: false
+      - key: PAYPAL_PAYOUT_CLIENT_SECRET
+        sync: false
       # Signs Sign in with PayPal sessions.
       - key: SESSION_SECRET
         generateValue: true

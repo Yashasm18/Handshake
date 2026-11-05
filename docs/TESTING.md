@@ -10,12 +10,12 @@
 
 Handshake moves other people's money, so every rule that touches it is tested twice:
 
-1. **Automated tests (224).** They run on every push in GitHub Actions and again on Render before every deploy. External services are replaced with fakes, so these tests check *our* rules: amounts, limits, states, retries and who can see what.
+1. **Automated tests (225).** They run on every push in GitHub Actions and again on Render before every deploy. External services are replaced with fakes, so these tests check *our* rules: amounts, limits, states, retries and who can see what.
 2. **Live end-to-end scenarios (33).** A script drives a running Handshake server through real deals on the **PayPal sandbox**, with live **Channel3** prices, **Kernel** cloud browsers reading real listings, **Elastic** scam memory, and the real **AI models** reading real images. These check that everything works together.
 
 | | Automated | Live |
 |---|---|---|
-| Count | 224 tests | 35 scenarios |
+| Count | 225 tests | 35 scenarios |
 | Runs | Every push and every deploy | Before each release, and on demand |
 | PayPal, Channel3, Kernel, Elastic, AI | Faked | Real (PayPal sandbox) |
 | Result | All pass | All pass |
@@ -23,7 +23,7 @@ Handshake moves other people's money, so every rule that touches it is tested tw
 ## Automated tests
 
 ```bash
-npm --prefix web test         # 216 tests
+npm --prefix web test         # 217 tests
 npm --prefix workflows test   # 8 tests
 ```
 
@@ -184,6 +184,7 @@ Run by hand on November 5, 2026: a real sign-in on PayPal's sandbox login page, 
 - The buyer saw a PayPal error for a step that wasn't theirs. A refused payout is now queued: the deal shows "captured, paying the seller", and the timer retries it with backoff (1, 2, 4 … minutes, at most hourly) until PayPal accepts it.
 - After the balance was topped up, the retry still failed: PayPal replays the first answer for a request id, refusals included. Only PayPal's explicit `INSUFFICIENT_FUNDS` now moves the next attempt to a new key and batch id; anything else (timeouts, 5xx, 409 in progress, 429) keeps the same key, so a payout that did go through is never repeated.
 - PayPal can accept a payout and deny it a moment later (seen live: a $150 payout went from PENDING to Denied when the platform balance was short). Handshake used to call a deal paid as soon as the payout was accepted. It now checks the payout item until PayPal says it completed; only then is the seller told they're paid. A denied, failed or returned item moved no money, so it is sent again under a new key.
+- The root cause was the platform balance: PayPal held every incoming payment on the new sandbox business account (the buyers' captures and a $4,000 top-up), while payouts drew down what was available, until $149.96 was left. Payouts can now come from a separate PayPal app with its own balance (`PAYPAL_PAYOUT_CLIENT_ID`/`SECRET`), so held incoming money can't stop sellers being paid.
 - Tapping "confirm" again while a payout was queued forced an immediate retry and logged the confirmation again. A queued payout now waits for its retry time whoever taps, and the confirmation is recorded once.
 
 **Privacy.**
