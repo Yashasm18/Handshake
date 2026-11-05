@@ -123,7 +123,7 @@ export default function Home() {
           <div className="grid gap-px overflow-hidden rounded-3xl border hairline bg-line md:grid-cols-3">
             {[
               { n: "$15.9B", t: "lost to fraud by Americans in 2025, a record.", s: "FTC" },
-              { n: "#2", t: "most reported fraud: online shopping scams.", s: "FTC, 2025" },
+              { n: "#2", t: "most reported fraud in 2024: online shopping.", s: "FTC, 2024 data" },
               { n: "0", t: "protection when you pay a stranger with Friends & Family.", s: "PayPal" },
             ].map((x, i) => (
               <FadeIn key={x.n} delay={i * 0.1} className="bg-paper p-8 md:p-10">

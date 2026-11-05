@@ -27,7 +27,7 @@ const STEPS = [
   },
   {
     t: "Ship to the right place",
-    d: "Sellers snap the label. If it doesn't match the buyer's PayPal-verified address, we stop it before Seller Protection is lost.",
+    d: "Sellers snap the label. If it doesn't match the buyer's PayPal-verified address, we stop it before it ships somewhere PayPal Seller Protection may not cover.",
     tag: "AI · Label check",
   },
   {

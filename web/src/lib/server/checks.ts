@@ -186,7 +186,7 @@ export function labelMatches(label: z.infer<typeof LabelSchema>, address?: { add
   const zipOk = label.postal_code.replace(/\D/g, "").slice(0, 5) === (address.postal_code ?? "").slice(0, 5);
   const streetOk = norm(label.street).includes(norm(address.address_line_1).slice(0, 8)) || norm(address.address_line_1).includes(norm(label.street).slice(0, 8));
   if (zipOk && streetOk) return { match: true, reason: "The label matches the buyer's PayPal-verified address." };
-  return { match: false, reason: "This label doesn't match the buyer's PayPal-verified address. Shipping here would void Seller Protection." };
+  return { match: false, reason: "This label doesn't match the buyer's PayPal-verified address. Shipping here could leave you without PayPal Seller Protection." };
 }
 
 const ClaimSchema = z.strictObject({

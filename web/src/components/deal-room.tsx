@@ -553,7 +553,7 @@ function SellerShip({ deal, act, busy }: ActProps) {
   const blocked = deal.shipment?.labelCheck && !deal.shipment.labelCheck.match;
   return (
     <Panel>
-      <Headline eyebrow="Step 2 · Ship" title={`${usd(deal.priceCents)} is held for you. Ship it.`} body="Snap the shipping label before you drop it off. We check it against the buyer's PayPal-verified address, because shipping anywhere else voids Seller Protection." />
+      <Headline eyebrow="Step 2 · Ship" title={`${usd(deal.priceCents)} is held for you. Ship it.`} body="Snap the shipping label before you drop it off. We check it against the buyer's PayPal-verified address: PayPal Seller Protection generally needs the item shipped there." />
       {deal.shipTo && (
         <div className="mt-6 rounded-2xl bg-paper p-5">
           <p className="label text-muted">Ship only to</p>
@@ -726,7 +726,7 @@ function Settled({ deal, role }: ActProps) {
               : "No dispute, no waiting. The unused part of the hold was released automatically."
             : deal.handoff === "meet"
               ? "Sent to your PayPal account the moment the buyer confirmed. Now hand it over."
-              : "Sent to your PayPal account. Tracking is attached to the payment for Seller Protection."
+              : "Sent to your PayPal account. Tracking is attached to the payment, which helps if there's ever a dispute."
         }
       />
       <dl className="mt-8 space-y-3 rounded-2xl bg-card p-6 text-[16px]">

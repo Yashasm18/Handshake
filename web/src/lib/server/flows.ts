@@ -209,7 +209,7 @@ export async function settle(deal: Deal, captureCents: number, note: string, now
   // Tracking can only attach to a capture, so it goes on now.
   if (deal.shipment?.trackingNumber && !paypal.trackingAttached) {
     await pp.addTracking(paypal.orderId, paypal.captureId, deal.shipment.trackingNumber, deal.shipment.carrier).then(
-      () => log(deal, "paypal", "Tracking attached to the payment for Seller Protection."),
+      () => log(deal, "paypal", "Tracking attached to the PayPal payment, which helps if there's ever a dispute."),
       () => log(deal, "handshake", "Couldn't attach tracking to PayPal; the payout continues."),
     );
     paypal.trackingAttached = true;

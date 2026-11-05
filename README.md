@@ -49,7 +49,7 @@ Agents negotiate a fair price, and every deadline enforces itself.
 
 ## The problem
 
-Americans lost a record **$15.9B to fraud in 2025**, and online shopping scams are the **#2** most reported kind. Buying from a stranger on Marketplace, WhatsApp or Reddit usually ends one of three ways: you pay with *Friends & Family* and get **zero protection**, the item never arrives, or it arrives broken and you fight a 30-day dispute.
+Americans reported a record **$15.9B lost to fraud in 2025** (FTC), and online shopping was the **#2** most reported kind of fraud in 2024. Buying from a stranger on Marketplace, WhatsApp or Reddit usually ends one of three ways: you pay with *Friends & Family* and get **zero protection**, the item never arrives, or it arrives broken and you fight a 30-day dispute.
 
 **Handshake** is a protected deal room for buying and selling physical goods with people you don't know.
 

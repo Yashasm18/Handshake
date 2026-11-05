@@ -28,7 +28,7 @@ Handshake makes **nine** PayPal REST calls: two to sign sellers in with PayPal (
 | Confirm | `POST /v2/checkout/orders/{id}/authorize` | Turns the buyer's approval into a hold and returns their **PayPal-verified shipping address**. |
 | Keep reserved | `POST /v2/payments/authorizations/{id}/reauthorize` | Renews the hold after PayPal's 3-day honor period, run on schedule by a [Render Workflow](render.md). |
 | Charge what's fair | `POST /v2/payments/authorizations/{id}/capture` with `final_capture: true` | Captures the agreed price, or less after a damage refund. PayPal releases the rest of the hold automatically. |
-| Prove it shipped | `POST /v2/checkout/orders/{id}/track` | Attaches carrier and tracking to the capture, which Seller Protection looks for. |
+| Prove it shipped | `POST /v2/checkout/orders/{id}/track` | Attaches carrier and tracking to the capture, as PayPal recommends for physical goods; it helps when resolving disputes (Seller Protection eligibility is PayPal's call). |
 | Pay the seller | `POST /v1/payments/payouts` | Sends the seller their share after PayPal's fee, into **their own PayPal account** (`recipient_type: PAYPAL_ID`, the payer id). Guest demo sellers are paid into the sandbox seller account by email. |
 | Confirm the seller was paid | `GET /v1/payments/payouts/{batch_id}` | A payout request can still be denied after PayPal accepts it. The deal settles, and the seller hears "you've been paid", only once the payout item completes. |
 | Release everything | `POST /v2/payments/authorizations/{id}/void` | Cancels the hold when a deal is cancelled, the agents can't agree, or the seller misses the shipping deadline. |
@@ -75,7 +75,7 @@ sequenceDiagram
 - **Resumable settlement.** Capture, tracking and payout are recorded step by step ([`flows.ts`](../../web/src/lib/server/flows.ts) → `settle`). If the payout fails, the retry pays the seller without capturing again, and the captured amount can't be changed afterwards.
 - **Checkout bound to one browser.** Starting checkout pins the order to that browser with an HttpOnly cookie, so a stranger who sees an order id can't finish someone else's payment.
 - **Amounts set in code.** The AI never decides how much money moves. Captures come from the agreed price and code-capped refund rules ([`refund.ts`](../../web/src/lib/refund.ts)).
-- **Seller Protection habits, built in.** When the seller photographs the shipping label, it's checked against the buyer's PayPal-verified address and a mismatch is blocked before the item ships. Only a verified label can release payment automatically, and tracking is attached to every capture.
+- **Seller Protection habits, built in** (eligibility is always PayPal's decision). When the seller photographs the shipping label, it's checked against the buyer's PayPal-verified address and a mismatch is blocked before the item ships. Only a verified label can release payment automatically, and tracking is attached to every capture.
 
 ## Verified on the sandbox
 
