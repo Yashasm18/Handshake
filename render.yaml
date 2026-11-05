@@ -64,6 +64,13 @@ services:
         sync: false
       - key: OPENROUTER_API_KEY
         sync: false
+      # Up to three more OpenRouter keys, each from its own account: used in order once key 1 is out of credit.
+      - key: OPENROUTER_API_KEY_2
+        sync: false
+      - key: OPENROUTER_API_KEY_3
+        sync: false
+      - key: OPENROUTER_API_KEY_4
+        sync: false
       # Free AI backup (console.groq.com): takes over if OpenRouter is out of credit.
       - key: GROQ_API_KEY
         sync: false

@@ -27,6 +27,8 @@ afterEach(() => {
   calls.length = 0;
   delete process.env.AI_MODELS;
   delete process.env.GROQ_API_KEY;
+  for (const n of [2, 3, 4]) delete process.env[`OPENROUTER_API_KEY_${n}`];
+  (globalThis as { __hsKeySkip?: Map<string, unknown> }).__hsKeySkip = new Map();
 });
 
 describe("the AI model chain", () => {
@@ -39,7 +41,8 @@ describe("the AI model chain", () => {
   it("an account out of credit falls through to a free model, with reasoning off", async () => {
     reply = (m) => (m.endsWith(":free") ? answer('{"risk":"LOW"}') : outOfCredit());
     expect(await ask()).toEqual({ risk: "LOW" });
-    expect(calls.map((c) => c.model)).toEqual(WITHOUT_GROQ);
+    // The second paid model doesn't even try: the first one just found this account has no credit.
+    expect(calls.map((c) => c.model)).toEqual([WITHOUT_GROQ[0], WITHOUT_GROQ.at(-1)]);
     expect(calls.at(-1)?.reasoning).toEqual({ enabled: false });
   });
 
@@ -92,6 +95,48 @@ describe("the AI model chain", () => {
       signs: ["\u201cSend as Friends & Family\u201d", "I\u2019ll text you \u2014 now"], n: 2, ok: true,
     });
     expect(repairText("line one\nline two\ttab")).toBe("line one\nline two\ttab");
+  });
+
+  it("rotates through OpenRouter keys: an account out of credit hands over to the next key, same model", async () => {
+    Object.assign(process.env, { OPENROUTER_API_KEY_2: "or-key-2", OPENROUTER_API_KEY_3: "or-key-3" });
+    const broke = new Set(["Bearer or-key", "Bearer or-key-2"]);
+    vi.mocked(fetch).mockImplementation(async (url, init) => {
+      const auth = (init!.headers as Record<string, string>).Authorization;
+      const body = JSON.parse(String(init!.body));
+      calls.push({ url: String(url), model: body.model, auth, timeout: true });
+      return broke.has(auth) && !body.model.endsWith(":free") ? outOfCredit() : answer('{"risk":"HIGH"}');
+    });
+    expect(await ask()).toEqual({ risk: "HIGH" });
+    expect(calls.map((c) => [c.model, c.auth])).toEqual([
+      [DEFAULT_MODELS[0], "Bearer or-key"],
+      [DEFAULT_MODELS[0], "Bearer or-key-2"],
+      [DEFAULT_MODELS[0], "Bearer or-key-3"],
+    ]);
+    // The next check goes straight to key 3: the empty accounts are skipped for a while.
+    calls.length = 0;
+    await ask();
+    expect(calls.map((c) => c.auth)).toEqual(["Bearer or-key-3"]);
+  });
+
+  it("when every key is out of credit, the free models still run (they don't use credit)", async () => {
+    process.env.OPENROUTER_API_KEY_2 = "or-key-2";
+    vi.mocked(fetch).mockImplementation(async (url, init) => {
+      const body = JSON.parse(String(init!.body));
+      calls.push({ url: String(url), model: body.model, auth: (init!.headers as Record<string, string>).Authorization, timeout: true });
+      return body.model.endsWith(":free") ? answer('{"risk":"LOW"}') : outOfCredit();
+    });
+    expect(await ask()).toEqual({ risk: "LOW" });
+    // The first paid model tried with both keys; the second is skipped (both accounts are empty);
+    // then the free model with key 1.
+    expect(calls.map((c) => [c.model, c.auth])).toEqual([
+      [DEFAULT_MODELS[0], "Bearer or-key"],
+      [DEFAULT_MODELS[0], "Bearer or-key-2"],
+      [DEFAULT_MODELS.at(-1), "Bearer or-key"],
+    ]);
+    // Next time the paid models are skipped without a call: straight to the free one.
+    calls.length = 0;
+    await ask();
+    expect(calls.map((c) => c.model)).toEqual([DEFAULT_MODELS.at(-1)]);
   });
 
   it("AI_MODELS replaces the list without a code change", async () => {

@@ -92,18 +92,43 @@ describe("the checks", () => {
 
   it("AI credit running out is flagged before it fails", async () => {
     answer = { "openrouter.ai": () => Response.json({ data: { limit_remaining: 0.2 } }) };
-    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "Credit nearly used up" });
+    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "Key 1 credit nearly used up" });
   });
 
-  it("an OpenRouter account with no balance left says the free backup models are answering", async () => {
+  it("an OpenRouter account with no balance left goes down (that sends the alert email); low credit is a warning", async () => {
     answer = { "/api/v1/credits": () => Response.json({ data: { total_credits: 0, total_usage: 0.1 } }) };
-    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "Out of credit: running on free backup models" });
+    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "down", note: "Out of credit: running on free backup models" });
     g.__hsStatus = new Map();
     answer = { "/api/v1/credits": () => Response.json({ data: { total_credits: 5, total_usage: 4.5 } }) };
-    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "Credit nearly used up" });
+    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "Key 1 credit nearly used up" });
     g.__hsStatus = new Map();
     answer = { "/api/v1/credits": () => Response.json({ data: { total_credits: 10, total_usage: 1 } }) };
     expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "up" });
+  });
+
+  it("with several OpenRouter keys, it says which are empty and which one is in use, and alerts once all are empty", async () => {
+    Object.assign(process.env, { OPENROUTER_API_KEY_2: "or-2-SECRET", OPENROUTER_API_KEY_3: "or-3-SECRET", OPENROUTER_API_KEY_4: "or-4-SECRET" });
+    // The credits endpoint is asked with each key; the mock answers by key.
+    const balances: Record<string, number> = { "or-SECRET": 0, "or-2-SECRET": 0, "or-3-SECRET": 4, "or-4-SECRET": 9 };
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      const key = String((init?.headers as Record<string, string> | undefined)?.Authorization ?? "").replace("Bearer ", "");
+      if (url.includes("/api/v1/credits")) return Response.json({ data: { total_credits: balances[key] ?? 10, total_usage: 0 } });
+      return Response.json({ ok: true, data: { limit_remaining: null } });
+    });
+    try {
+      expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "Keys 1 and 2 out of credit; using key 3" });
+      g.__hsStatus = new Map();
+      Object.assign(balances, { "or-3-SECRET": 0, "or-4-SECRET": 0 });
+      smtp.sendMail.mockClear();
+      expect(byId(await status.checkAll({ now: T + 10 * 60_000 }), "ai")).toMatchObject({ status: "down", note: "All 4 OpenRouter keys are out of credit: running on free backup models" });
+      expect(alerts().map((a) => a.subject)).toContain("Handshake alert: AI agents (OpenRouter) is down");
+    } finally {
+      for (const n of [2, 3, 4]) delete process.env[`OPENROUTER_API_KEY_${n}`];
+      fetchMock.mockImplementation(async (url: string) => {
+        const hit = Object.keys(answer).find((k) => url.includes(k));
+        return hit ? answer[hit]() : Response.json({ ok: true, data: { limit_remaining: 50 } });
+      });
+    }
   });
 
   it("results are cached per service, so polling the page never hammers anyone", async () => {

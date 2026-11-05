@@ -21,12 +21,27 @@ export const models = () => {
   return (list.length ? list : DEFAULT_MODELS).filter((m) => !m.startsWith("groq:") || process.env.GROQ_API_KEY);
 };
 
+// Up to four OpenRouter keys, each from its own account with its own credit, tried in order: key 1,
+// then 2, 3, 4. A key whose account is out of credit (402) or that is refused (401) is skipped for 10
+// minutes, so checks don't wait on it every time. Free (":free") models don't use credit, so an
+// out-of-credit key still serves them.
+export const OPENROUTER_KEY_VARS = ["OPENROUTER_API_KEY", "OPENROUTER_API_KEY_2", "OPENROUTER_API_KEY_3", "OPENROUTER_API_KEY_4"];
+export const openRouterKeys = () => OPENROUTER_KEY_VARS.map((v) => process.env[v]).filter((k): k is string => Boolean(k));
+const SKIP_MS = 10 * 60_000;
+const g = globalThis as unknown as { __hsKeySkip?: Map<string, { until: number; why: "credit" | "refused" }> };
+const skipped = () => (g.__hsKeySkip ??= new Map());
+function usable(key: string, free: boolean, now = Date.now()) {
+  const s = skipped().get(key);
+  if (!s || s.until <= now) return true;
+  return free && s.why === "credit";
+}
+
 // Where a model runs, and the settings it needs there.
 function providerFor(model: string) {
   if (model.startsWith("groq:")) {
     return {
       url: "https://api.groq.com/openai/v1/chat/completions",
-      key: process.env.GROQ_API_KEY,
+      keys: [process.env.GROQ_API_KEY ?? ""],
       body: {
         model: model.slice("groq:".length),
         // Qwen is a thinking model: without this it can spend the budget reasoning and answer nothing.
@@ -39,7 +54,7 @@ function providerFor(model: string) {
   const free = model.endsWith(":free");
   return {
     url: "https://openrouter.ai/api/v1/chat/completions",
-    key: process.env.OPENROUTER_API_KEY,
+    keys: openRouterKeys().filter((k) => usable(k, free)),
     body: {
       model,
       // Only providers that don't store or train on requests may serve them, whichever model is in use.
@@ -63,44 +78,69 @@ export async function structured<T extends z.ZodType>(opts: {
   maxTokens?: number;
 }): Promise<z.infer<T>> {
   const jsonSchema = toJSONSchema(opts.schema, { target: "draft-7" });
+  const body = (p: Provider) =>
+    JSON.stringify({
+      ...p.body,
+      max_tokens: opts.maxTokens ?? 900,
+      messages: [
+        { role: "system", content: opts.system },
+        { role: "user", content: opts.user },
+      ],
+      response_format: { type: "json_schema", json_schema: { name: opts.name, strict: true, schema: jsonSchema } },
+    });
   let lastError: unknown;
   for (const model of models()) {
     const p = providerFor(model);
-    // Groq's free tier allows only a few image checks a minute and now and then fails to produce JSON.
-    // Either way one more try usually works: after the wait Groq asks for (if 20 seconds or less), or
-    // straight away. Other providers get one try; the next model is the fallback.
-    for (let attempt = 1; attempt <= (p.retry ? 2 : 1); attempt++) {
+    for (const key of p.keys) {
       try {
-        const res = await fetch(p.url, {
-          method: "POST",
-          signal: AbortSignal.timeout(p.timeoutMs),
-          headers: { Authorization: `Bearer ${p.key}`, "Content-Type": "application/json", "X-Title": "Handshake" },
-          body: JSON.stringify({
-            ...p.body,
-            max_tokens: opts.maxTokens ?? 900,
-            messages: [
-              { role: "system", content: opts.system },
-              { role: "user", content: opts.user },
-            ],
-            response_format: { type: "json_schema", json_schema: { name: opts.name, strict: true, schema: jsonSchema } },
-          }),
-          cache: "no-store",
-        });
-        const json = await res.json();
-        if (!res.ok) throw Object.assign(new Error(json.error?.message ?? `AI error ${res.status}`), { status: res.status });
+        const json = await call(p, key, body(p), `${opts.name} ${model}`);
         const content: string = json.choices?.[0]?.message?.content ?? "";
         // Schema validation is the gate: anything the model says outside the contract is dropped.
         return opts.schema.parse(repairText(JSON.parse(content.replace(/^```(json)?|```$/g, "").trim())));
       } catch (e) {
         lastError = e;
-        console.error("ai fallback", opts.name, model, attempt, (e as Error).message?.slice(0, 160));
-        const wait = p.retry && attempt === 1 ? retryWaitMs(e) : null;
-        if (wait === null) break;
-        await new Promise((r) => setTimeout(r, wait));
+        console.error("ai fallback", opts.name, model, `key ${keyNumber(key)}`, (e as Error).message?.slice(0, 160));
+        const status = (e as { status?: number }).status;
+        // Out of credit or refused: this key is no use for a while, so the next key gets the same model.
+        // Any other failure (a timeout, a bad answer) is about the model, so the next model is tried.
+        if (status === 402 || status === 401) {
+          skipped().set(key, { until: Date.now() + SKIP_MS, why: status === 402 ? "credit" : "refused" });
+          continue;
+        }
+        break;
       }
     }
   }
   throw lastError instanceof Error ? lastError : new Error("AI unavailable");
+}
+
+type Provider = ReturnType<typeof providerFor>;
+// Which OpenRouter key this is (1-4), for logs: the key itself is never logged.
+const keyNumber = (key: string) => openRouterKeys().indexOf(key) + 1 || "groq";
+
+// One request. Groq's free tier allows only a few image checks a minute and now and then fails to
+// produce JSON; either way one more try usually works: after the wait Groq asks for (if 20 seconds or
+// less), or straight away. Other providers get one try; the next key or model is the fallback.
+async function call(p: Provider, key: string, body: string, label: string) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const res = await fetch(p.url, {
+        method: "POST",
+        signal: AbortSignal.timeout(p.timeoutMs),
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "X-Title": "Handshake" },
+        body,
+        cache: "no-store",
+      });
+      const json = await res.json();
+      if (!res.ok) throw Object.assign(new Error(json.error?.message ?? `AI error ${res.status}`), { status: res.status });
+      return json;
+    } catch (e) {
+      const wait = p.retry && attempt === 1 ? retryWaitMs(e) : null;
+      if (wait === null) throw e;
+      console.error("ai retry", label, (e as Error).message?.slice(0, 120));
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
 }
 
 // How long to wait before Groq's second try, or null for no second try. A rate limit says how long
