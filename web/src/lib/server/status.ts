@@ -32,7 +32,14 @@ const paypalToken = async (id?: string, secret?: string) => {
 };
 
 // The timer workflow reports in on every sweep (see /api/internal/timers).
-const g = globalThis as unknown as { __hsTimerSweep?: number; __hsStatus?: Map<string, Check>; __hsErrors?: number[]; __hsLastErrorAlert?: number };
+const g = globalThis as unknown as {
+  __hsTimerSweep?: number;
+  __hsStatus?: Map<string, Check>;
+  __hsInflight?: Map<string, Promise<Check>>;
+  __hsAlerted?: Map<string, ServiceStatus>;
+  __hsErrors?: number[];
+  __hsLastErrorAlert?: number;
+};
 export const recordTimerSweep = (at = Date.now()) => (g.__hsTimerSweep = at);
 
 export const PROBES: Probe[] = [
@@ -167,24 +174,35 @@ async function runProbe(p: Probe, now: number): Promise<Check> {
 }
 
 const cache = () => (g.__hsStatus ??= new Map());
+const inflight = () => (g.__hsInflight ??= new Map());
 
 // Runs every check whose cached result is older than its interval (or all of them, when forced).
-export async function checkAll(opts: { force?: boolean; alert?: boolean; now?: number } = {}): Promise<Check[]> {
+// Visitors arriving together share one probe in flight, so a burst of page loads can't fan out into a
+// burst of calls to our partners. Alerts are judged on every real probe, whoever triggered it.
+export async function checkAll(opts: { force?: boolean; now?: number } = {}): Promise<Check[]> {
   const now = opts.now ?? Date.now();
   const c = cache();
+  const running = inflight();
   const fresh = await Promise.all(
-    PROBES.map(async (p) => {
+    PROBES.map((p) => {
       const prev = c.get(p.id);
       if (!opts.force && prev && now - Date.parse(prev.checkedAt) < p.ttlMs) return prev;
-      const next = await runProbe(p, now);
-      if (opts.alert) await alertOnChange(prev, next);
-      c.set(p.id, next);
-      return next;
+      const already = running.get(p.id);
+      if (already) return already;
+      const job = runProbe(p, now)
+        .then(async (next) => {
+          c.set(p.id, next);
+          await alertOnChange(next);
+          return next;
+        })
+        .finally(() => running.delete(p.id));
+      running.set(p.id, job);
+      return job;
     }),
   );
   const timers = timerCheck(now);
-  if (opts.alert) await alertOnChange(c.get("timers"), timers);
   c.set("timers", timers);
+  await alertOnChange(timers);
   return [...fresh, timers];
 }
 
@@ -196,13 +214,21 @@ export function overall(checks: Check[]): "up" | "degraded" | "down" {
 
 // ── Alerts ────────────────────────────────────────────────────────────────
 
-// Emailed to ALERT_EMAIL when a service goes down, and again when it recovers. One email per change.
-async function alertOnChange(prev: Check | undefined, next: Check) {
+// Emailed to ALERT_EMAIL when a service goes down, and again when it recovers. One email per change,
+// judged against the last state we alerted on (not the cache), so no outage slips through unannounced.
+async function alertOnChange(next: Check) {
+  const alerted = (g.__hsAlerted ??= new Map());
+  const last = alerted.get(next.id);
+  const wentDown = next.status === "down" && last !== "down";
+  const recovered = last === "down" && next.status === "up";
+  // The first sighting just sets the baseline (a restart shouldn't email "everything is fine").
+  if (last === undefined && next.status !== "down") {
+    alerted.set(next.id, next.status);
+    return;
+  }
+  if (next.status !== "slow") alerted.set(next.id, next.status);
   const to = process.env.ALERT_EMAIL;
-  if (!to || !prev || prev.status === next.status) return;
-  const wentDown = next.status === "down" && prev.status !== "down";
-  const recovered = prev.status === "down" && next.status === "up";
-  if (!wentDown && !recovered) return;
+  if (!to || (!wentDown && !recovered)) return;
   const subject = wentDown ? `Handshake alert: ${next.name} is down` : `Handshake: ${next.name} recovered`;
   const text = `${next.name} (${next.role}) is ${wentDown ? `down: ${next.note ?? "no answer"}` : "working again"}.\n\nStatus page: ${baseUrl()}/status`;
   await sendEmail({ to, subject, text, html: `<p>${text.replace(/\n/g, "<br>")}</p>` }).catch((e) => console.error("alert email", (e as Error).message));

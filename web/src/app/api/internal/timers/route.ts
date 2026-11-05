@@ -22,7 +22,7 @@ export async function GET(req: Request) {
     // Every sweep (every 5 minutes) also refreshes the health checks, so alerts go out even when nobody
     // has /status open. In the background: the sweep itself never waits on it.
     recordTimerSweep();
-    checkAll({ alert: true }).catch((e) => console.error("status", e));
+    checkAll().catch((e) => console.error("status", e));
     return { now: Date.now(), due: await dueTimers() };
   });
 }

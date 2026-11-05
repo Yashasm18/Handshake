@@ -46,6 +46,8 @@ beforeEach(() => {
   g.__hsTimerSweep = undefined;
   g.__hsErrors = [];
   g.__hsLastErrorAlert = undefined;
+  (globalThis as unknown as { __hsAlerted?: Map<string, string>; __hsInflight?: Map<string, unknown> }).__hsAlerted = new Map();
+  (globalThis as unknown as { __hsInflight?: Map<string, unknown> }).__hsInflight = new Map();
   fetchMock.mockClear();
   smtp.sendMail.mockClear();
   kernel.list.mockReset().mockResolvedValue({ data: [] });
@@ -116,14 +118,29 @@ describe("the deadline timer's heartbeat", () => {
 
 describe("alerts", () => {
   it("emails once when a service goes down, and once when it recovers", async () => {
-    await status.checkAll({ now: T, alert: true });
+    await status.checkAll({ now: T });
     answer = { "secret-cluster": () => new Response("x", { status: 500 }) };
-    await status.checkAll({ now: T + 6 * 60_000, alert: true });
-    await status.checkAll({ now: T + 12 * 60_000, alert: true });
+    await status.checkAll({ now: T + 6 * 60_000 });
+    await status.checkAll({ now: T + 12 * 60_000 });
     answer = {};
-    await status.checkAll({ now: T + 18 * 60_000, alert: true });
+    await status.checkAll({ now: T + 18 * 60_000 });
     expect(alerts().map((a) => a.subject)).toEqual(["Handshake alert: Elastic is down", "Handshake: Elastic recovered"]);
     expect(alerts().every((a) => a.to === "ops@gmail.com")).toBe(true);
+  });
+
+  it("an outage first seen by a page visit is still alerted, and only once", async () => {
+    await status.checkAll({ now: T });
+    answer = { "api.easypost.com": () => new Response("x", { status: 500 }) };
+    await status.checkAll({ now: T + 20 * 60_000 }); // a visitor's request runs the probe
+    await status.checkAll({ now: T + 40 * 60_000 }); // the timer sweep later
+    expect(alerts().map((a) => a.subject)).toEqual(["Handshake alert: EasyPost is down"]);
+  });
+
+  it("visitors arriving together share one probe instead of each calling the partner", async () => {
+    let calls = 0;
+    answer = { "api.easypost.com": () => (calls++, Response.json({})) };
+    await Promise.all([status.checkAll({ now: T }), status.checkAll({ now: T }), status.checkAll({ now: T })]);
+    expect(calls).toBe(1);
   });
 
   it("unexpected server errors are counted, and emailed at most once an hour", () => {
