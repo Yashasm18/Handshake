@@ -15,7 +15,7 @@ Handshake moves other people's money, so every rule that touches it is tested tw
 
 | | Automated | Live |
 |---|---|---|
-| Count | 254 tests | 37 scenarios |
+| Count | 254 tests | 41 scenarios |
 | Runs | Every push and every deploy | Before each release, and on demand |
 | PayPal, Channel3, Kernel, Elastic, AI | Faked | Real (PayPal sandbox) |
 | Result | All pass | All pass |
@@ -172,6 +172,19 @@ Run on November 5, 2026, on the live site, with real emails through Resend to a 
 |---|---|---|
 | H1 | The seller types their email; the buyer pays | **Pass.** "Confirm email updates for your Handshake deal" arrived in the inbox (not spam); after confirming, "$210 is held for you. Ship it." arrived with the ship-by date and no buyer address |
 | H2 | The buyer confirms delivery while the platform balance can't cover the payout | **Pass.** $210 captured (`0N3154064S304073M`); the payout was queued instead of failing the buyer. After a separate payouts app was configured, the Render timer retried on its own, PayPal reported the item SUCCESS (batch `LLK3GBBY5VG98`, $204.07), the deal settled, and "You've been paid $204.07" arrived with a one-click Unsubscribe |
+
+### Delivery tracking with EasyPost
+
+Run on November 5, 2026, on the live site with EasyPost's test parcels (USPS) and the signed webhook registered.
+
+| # | Scenario | Result |
+|---|---|---|
+| J1 | Ship with the "Delivered" test parcel (EZ4000000004), both sides with email updates on | **Pass.** The deal page shows "Delivered" with 8 carrier scans and the Test parcel tag; "…is on its way", "…was delivered. Check it." (buyer) and "Delivered: …" (seller) arrived in the inbox. Test parcels can't prove the delivery address, so no payout on silence: the buyer confirms |
+| J2 | Ship with the "Returned to sender" test parcel (EZ5000000005) | **Pass.** The parcel showed "returned to sender" and the Render timer voided the buyer's hold on its own; the deal was released |
+| J3 | Ship with an unknown test number (EZ7000000007) | **Pass.** Flagged as an unknown number; no automatic payout was scheduled |
+| J4 | An unsigned message to the webhook | **Pass.** Refused with 401; only messages signed with our secret count |
+
+The run also found that EasyPost's test parcels carry fixed old dates (a deal made today showed "Delivered Oct 8"). Test timelines are now shifted once so the last scan lands when the update arrives; a fresh test parcel then showed delivered at the moment it shipped.
 
 ### Self-enforcing deadlines
 
