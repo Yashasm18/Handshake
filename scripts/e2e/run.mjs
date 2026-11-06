@@ -428,7 +428,8 @@ await scenario("P3", "Meet in person", "Only the seller can show a code and only
   out.wrongTries = tries.join(",");
   out.rightCodeAfterLock = (await d.buyer.post(`/api/deals/${d.id}/meet-confirm`, { code })).status;
   const fresh = (await d.seller.post(`/api/deals/${d.id}/meet-code`, {})).json.code;
-  out.newCodeWorks = (await d.buyer.post(`/api/deals/${d.id}/meet-confirm`, { code: fresh })).json.status;
+  const done = await d.buyer.post(`/api/deals/${d.id}/meet-confirm`, { code: fresh });
+  out.newCodeWorks = done.status === 200 ? (await settled(d, "buyer", done)).status : done.status;
   check(out.strangerGetsCode === 403 && out.buyerGetsCode === 403 && out.sellerConfirms === 403 && out.strangerConfirms === 403, JSON.stringify(out));
   check(out.wrongTries === "400,400,400,400,400" && out.rightCodeAfterLock === 429 && out.newCodeWorks === "SETTLED", JSON.stringify(out));
   return out;
