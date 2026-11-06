@@ -385,3 +385,28 @@ describe("sellers signed in with PayPal", () => {
     expect(deal.buyer).toBeUndefined();
   });
 });
+
+describe("when every AI provider is unavailable", () => {
+  it("a seller's label can't be checked: the deal stays held, nothing is shipped or captured", async () => {
+    const { AiUnavailable } = await import("@/lib/server/ai");
+    const id = await heldDeal();
+    ai.readLabel.mockRejectedValueOnce(new AiUnavailable(new Error("402")));
+    await expect(flows.ship(id, { label: "data:image/png;base64,AAAA", carrier: "", trackingNumber: "" })).rejects.toBeInstanceOf(AiUnavailable);
+    const d = (await getDeal(id))!;
+    expect(d.status).toBe("HELD");
+    expect(d.shipment).toBeUndefined();
+    expect(pp.captureHold).not.toHaveBeenCalled();
+  });
+
+  it("a buyer's claim can't be reviewed: the deal stays as it was, no refund or capture", async () => {
+    const { AiUnavailable } = await import("@/lib/server/ai");
+    const id = await shippedDeal();
+    pp.captureHold.mockClear();
+    ai.reviewClaim.mockRejectedValueOnce(new AiUnavailable(new Error("429")));
+    await expect(flows.openClaim(id, { note: "It arrived cracked.", photo: "data:image/png;base64,AAAA" })).rejects.toBeInstanceOf(AiUnavailable);
+    const d = (await getDeal(id))!;
+    expect(d.status).toBe("SHIPPED");
+    expect(d.claim).toBeUndefined();
+    expect(pp.captureHold).not.toHaveBeenCalled();
+  });
+});

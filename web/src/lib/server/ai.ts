@@ -117,7 +117,17 @@ export async function structured<T extends z.ZodType>(opts: {
       }
     }
   }
-  throw lastError instanceof Error ? lastError : new Error("AI unavailable");
+  throw new AiUnavailable(lastError);
+}
+
+// Every model and key failed (out of credit, rate limited, down, or answers outside the schema). Each
+// step that uses AI calls it before changing anything, so this stops the step with nothing moved:
+// no hold, capture, shipment or refund. The user is told to try again shortly.
+export class AiUnavailable extends Error {
+  constructor(readonly cause: unknown) {
+    super("AI unavailable");
+    this.name = "AiUnavailable";
+  }
 }
 
 type Provider = ReturnType<typeof providerFor>;
