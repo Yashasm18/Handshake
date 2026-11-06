@@ -158,6 +158,7 @@ const FOOTER_COLUMNS = [
   {
     title: "Company",
     links: [
+      { href: "/blog", label: "Blog" },
       { href: "/status", label: "Status" },
       { href: "/terms", label: "Terms" },
       { href: "/privacy", label: "Privacy" },

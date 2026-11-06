@@ -4,7 +4,7 @@
 
 **Safe deals between strangers, built in four days for the PayPal AI Hackathon**
 
-[← Back to README](README.md) · [Live demo](https://usehandshake.onrender.com) · [Architecture](docs/ARCHITECTURE.md) · [Testing](docs/TESTING.md)
+[← Back to README](README.md) · [Read it on the site](https://usehandshake.onrender.com/blog) · [Live demo](https://usehandshake.onrender.com) · [Architecture](docs/ARCHITECTURE.md) · [Testing](docs/TESTING.md)
 
 </div>
 
@@ -88,16 +88,49 @@ Then I attacked the live site the way a scammer would: stolen links, forged webh
 | Live end-to-end scenarios | 42 on the PayPal sandbox |
 | Attacks on the live site | 43, all holding |
 
-## What's next
+## Where this goes: from a hackathon project to a company
 
-Handshake works end to end on the PayPal sandbox. The next steps:
+Handshake works end to end today on the PayPal sandbox. Here is how we think about turning it into a business. This is our plan and reasoning, not a promise.
 
-1. **Go live on PayPal**, with sellers onboarded through PayPal's multiparty platform so the buyer's payment goes straight to the seller at capture.
-2. **Disputes, end to end**: a declined claim goes to PayPal's Resolution Center with the photos, label check and tracking attached.
-3. **Share to Handshake**: check a Marketplace listing or WhatsApp chat in one tap from the phone's share sheet.
-4. **Agents that shop for you**: with PayPal's Agent Toolkit, a buyer's own assistant could find, check and complete a deal through Handshake, inside the same limits and holds.
-5. **More ways to pay**: Venmo, and PYUSD for cross-border deals.
-6. **A shared scam memory**, with marketplaces and communities contributing reports, and human review and appeals.
+### The opportunity
+
+Secondhand trade between strangers is huge and growing, and almost none of it has a safe way to pay. Marketplaces protect deals that stay inside their own checkout, but people meet in comment threads, group chats and forums, and the moment money changes hands, they're on their own. That gap is where scams live. Handshake's bet is that trust shouldn't belong to one marketplace. It should travel with the deal: a link is all either side needs, wherever they met.
+
+### Who we serve first
+
+**Secondhand electronics and gaming.** It's where the pain is sharpest: items are valuable, easy to ship, easy to fake, and they have real store prices to compare against, which is exactly where Handshake's checks are strongest. We'd start with the communities that already trade this way: buy-and-sell forums, Discord and WhatsApp trading groups, and campus marketplaces.
+
+### How it makes money
+
+- **The scam check stays free.** It's how people find us, and every check makes scam memory smarter for everyone.
+- **A small fee on each protected deal.** Paid when the deal settles, and always far less than what a single scam costs. If the deal falls through, nobody pays it.
+- **Handshake for platforms.** Communities and smaller marketplaces could add "Protected by Handshake" to their listings, and use scam memory to catch repeat scammers before they post.
+
+### How it grows
+
+Handshake spreads the way a payment link does: every protected deal introduces it to a stranger, the other side of the deal, who has a safe experience and uses it next time. And "is this a scam?" is a question people already ask their friends. A free, clear answer is easy to share.
+
+### Why it's hard to copy
+
+- **Scam memory compounds.** Every scam caught makes the next check sharper. A newcomer starts with an empty memory.
+- **Trust that travels.** Over time, a record of completed protected deals becomes a reputation people carry across every platform they trade on.
+- **Deep PayPal integration.** Holds, partial captures, renewals, tracking and payouts working together safely took real work, and it's the foundation everything else stands on.
+
+### What has to go right
+
+- **Going live with PayPal:** a production PayPal app, and sellers onboarded through PayPal's platform tools so payments go straight to them.
+- **Disputes handled fairly:** a clear path when people disagree, ideally into PayPal's Resolution Center with the evidence already attached.
+- **Staying ahead of scammers:** they adapt, so scam memory, human review and appeals have to grow with them.
+- **Earning trust slowly:** a safety product only works if people believe it, which means being honest about what it can and can't do.
+
+### The road ahead
+
+| When | What |
+|---|---|
+| **Now** | Working end to end on the PayPal sandbox: checks, holds, negotiation, tracking, meetups, claims, deadlines |
+| **Next** | Live payments with PayPal, sellers paid directly at capture, disputes into PayPal's Resolution Center, and a share-sheet app to check any listing in one tap |
+| **Then** | The first trading communities on board, Venmo for buyers, and a reputation from completed deals that travels with you |
+| **Later** | Agents that shop for you through PayPal's Agent Toolkit, inside the same limits and holds; PYUSD for cross-border deals; scam memory shared with platforms |
 
 ## Thanks
 
