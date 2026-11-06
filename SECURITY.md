@@ -102,6 +102,12 @@ We review every change that touches money or AI. Findings so far, all fixed with
 | Memory | One fake message could have branded an innocent seller's phone number a known scam | Details and photos are confirmed only by two distinct witnesses, counted across messages |
 | Memory | Resending a public seed script word for word could attach an innocent person's photo to a confirmed record; automatic saves could warn about a phone number nobody reported | Seeds and buyers' records use separate ids; repeats never add photos or details; details and photos count only from reported records; IPv6 grouped by /48 |
 | Meetup | A seller could mark an in-person deal as shipped; a payout failure after the meetup capture could leave a deal captured but unpaid, with a void deadline still running | In-person deals refuse shipping; captured deals have no void deadlines and either party's next step resumes the payout |
+| Trust | The scam check shown on a deal page travelled through the seller's browser unverified, so a scammer could post a forged "no red flags" check and a fake retail price (final break-it pass) | Scans are sealed by the server and a deal only accepts a sealed, unchanged scan; a seller-run clean result is never shown as a badge, "under retail" is worked out from the deal's own price, and the negotiating agents use Handshake's own price lookup, not the seller's scan |
+| Web | No browser security headers, and the server announced its framework | Content policy that keeps PayPal checkout working, HTTPS-only, no framing, nosniff, referrer policy; no X-Powered-By |
+| Web | The server didn't check where state-changing requests came from (browsers already blocked it through SameSite cookies) | API requests a browser marks as coming from another site are refused on the server too |
+| Availability | Text and screenshot scam checks, new deals and PayPal holds had no rate limit, so a script could drain the AI credit | Per-visitor limits on all three, and a site-wide cap on scam checks |
+| Errors | A malformed JSON body returned 500 and counted as a server error | It is a clean 400 |
+| Tests | The build's test run used production settings and wrote test deals into the production database | Tests remove every production setting first and fail closed on any real database connection or network call |
 
 ## Supported versions
 

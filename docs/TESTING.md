@@ -224,6 +224,39 @@ The first full live run failed **A2**: a stranger holding the deal link could se
 
 The fix sends log references only to the buyer and seller ([`auth.ts`](../web/src/lib/server/auth.ts)). The privacy test now uses a deal with PayPal ids in its log, fails without the fix and passes with it. A2 passes live. The issue is recorded in [SECURITY.md](../SECURITY.md#issues-we-found-and-fixed).
 
+## Final break-it pass (Nov 6, 2026)
+
+A last pass on the live site and the real PayPal sandbox, from three sides: a judge clicking through, every live scenario, and a script of attacks.
+
+**What held up first time**
+- **Access:** a seller of one deal can't act on another; a stranger can't ship, cancel, confirm or claim; unknown and odd deal ids are refused, never a 500.
+- **Forged requests:** the deadline API without its secret, and EasyPost webhooks without a valid signature, are refused (401).
+- **Input:** negative, zero, fractional, absurd and string prices, 100k-character titles, a 12 MB body and HTML in titles and names are refused or escaped. A script in a title renders as text.
+- **Races:** five buyers paying the same deal at once make exactly one hold; "ship" and "cancel" at the same moment end in one clean state.
+- **Sign-in return path:** five off-site tricks (full URLs, `//`, `/\`, `javascript:`, encoded tabs) are refused.
+- **Cookies:** HttpOnly, Secure and SameSite=Lax.
+- **PayPal's own records match Handshake's.** A full deal: capture COMPLETED $230.00, fee $6.45, net $223.55, payout item SUCCESS $223.55. A cancelled deal: authorization VOIDED. A damage claim: final capture $192.01, the other $37.99 back to the buyer.
+
+**What broke, and the fix** (all live and covered by tests)
+
+| Found | Fix |
+|---|---|
+| The scam check on a deal page came from the seller's browser unverified: a scammer could post a forged "no red flags" check and a fake retail price | Scans are sealed by the server; a deal only accepts a sealed, unchanged scan. A seller-run clean result is never shown as a badge, "under retail" uses the deal's own price, and the agents use Handshake's own price lookup |
+| No browser security headers; the server announced "Next.js" | Content policy (PayPal checkout still works), HSTS, no framing, nosniff, referrer policy |
+| No server-side check of cross-site requests (browsers already block them through SameSite cookies) | Cross-site state-changing API requests are refused |
+| Text and screenshot checks, new deals and PayPal holds had no rate limit | Per-visitor limits, and a site-wide cap on checks |
+| Malformed JSON gave a 500 | A clean 400 |
+| A judge testing alone only ever sees the seller's side of their deal | The seller's page says to open the link in a private window to be the buyer |
+| The agent's suggested lowest price could be above the asking price | It's capped at 90% of the asking price |
+| Demo sellers were told "paid to your PayPal" | They're told it goes to Handshake's sandbox seller account |
+| A PS5 price check counted the PS5 Pro, pushing the median from about $650 to $725 | Other models (Pro, Max, Plus, Ultra, Mini, Lite, bundles) are left out unless asked for |
+
+**By design:** a guest demo seller can try the buyer side of their own deal in one browser; a seller signed in with PayPal can't.
+
+**Scenarios:** all 33 pass. 31 ran on the live site; T1 and P6 (sped-up deadlines) and M4 and M5 (several distinct visitors, which Cloudflare's single client address can't show live) ran locally.
+
+**Still open:** rate limits are kept per server, which is right for the single instance today; the content policy allows inline scripts, because Next.js needs them without per-request nonces; retail prices are real store listings, so they still vary from store to store.
+
 ## Run them yourself
 
 ```bash
