@@ -58,6 +58,9 @@ export type Scan = {
   memory?: ScamMemory | null;
   // Set when the scan started from a link that Kernel opened.
   source?: { url: string; host: string; photos: ListingPhoto[] } | null;
+  // Handshake's seal over this scan, so a deal only shows a scan Handshake really produced.
+  sealedAt?: string;
+  seal?: string;
 };
 
 export type DealStatus =

@@ -4,6 +4,11 @@ import { announce, HttpError, log, newId, saveDeal } from "@/lib/server/deals";
 import { adoptPayPalEmail } from "@/lib/server/notify";
 import { currentAccount } from "@/lib/server/session";
 import { handle } from "@/lib/server/http";
+import { verifyScan } from "@/lib/server/scan-seal";
+import { visitorOf, windowLimiter } from "@/lib/server/visitor";
+
+// Generous for a real seller (or a judge trying things), bounded for a script.
+const dealsPerVisitor = windowLimiter(60, 10 * 60_000);
 import type { Deal, Scan } from "@/lib/types";
 import { usd } from "@/lib/types";
 
@@ -77,6 +82,9 @@ const ScanSchema: z.ZodType<Scan> = z.strictObject({
     })
     .nullable()
     .optional(),
+  // Handshake's seal (see scan-seal.ts): checked against the scan exactly as received.
+  sealedAt: str(40),
+  seal: str(100),
 });
 
 const Body = z.object({
@@ -95,7 +103,11 @@ const Body = z.object({
 
 export async function POST(req: Request) {
   return handle(async () => {
-    const b = Body.parse(await req.json());
+    if (!dealsPerVisitor.take(visitorOf(req))) throw new HttpError(429, "That's a lot of new deals in a few minutes. Wait a little and try again.");
+    const raw = await req.json();
+    // Buyers see the scan as Handshake's verdict, so only a scan Handshake sealed, unchanged, is accepted.
+    if (raw?.scan != null && !verifyScan(raw.scan)) throw new HttpError(400, "This scam check couldn't be verified. Run the check again, then create the deal.");
+    const b = Body.parse(raw);
     if (b.floorCents != null && b.floorCents > b.priceCents) throw new HttpError(400, "Your lowest price can't be above the asking price.");
     const account = await currentAccount();
     // Production setting: only sellers signed in with PayPal may create deals (no demo payouts).

@@ -2,8 +2,13 @@ import { z } from "zod";
 import { HttpError } from "@/lib/server/deals";
 import { scanDeal } from "@/lib/server/checks";
 import { handle } from "@/lib/server/http";
+import { sealScan } from "@/lib/server/scan-seal";
 import { assertPublicHost, linkOnly, listingUrl, readListing } from "@/lib/server/kernel";
-import { visitorOf } from "@/lib/server/visitor";
+import { visitorOf, windowLimiter } from "@/lib/server/visitor";
+
+// Every scan is a paid AI call. Per visitor, and across everyone so a botnet can't drain the credit either.
+const scansPerVisitor = windowLimiter(30, 10 * 60_000);
+const scansForEveryone = windowLimiter(600, 60 * 60_000);
 
 const Body = z.object({
   text: z.string().max(8000).optional(),
@@ -65,12 +70,14 @@ export async function POST(req: Request) {
       }
       try {
         const listing = await readListing(url);
-        return await scanDeal({ listing, imageDataUrl: body.image, text: body.url ? body.text : undefined, visitor: visitorOf(req) });
+        return sealScan(await scanDeal({ listing, imageDataUrl: body.image, text: body.url ? body.text : undefined, visitor: visitorOf(req) }));
       } finally {
         slot.release();
       }
     }
     if (!body.text?.trim() && !body.image) throw new z.ZodError([]);
-    return scanDeal({ text: body.text, imageDataUrl: body.image, visitor: visitorOf(req) });
+    if (!scansPerVisitor.take(visitorOf(req))) throw new HttpError(429, "That's a lot of checks in a few minutes. Wait a little and try again.");
+    if (!scansForEveryone.take("all")) throw new HttpError(503, "Scam checks are very busy right now. Try again in a few minutes.");
+    return sealScan(await scanDeal({ text: body.text, imageDataUrl: body.image, visitor: visitorOf(req) }));
   });
 }

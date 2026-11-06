@@ -18,6 +18,8 @@ export async function handle(fn: () => Promise<unknown>) {
         { status: 503, headers: { "Retry-After": "120" } },
       );
     }
+    // A body that isn't JSON at all is the caller's mistake, not a server error (and mustn't page anyone).
+    if (e instanceof SyntaxError && /JSON/i.test(e.message)) return Response.json({ error: "That request wasn't valid JSON." }, { status: 400 });
     if (e instanceof ZodError) return Response.json({ error: "Some details are missing or invalid." }, { status: 400 });
     if (e instanceof PayPalError) {
       console.error("PayPal", e.status, e.issue, e.debugId, e.message);

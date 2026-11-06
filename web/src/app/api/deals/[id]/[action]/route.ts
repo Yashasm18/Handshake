@@ -11,6 +11,11 @@ import type { Deal } from "@/lib/types";
 
 const Role = z.enum(["buyer", "seller"]);
 const emailLimiter = windowLimiter(10, 60 * 60_000);
+// Each hold is a PayPal call: generous for a person, bounded for a script.
+const holdLimiter = windowLimiter(40, 10 * 60_000);
+const takeHold = (req: Request) => {
+  if (!holdLimiter.take(visitorOf(req))) throw new HttpError(429, "That's a lot of payments in a few minutes. Wait a little and try again.");
+};
 const Photo = z.string().startsWith("data:image/").max(4_000_000);
 // The paying browser gets the buyer cookie. A buyer signed in with PayPal is also linked by account,
 // unless PayPal checkout already linked the account that actually paid.
@@ -31,17 +36,19 @@ const testCardEnabled = () =>
 const actions: Record<string, (deal: Deal, body: unknown, req: Request) => Promise<unknown>> = {
   // Anyone with the link may start paying; the browser that starts checkout is the only one that can finish it.
   // offerCents makes it a backed offer: the hold is at the buyer's max and the agents negotiate the price.
-  pay: async (d, b) => {
+  pay: async (d, b, req) => {
     await refuseOwnDeal(d);
+    takeHold(req);
     return flows.startPayment(d.id, { ownsCheckout: holdsPayNonce, claimCheckout: issuePayNonce }, Offer.parse(b).offerCents);
   },
   "confirm-payment": async (d, b) => {
     await requirePayNonce(d);
     return flows.confirmPayment(d.id, z.object({ orderId: z.string().min(5) }).parse(b).orderId, asBuyer);
   },
-  "test-card": async (d, b) => {
+  "test-card": async (d, b, req) => {
     if (!testCardEnabled()) throw new HttpError(404, "Unknown action.");
     await refuseOwnDeal(d);
+    takeHold(req);
     return flows.fundWithTestCard(d.id, asBuyer, Offer.parse(b).offerCents);
   },
   ship: async (d, b) => {
