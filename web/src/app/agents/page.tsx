@@ -1,4 +1,5 @@
 import { Nav } from "@/components/chrome";
+import { TESTS, TOTAL_TESTS } from "@/lib/facts";
 import { ApiList, Docs, FeatureHero, Footer, Proof, Section, Steps, TryIt, repoFile, source } from "@/components/feature";
 import { FadeIn } from "@/components/motion";
 import { NegotiationDemo } from "@/components/negotiation-demo";
@@ -69,7 +70,7 @@ export default function AgentsPage() {
             stats={[
               { n: "$210", t: "captured from a $215 backed offer. The other $5 was never charged.", s: "Sandbox capture" },
               { n: "0", t: "times an agent went past its owner's limit, including under prompt-injection attacks.", s: "Injection tests" },
-              { n: "161", t: "automated tests run before every deploy, 20 of them guarding the referee and the leak filter.", s: "Vitest" },
+              { n: String(TESTS.app), t: "automated tests run before every deploy, 20 of them guarding the referee and the leak filter.", s: "Vitest" },
             ]}
           />
         </Section>

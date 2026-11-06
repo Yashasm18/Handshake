@@ -1,4 +1,5 @@
 import { Nav } from "@/components/chrome";
+import { TESTS, TOTAL_TESTS } from "@/lib/facts";
 import { ApiList, Docs, FeatureHero, Footer, Proof, REPO, Section, Steps, TryIt, repoFile, source } from "@/components/feature";
 import { FadeIn } from "@/components/motion";
 
@@ -116,7 +117,7 @@ export default function RenderPage() {
             stats={[
               { n: "3", t: "timer actions run against PayPal's sandbox: a void, a capture with payout, and a rescheduled renewal.", s: "End to end" },
               { n: "0", t: "duplicate money moves, across repeated sweeps and three simultaneous runs of the same deadline.", s: "Idempotency" },
-              { n: "274", t: "automated tests across the app and the workflow, plus 42 live scenarios on the sandbox. The app's run before every deploy.", s: "Vitest + live runs" },
+              { n: String(TOTAL_TESTS), t: `automated tests: ${TESTS.app} for the app, run on both the file store and Postgres before every deploy, and ${TESTS.workflow} for the workflow. Plus ${TESTS.liveScenarios} live scenarios on the sandbox.`, s: "Vitest + live runs" },
             ]}
           />
         </Section>

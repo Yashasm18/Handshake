@@ -21,7 +21,8 @@ export default function PrivacyPage() {
       <Clause title="Services we use">
         <ul>
           <li><b>PayPal</b> for sign-in, holds, captures and payouts.</li>
-          <li><b>OpenRouter</b> (AI models) to read listings, chats, labels and delivery photos, only through providers that don&apos;t store or train on what they&apos;re sent.</li>
+          <li><b>OpenRouter</b> (AI models) to read listings, chats, labels and delivery photos. We tell OpenRouter to use only providers whose published policy is not to store or train on requests, and a request no such provider can serve is refused rather than sent elsewhere. This rests on those providers&apos; own policies, which we can&apos;t audit ourselves.</li>
+          <li><b>Groq</b> (backup AI), only when OpenRouter can&apos;t answer. Groq&apos;s terms say it doesn&apos;t train on requests; it may keep them for up to 30 days for reliability and abuse checks.</li>
           <li><b>Channel3</b> for store prices of the item.</li>
           <li><b>Kernel</b> to open a listing link in a cloud browser.</li>
           <li><b>Elastic</b> for scam memory: the wording, contact details and photo fingerprints of high-risk listings, so the next buyer can be warned.</li>

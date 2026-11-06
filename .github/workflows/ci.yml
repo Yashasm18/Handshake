@@ -33,6 +33,8 @@ jobs:
       - run: npm test
       # The same suite again, on a real Postgres engine (PGlite): the production database path.
       - run: npm run test:pg
+      # The test counts the site quotes must match the real suites.
+      - run: node ../scripts/check-test-counts.mjs app
       - run: npm run build
 
   workflows:
@@ -51,3 +53,4 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm test
+      - run: node ../scripts/check-test-counts.mjs workflow
