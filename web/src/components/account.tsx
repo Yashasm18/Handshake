@@ -100,8 +100,10 @@ export function SandboxHint({ skip, className = "" }: { skip?: string; className
 // Read from <html data-sandbox>, which the server sets, so the bar and the space reserved for it agree.
 const sandboxPage = () => document.documentElement.hasAttribute("data-sandbox");
 const noChange = () => () => {};
+// True on a page served while the site runs on PayPal's sandbox.
+export const useSandbox = () => useSyncExternalStore(noChange, sandboxPage, () => false);
 export function TestModeBar() {
-  const sandbox = useSyncExternalStore(noChange, sandboxPage, () => false);
+  const sandbox = useSandbox();
   if (!sandbox) return null;
   return (
     <div className="h-[31px] overflow-hidden border-b border-ink/10 bg-ink/[0.04] text-center text-[12.5px] leading-[30px] text-muted">

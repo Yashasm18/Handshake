@@ -160,7 +160,7 @@ Full threat model and the issues we've found and fixed: **[SECURITY.md](SECURITY
 
 ## Tests and CI
 
-Handshake is tested two ways: **314 automated tests** that run on every push and deploy (306 for the app, each run on both the file store and Postgres, plus 8 for the deadline workflow), and **42 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel, Elastic and the AI models with real images and real listings.
+Handshake is tested two ways: **315 automated tests** that run on every push and deploy (307 for the app, each run on both the file store and Postgres, plus 8 for the deadline workflow), and **42 live end-to-end scenarios** run against the real PayPal sandbox, Channel3, Kernel, Elastic and the AI models with real images and real listings.
 
 | Area | Automated | Live on the sandbox | What it proves |
 |---|---:|---:|---|

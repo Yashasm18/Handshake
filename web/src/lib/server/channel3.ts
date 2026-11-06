@@ -35,9 +35,18 @@ export async function searchComps(query: string, limit = 12): Promise<Comp[]> {
   return comps;
 }
 
+// A different model or package of the product: priced differently, so it would skew the median
+// (a "PS5" search picking up the PS5 Pro, a "Switch OLED" one the cheaper Switch Lite).
+const VARIANTS = ["pro", "max", "plus", "ultra", "mini", "lite", "bundle"];
+const variantsIn = (text: string) => VARIANTS.filter((v) => new RegExp(`\\b${v}\\b`, "i").test(text));
+
 export function itemComps(query: string, comps: Comp[]) {
   const wantsAccessory = ACCESSORY.test(query);
-  return comps.filter((c) => wantsAccessory || !ACCESSORY.test(c.title));
+  const asked = variantsIn(query);
+  // An accessory's name often carries a model word ("Pro Controller charger"), so the model rule only
+  // applies when pricing the product itself.
+  if (wantsAccessory) return comps;
+  return comps.filter((c) => !ACCESSORY.test(c.title) && variantsIn(c.title).every((v) => asked.includes(v)));
 }
 
 // Pricing a damaged part ("left Joy-Con") must not pick up the whole product ("Switch OLED Model").

@@ -607,7 +607,7 @@ function CreateDeal({ scan, draft }: { scan: Scan; draft: Draft | null }) {
           <textarea className={`${field} resize-none`} rows={4} value={checklist} onChange={(e) => setChecklist(e.target.value)} />
         </label>
         <HandoffField value={handoff} onChange={setHandoff} />
-        <OffersField on={offers} setOn={setOffers} floor={floor} setFloor={setFloor} fair={fair} field={field} />
+        <OffersField on={offers} setOn={setOffers} floor={floor} setFloor={setFloor} fair={fair} field={field} askingCents={Math.round(Number(price) * 100) || null} />
         <div className="grid gap-2">
           <span className="label text-muted">Photo of the item · recommended</span>
           <PhotoPicker value={photo} onChange={setPhoto} hint="Used to compare against the buyer's delivery photo if there's a problem." />
@@ -694,7 +694,11 @@ function HandoffField({ value, onChange }: { value: "ship" | "meet"; onChange: (
 }
 
 // Turning offers on hands the haggling to the seller's agent, which never goes below this private floor.
-function OffersField(p: { on: boolean; setOn: (v: boolean) => void; floor: string; setFloor: (v: string) => void; fair: ReturnType<typeof fairBand>; field: string }) {
+function OffersField(p: { on: boolean; setOn: (v: boolean) => void; floor: string; setFloor: (v: string) => void; fair: ReturnType<typeof fairBand>; field: string; askingCents: number | null }) {
+  // The suggested lowest price is never above the asking price (that would be refused): at most 90% of it.
+  const cap = p.askingCents ? Math.floor((p.askingCents * 0.9) / 100) : null;
+  const suggested = p.fair ? Math.round(p.fair.lowCents / 100) : 190;
+  const placeholder = String(cap != null ? Math.min(suggested, cap) : suggested);
   return (
     <div className="rounded-3xl border hairline bg-card p-5">
       <label className="flex cursor-pointer items-start justify-between gap-6">
@@ -710,9 +714,14 @@ function OffersField(p: { on: boolean; setOn: (v: boolean) => void; floor: strin
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.4, ease: EASE }} className="overflow-hidden">
             <label className="mt-5 grid gap-2">
               <span className="label text-muted">Lowest you&apos;d take (USD) · only you and your agent see this</span>
-              <input className={p.field} inputMode="decimal" value={p.floor} onChange={(e) => p.setFloor(e.target.value.replace(/[^0-9.]/g, ""))} placeholder={p.fair ? String(Math.round(p.fair.lowCents / 100)) : "190"} />
+              <input className={p.field} inputMode="decimal" value={p.floor} onChange={(e) => p.setFloor(e.target.value.replace(/[^0-9.]/g, ""))} placeholder={placeholder} />
             </label>
-            {p.fair && <p className="mt-3 text-[14px] text-muted">Similar items in this condition usually sell for {usd(p.fair.lowCents)}–{usd(p.fair.highCents)}, based on retail prices from Channel3.</p>}
+            {p.fair && (
+              <p className="mt-3 text-[14px] text-muted">
+                Similar items in this condition usually sell for {usd(p.fair.lowCents)}–{usd(p.fair.highCents)}, based on retail prices from Channel3.
+                {p.askingCents != null && p.askingCents <= p.fair.lowCents ? " Your asking price is already below that, so a low limit leaves little room." : ""}
+              </p>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

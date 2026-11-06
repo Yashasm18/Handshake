@@ -78,6 +78,18 @@ describe("market prices", () => {
     const comps = [c("Switch Pro Controller Charger", 1_999), c("Switch OLED", 34_999)];
     expect(itemComps("Switch charger", comps)).toHaveLength(2);
   });
+
+  it("other models of the product don't skew the median: a PS5 search ignores the PS5 Pro, unless you asked for it", () => {
+    const ps5: Comp[] = [
+      { id: "1", title: "PlayStation 5 Console", priceCents: 52_249 },
+      { id: "2", title: "PlayStation 5 Pro Console", priceCents: 142_499 },
+      { id: "3", title: "PS5 Digital Edition Bundle", priceCents: 64_998 },
+      { id: "4", title: "PlayStation 5 Console – Slim", priceCents: 56_999 },
+    ];
+    expect(itemComps("PlayStation 5", ps5).map((c) => c.id)).toEqual(["1", "4"]);
+    expect(itemComps("PlayStation 5 Pro", ps5).map((c) => c.id)).toEqual(["1", "2", "4"]);
+    expect(itemComps("Nintendo Switch OLED", [{ id: "a", title: "Nintendo Switch Lite", priceCents: 19_999 }, { id: "b", title: "Nintendo Switch – OLED Model", priceCents: 34_999 }]).map((c) => c.id)).toEqual(["b"]);
+  });
 });
 
 describe("deadline clock", () => {

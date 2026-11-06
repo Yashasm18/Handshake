@@ -13,7 +13,7 @@ import { EASE } from "./motion";
 import { PayPalButton } from "./paypal-button";
 import { DealClock, DeadlineNotice } from "./deadline";
 import { Headline, Panel } from "./deal-ui";
-import { PayPalMark, PayPalSignIn, SandboxHint, VerifiedTick } from "./account";
+import { PayPalMark, PayPalSignIn, SandboxHint, useSandbox, VerifiedTick } from "./account";
 import { EmailUpdates } from "./email-updates";
 import { ParcelCard, suspiciousDelivery, TestParcelPicker } from "./parcel";
 import { negotiatedFrom, NegotiationLive, NegotiationRecap, NoDealNotice, OfferForm } from "./negotiation";
@@ -33,6 +33,10 @@ const MEET_STAGES = [
   { key: "checked", label: "Checked at the meetup" },
   { key: "settled", label: "Settled" },
 ] as const;
+
+// Where the seller's money goes: their own PayPal when they signed in with it, otherwise (a demo seller)
+// Handshake's sandbox seller account.
+const payTo = (deal: Deal) => (deal.sellerPayPal.signedIn ? "straight to your PayPal" : "to Handshake's sandbox seller account (you're a demo seller)");
 
 function stageIndex(d: Deal) {
   switch (d.status) {
@@ -257,7 +261,7 @@ function ActionCard(p: ActProps) {
           <Headline
             eyebrow="On its way"
             title={deal.shipment?.tracking?.status === "delivered" ? `Delivered. ${usd(deal.priceCents)} is still held for you.` : `Shipped. ${usd(deal.priceCents)} is still held for you.`}
-            body={deal.shipment?.tracking?.status === "delivered" ? "Your buyer has it. Once they confirm it's as described, or the check window ends, you're paid straight to your PayPal." : `Once ${deal.paypal.buyerEmail ? "the buyer" : "your buyer"} confirms it arrived as described, the money is captured and paid straight to your PayPal.`}
+            body={deal.shipment?.tracking?.status === "delivered" ? `Your buyer has it. Once they confirm it's as described, or the check window ends, you're paid ${payTo(deal)}.` : `Once ${deal.paypal.buyerEmail ? "the buyer" : "your buyer"} confirms it arrived as described, the money is captured and paid ${payTo(deal)}.`}
           />
           <ParcelCard deal={deal} role="seller" />
         </Panel>
@@ -353,6 +357,7 @@ function SellerWaitingPayment({ deal, act, busy }: ActProps) {
           {copied ? "Copied" : "Copy link"}
         </Button>
       </div>
+      <SoloTryHint />
       {deal.floorCents != null && (
         <p className="mt-6 text-[15px] text-paper/70">
           Open to offers. Your agent negotiates for you and never accepts less than <span className="font-semibold text-paper">{usd(deal.floorCents)}</span>. Only you can see that number.
@@ -726,8 +731,8 @@ function Settled({ deal, role }: ActProps) {
               ? "Handed over in person. You paid only after you'd checked it."
               : "No dispute, no waiting. The unused part of the hold was released automatically."
             : deal.handoff === "meet"
-              ? "Sent to your PayPal account the moment the buyer confirmed. Now hand it over."
-              : "Sent to your PayPal account. Tracking is attached to the payment, which helps if there's ever a dispute."
+              ? `Sent ${payTo(deal)} the moment the buyer confirmed. Now hand it over.`
+              : `Sent ${payTo(deal)}. Tracking is attached to the payment, which helps if there's ever a dispute.`
         }
       />
       <dl className="mt-8 space-y-3 rounded-2xl bg-card p-6 text-[16px]">
@@ -833,5 +838,17 @@ function Skeleton() {
       <div className="mt-8 h-20 w-2/3 rounded-2xl bg-ink/10" />
       <div className="mt-12 h-72 rounded-[28px] bg-ink/5" />
     </div>
+  );
+}
+
+// On the sandbox, a judge often tries Handshake alone: this browser is the seller's, so the buyer side
+// needs another one. Say how, right where the link is.
+function SoloTryHint() {
+  if (!useSandbox()) return null;
+  return (
+    <p className="mt-4 text-[14px] leading-relaxed text-paper/60">
+      <span className="font-semibold text-paper/80">Trying it on your own?</span> Open this link in a private or incognito window. You&apos;ll be the buyer there,
+      and can pay with PayPal&apos;s sandbox test card, no sign-in needed.
+    </p>
   );
 }
