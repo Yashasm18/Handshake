@@ -7,7 +7,7 @@ import { api, compressImage } from "@/lib/client";
 import type { Deal, ListingPhoto, MemoryMatch, Scan } from "@/lib/types";
 import { usd } from "@/lib/types";
 import { fairBand } from "@/lib/fair";
-import { PayPalMark, PayPalSignIn, useMe, VerifiedTick } from "./account";
+import { PayPalMark, PayPalSignIn, SandboxHint, useMe, VerifiedTick } from "./account";
 import { Arrow, Button } from "./chrome";
 import { EASE, RevealText } from "./motion";
 
@@ -648,6 +648,7 @@ function PayoutField({ me, name, setName, field, onSignIn }: { me: ReturnType<ty
           <div>
             <p className="font-display text-[18px] font-semibold tracking-tight">Get paid into your own PayPal</p>
             <p className="mt-1 text-[15px] text-muted">Sign in on PayPal&apos;s page. We never see your password, and buyers see you&apos;re a real PayPal account.</p>
+            <SandboxHint skip="continue as a demo seller below" className="mt-2" />
           </div>
           <PayPalSignIn next="/check?mode=sell&resume=1" onBeforeLeave={onSignIn} />
         </div>

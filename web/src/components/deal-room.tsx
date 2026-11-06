@@ -13,7 +13,7 @@ import { EASE } from "./motion";
 import { PayPalButton } from "./paypal-button";
 import { DealClock, DeadlineNotice } from "./deadline";
 import { Headline, Panel } from "./deal-ui";
-import { PayPalMark, PayPalSignIn, VerifiedTick } from "./account";
+import { PayPalMark, PayPalSignIn, SandboxHint, VerifiedTick } from "./account";
 import { EmailUpdates } from "./email-updates";
 import { ParcelCard, suspiciousDelivery, TestParcelPicker } from "./parcel";
 import { negotiatedFrom, NegotiationLive, NegotiationRecap, NoDealNotice, OfferForm } from "./negotiation";
@@ -159,6 +159,7 @@ export function DealRoom() {
                 <Panel>
                   <Headline eyebrow="Private deal" title={`This deal is between ${deal.sellerName} and a buyer.`} body="Only the two of them can take action here. If it's yours, sign in with the PayPal account you used, or open it in the browser you used to create it or pay for it." />
                   <div className="mt-6"><PayPalSignIn /></div>
+                  <SandboxHint className="mt-3" />
                 </Panel>
               )}
             </motion.div>

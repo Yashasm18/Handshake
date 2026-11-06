@@ -119,6 +119,23 @@ const callback = (await import("@/app/api/auth/paypal/callback/route")).GET;
 const me = (await import("@/app/api/auth/me/route")).GET;
 const signout = (await import("@/app/api/auth/signout/route")).POST;
 
+describe("test mode", () => {
+  it("tells the site it's on PayPal's sandbox (so it asks for a sandbox account), and not once it points at live PayPal", async () => {
+    const saved = process.env.PAYPAL_API_BASE;
+    try {
+      delete process.env.PAYPAL_API_BASE;
+      expect((await (await me()).json()).sandbox).toBe(true);
+      process.env.PAYPAL_API_BASE = "https://api-m.sandbox.paypal.com";
+      expect((await (await me()).json()).sandbox).toBe(true);
+      process.env.PAYPAL_API_BASE = "https://api-m.paypal.com";
+      expect((await (await me()).json()).sandbox).toBe(false);
+    } finally {
+      if (saved === undefined) delete process.env.PAYPAL_API_BASE;
+      else process.env.PAYPAL_API_BASE = saved;
+    }
+  });
+});
+
 describe("the sign-in round trip", () => {
   function paypal(profile: object = { payer_id: "SELLERPAYER1", name: "Sam Seller", given_name: "Sam", emails: [{ value: "sam@example.com", primary: true }], verified_account: true }) {
     const calls: { url: string; body?: string }[] = [];

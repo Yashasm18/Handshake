@@ -1,3 +1,4 @@
+import { isSandbox } from "@/lib/server/paypal";
 import { loginEnabled } from "@/lib/server/paypal-login";
 import { currentAccount, sessionSecret } from "@/lib/server/session";
 
@@ -5,7 +6,7 @@ import { currentAccount, sessionSecret } from "@/lib/server/session";
 export async function GET() {
   const a = await currentAccount();
   return Response.json(
-    { enabled: loginEnabled() && Boolean(sessionSecret()), account: a && { name: a.name, firstName: a.firstName, email: a.email, verified: a.verified } },
+    { enabled: loginEnabled() && Boolean(sessionSecret()), sandbox: isSandbox(), account: a && { name: a.name, firstName: a.firstName, email: a.email, verified: a.verified } },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

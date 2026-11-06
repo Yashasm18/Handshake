@@ -2,6 +2,8 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 const BASE = process.env.PAYPAL_API_BASE ?? "https://api-m.sandbox.paypal.com";
+// True unless the server points at PayPal's live API. The site tells people to use sandbox accounts then.
+export const isSandbox = () => !/^https:\/\/api-m\.paypal\.com/.test(process.env.PAYPAL_API_BASE ?? "https://api-m.sandbox.paypal.com");
 
 // Two PayPal apps: "main" takes payments (orders, holds, captures, sign-in); "payouts" pays sellers.
 // They can be the same app. A separate payouts app has its own balance, so money held on the main

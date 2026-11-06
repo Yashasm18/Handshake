@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ICONS } from "./brand-icons";
 
-export type Me = { enabled: boolean; account: { name: string; firstName: string; email?: string; verified: boolean } | null };
+// `sandbox`: the site runs on PayPal's sandbox, so sign-in needs a sandbox account, not a real one.
+export type Me = { enabled: boolean; sandbox?: boolean; account: { name: string; firstName: string; email?: string; verified: boolean } | null };
 
 // One request per page load, shared by every component that asks who is signed in.
 let pending: Promise<Me> | null = null;
@@ -82,6 +83,18 @@ export function PayPalSignIn({ next, label = "Sign in with PayPal", size = "md",
   );
 }
 
+// Next to a sign-in button while the site runs on PayPal's sandbox: real PayPal accounts can't sign in
+// there, so say so before someone tries, and what to do instead.
+export function SandboxHint({ skip, className = "" }: { skip?: string; className?: string }) {
+  const me = useMe();
+  if (!me?.sandbox) return null;
+  return (
+    <p className={`text-[13px] leading-relaxed text-muted ${className}`}>
+      <span className="font-semibold text-ink">Test mode:</span> use a PayPal sandbox account, not your real one{skip ? `, or ${skip}` : ""}.
+    </p>
+  );
+}
+
 export function VerifiedTick({ className = "size-4" }: { className?: string }) {
   return (
     <svg viewBox="0 0 20 20" className={className} aria-hidden>
@@ -90,6 +103,12 @@ export function VerifiedTick({ className = "size-4" }: { className?: string }) {
     </svg>
   );
 }
+
+// After a cancelled or failed sign-in on the sandbox, the likely reason is a real PayPal account.
+const SANDBOX_NOTICES: Record<string, string> = {
+  cancelled: "Sign-in cancelled. This demo runs on PayPal's sandbox, so real PayPal accounts won't work here. Use a sandbox account, or skip sign-in and pay with the test card.",
+  failed: "PayPal sign-in didn't work. This demo runs on PayPal's sandbox: use a sandbox account, not your real one, or skip sign-in and pay with the test card.",
+};
 
 const NOTICES: Record<string, { text: string; tone: "safe" | "alert" }> = {
   ok: { text: "Signed in with PayPal.", tone: "safe" },
@@ -101,7 +120,7 @@ const NOTICES: Record<string, { text: string; tone: "safe" | "alert" }> = {
 
 // The ?signin= outcome PayPal's round trip came back with: shown once, then removed from the address bar.
 function useSignInNotice() {
-  const [notice, setNotice] = useState<(typeof NOTICES)[string] | null>(null);
+  const [notice, setNotice] = useState<{ key: string; text: string; tone: "safe" | "alert" } | null>(null);
   useEffect(() => {
     const url = new URL(window.location.href);
     const outcome = url.searchParams.get("signin");
@@ -110,8 +129,9 @@ function useSignInNotice() {
     history.replaceState(history.state, "", url.pathname + url.search + url.hash);
     const n = NOTICES[outcome];
     if (!n) return;
-    queueMicrotask(() => setNotice(n));
-    const t = setTimeout(() => setNotice(null), 5000);
+    queueMicrotask(() => setNotice({ key: outcome, ...n }));
+    // The longer sandbox explanation stays up long enough to read.
+    const t = setTimeout(() => setNotice(null), SANDBOX_NOTICES[outcome] ? 12_000 : 5000);
     return () => clearTimeout(t);
   }, []);
   return notice;
@@ -120,7 +140,8 @@ function useSignInNotice() {
 // Top-right of every page: a sign-in button, or the signed-in person with My deals and Sign out.
 export function AccountMenu() {
   const me = useMe();
-  const notice = useSignInNotice();
+  const raw = useSignInNotice();
+  const notice = raw && { ...raw, text: (me?.sandbox && SANDBOX_NOTICES[raw.key]) || raw.text };
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
@@ -138,7 +159,7 @@ export function AccountMenu() {
   }, [open]);
 
   const toast = notice && (
-    <p role="status" className={`absolute right-0 top-14 whitespace-nowrap rounded-full px-4 py-2 text-[14px] text-paper shadow-lg ${notice.tone === "safe" ? "bg-safe" : "bg-alert"}`}>
+    <p role="status" className={`fixed inset-x-4 top-[72px] z-50 rounded-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-14 sm:w-max sm:max-w-[380px] px-4 py-2.5 text-[14px] leading-snug text-paper shadow-lg ${notice.tone === "safe" ? "bg-safe" : "bg-alert"}`}>
       {notice.text}
     </p>
   );
@@ -147,7 +168,7 @@ export function AccountMenu() {
   if (!me.account) {
     return (
       <div className="relative">
-        <button type="button" onClick={() => startSignIn()} className="flex h-10 items-center gap-2 rounded-full border border-ink/15 px-3 text-[14px] text-ink transition-colors hover:border-ink/40 sm:px-4" aria-label="Sign in with PayPal">
+        <button type="button" onClick={() => startSignIn()} className="flex h-10 items-center gap-2 rounded-full border border-ink/15 px-3 text-[14px] text-ink transition-colors hover:border-ink/40 sm:px-4" aria-label="Sign in with PayPal" title={me.sandbox ? "Test mode: use a PayPal sandbox account, not your real one" : undefined}>
           <PayPalMark className="size-4" />
           <span className="hidden sm:inline">Sign in</span>
         </button>

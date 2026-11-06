@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { PayPalSignIn } from "@/components/account";
+import { PayPalSignIn, SandboxHint } from "@/components/account";
 import { Arrow, Button, Nav } from "@/components/chrome";
 import { Footer } from "@/components/feature";
 import { dealsForAccount } from "@/lib/server/deals";
@@ -83,6 +83,7 @@ async function MyDeals() {
           Sign in with PayPal to see every deal you&apos;re selling or buying, on any phone or computer. Deals you paid for by logging in to PayPal show up here too.
         </p>
         <div className="mt-10"><PayPalSignIn next="/deals" size="lg" /></div>
+        <SandboxHint skip="skip sign-in: any deal link lets you pay with the test card" className="mt-4" />
       </div>
     );
   }
