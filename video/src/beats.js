@@ -83,7 +83,7 @@ export const beats = [
   {
     id: "outro",
     kind: "title",
-    vo: "Handshake. Buy from strangers, and keep your money. Powered by PayPal, with Channel3, Render, Kernel, and Elastic.",
-    caption: "Buy from strangers. Keep your money.",
+    vo: "Handshake. Trust the deal, not the stranger. Powered by PayPal, with Channel3, Render, Kernel, and Elastic.",
+    caption: "Trust the deal, not the stranger.",
   },
 ];

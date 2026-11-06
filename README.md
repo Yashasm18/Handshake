@@ -7,7 +7,7 @@
 
 # Handshake
 
-### Buy from strangers. Keep your money.
+### Trust the deal, not the stranger.
 
 AI catches the scam before money moves. PayPal holds the money until the item really arrives.<br>
 Agents negotiate a fair price, and every deadline enforces itself.

@@ -156,7 +156,7 @@ function TitleCard({ local, frames, intro }) {
           <span style={{ fontFamily: display, fontWeight: 600, fontSize: intro ? 120 : 104, letterSpacing: "-0.045em", color: INK }}>Handshake</span>
         </div>
         <div style={{ fontFamily: serif, fontSize: intro ? 44 : 50, color: "rgba(243,241,236,.78)", marginTop: 26 }}>
-          {intro ? "Buy from a stranger, safely." : "Buy from strangers. Keep your money."}
+          {intro ? "Buy from a stranger, safely." : "Trust the deal, not the stranger."}
         </div>
         {!intro && (
           <div style={{ marginTop: 70, opacity: sponsorIn, display: "flex", alignItems: "center", gap: 54 }}>

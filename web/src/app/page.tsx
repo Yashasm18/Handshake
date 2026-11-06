@@ -28,7 +28,7 @@ export default function Home() {
             <span className="size-1.5 rounded-full bg-safe" /> For anyone buying or selling with a stranger
           </p>
           <RevealText
-            text={"Buy from strangers.\nKeep your money."}
+            text={"Trust the deal,\nnot the stranger."}
             className="display text-[clamp(52px,10.5vw,168px)]"
             delay={0.05}
             stagger={0.05}
