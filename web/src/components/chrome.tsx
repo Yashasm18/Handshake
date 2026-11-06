@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, useMotionValueEvent, useScroll } from "motion/react";
-import { AccountMenu } from "./account";
+import { AccountMenu, TestModeBar } from "./account";
 import { Suspense, useState, useSyncExternalStore, type ComponentProps, type MouseEvent } from "react";
 
 export function Logo({ className = "" }: { className?: string }) {
@@ -51,6 +51,7 @@ export function Nav() {
   useMotionValueEvent(scrollY, "change", (y) => setSolid(y > 20));
   return (
     <motion.header className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${solid ? "bg-paper/80 backdrop-blur-md" : ""}`}>
+      <TestModeBar />
       <nav className="mx-auto flex h-[72px] max-w-[1400px] items-center justify-between px-5 md:px-10">
         <Logo />
         {/* Reading the URL needs a Suspense boundary on dynamic routes; the fallback is the same links, unhighlighted. */}

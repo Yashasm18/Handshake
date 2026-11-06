@@ -167,3 +167,11 @@ html.lenis body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Test mode (PayPal sandbox): a 31px bar sits above the menu, so every page moves down by its height. */
+html[data-sandbox] {
+  --test-bar: 31px;
+}
+html[data-sandbox] body {
+  padding-top: var(--test-bar);
+}

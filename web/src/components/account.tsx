@@ -95,6 +95,25 @@ export function SandboxHint({ skip, className = "" }: { skip?: string; className
   );
 }
 
+// A slim line at the very top of every page while the site runs on PayPal's sandbox: it's a test-mode
+// demo, no real money moves, and sign-in needs a sandbox account. Gone when the site points at live PayPal.
+// Read from <html data-sandbox>, which the server sets, so the bar and the space reserved for it agree.
+const sandboxPage = () => document.documentElement.hasAttribute("data-sandbox");
+const noChange = () => () => {};
+export function TestModeBar() {
+  const sandbox = useSyncExternalStore(noChange, sandboxPage, () => false);
+  if (!sandbox) return null;
+  return (
+    <div className="h-[31px] overflow-hidden border-b border-ink/10 bg-ink/[0.04] text-center text-[12.5px] leading-[30px] text-muted">
+      <span className="font-semibold text-ink">Test mode</span>
+      <span> · PayPal sandbox, no real money moves.</span>
+      <span className="hidden md:inline"> Sign in with a sandbox account, or </span>
+      <Link href="/check" className="hidden underline decoration-ink/30 underline-offset-2 hover:text-ink md:inline">try a deal without signing in</Link>
+      <span className="hidden md:inline">.</span>
+    </div>
+  );
+}
+
 export function VerifiedTick({ className = "size-4" }: { className?: string }) {
   return (
     <svg viewBox="0 0 20 20" className={className} aria-hidden>
@@ -159,7 +178,7 @@ export function AccountMenu() {
   }, [open]);
 
   const toast = notice && (
-    <p role="status" className={`fixed inset-x-4 top-[72px] z-50 rounded-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-14 sm:w-max sm:max-w-[380px] px-4 py-2.5 text-[14px] leading-snug text-paper shadow-lg ${notice.tone === "safe" ? "bg-safe" : "bg-alert"}`}>
+    <p role="status" className={`fixed inset-x-4 top-[calc(76px+var(--test-bar,0px))] z-50 rounded-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-14 sm:w-max sm:max-w-[380px] px-4 py-2.5 text-[14px] leading-snug text-paper shadow-lg ${notice.tone === "safe" ? "bg-safe" : "bg-alert"}`}>
       {notice.text}
     </p>
   );

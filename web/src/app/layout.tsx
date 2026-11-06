@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Inter, Inter_Tight, JetBrains_Mono, Newsreader } from "next/font/google";
 import { SmoothScroll } from "@/components/smooth-scroll";
 import { InlineScript } from "@/components/inline-script";
+import { isSandbox } from "@/lib/server/paypal";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
@@ -31,7 +32,8 @@ const themeScript = `(function(){try{var d=document.documentElement,m=matchMedia
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${interTight.variable} ${newsreader.variable} ${jetbrains.variable} ${geist.variable}`}>
+    // data-sandbox shows the test-mode bar and reserves its height before the first paint (globals.css).
+    <html lang="en" suppressHydrationWarning data-sandbox={isSandbox() ? "" : undefined} className={`${inter.variable} ${interTight.variable} ${newsreader.variable} ${jetbrains.variable} ${geist.variable}`}>
       <head>
         <InlineScript html={themeScript} />
       </head>
