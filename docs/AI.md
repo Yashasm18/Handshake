@@ -19,10 +19,19 @@ Handshake uses AI to **read and argue**, and deterministic code to **decide and 
 ## What we use
 
 - **[Claude](https://www.anthropic.com/claude) Haiku 5.5** (primary) via **[OpenRouter](https://openrouter.ai/)**, with **GPT-6 Luna** as an automatic fallback if a call errors or stalls.
+- **[Groq](https://groq.com/)'s free tier** (Qwen, which reads images and follows strict schemas) as the backup if OpenRouter can't answer, for example when its credit runs out. It needs reasoning switched off for strict JSON, gets one retry after a short rate limit, and has its punctuation repaired before anyone sees it. It allows only a few image checks a minute, so it keeps single checks working rather than replacing the paid models.
 - **Structured outputs** (`response_format: json_schema`, strict) so every answer has a fixed shape.
 - **[Zod](https://zod.dev/)** schemas that define those shapes and validate every response before code uses it. Anything outside the schema is dropped.
 
-Code: [`ai.ts`](../web/src/lib/server/ai.ts).
+Code: [`ai.ts`](../web/src/lib/server/ai.ts). `AI_MODELS` changes the order without a code change.
+
+### When every model is unavailable
+
+Each step that uses AI runs it before changing anything. If no model can answer, the step stops with nothing moved (no hold, capture, shipment or refund) and the person sees: *"Our AI checks are unavailable for a moment. Nothing was charged, shipped or released. Try again in a few minutes."* The negotiation falls back to a rule-based step, so a deal still moves. The [status page](https://usehandshake.onrender.com/status) shows when paid AI is low or out of credit, and the team gets an alert email.
+
+### People's data
+
+Chats, labels and addresses are personal data. Every OpenRouter request asks for providers whose published policy is not to store or train on requests (`provider.data_collection: deny`); a request no such provider can serve is refused rather than sent elsewhere. This rests on those providers' own policies. Groq's terms say it doesn't train on requests and may keep them for up to 30 days for reliability and abuse checks. The [privacy page](https://usehandshake.onrender.com/privacy) says the same.
 
 ## Where the AI works
 
@@ -35,7 +44,7 @@ Code: [`ai.ts`](../web/src/lib/server/ai.ts).
 
 ## Agent negotiation
 
-A buyer backs an offer with a PayPal hold at their secret max; the seller set a secret floor. Two agents negotiate turn by turn, arguing from [Channel3](sponsors/channel3.md) prices and a code-computed fair range. The seller's agent can accept within its floor, even while the seller is offline.
+A buyer backs an offer with a PayPal hold at their secret max; the seller set a secret floor. Two agents negotiate turn by turn, arguing from [Channel3](sponsors/channel3.md) prices that Handshake looks up itself for the deal's title (never the seller's own scan, which could have come from another listing) and a code-computed fair range. The seller's agent can accept within its floor, even while the seller is offline.
 
 A **code referee** ([`negotiate.ts`](../web/src/lib/server/negotiate.ts)) checks every turn:
 
@@ -56,6 +65,7 @@ A **code referee** ([`negotiate.ts`](../web/src/lib/server/negotiate.ts)) checks
 - **Vision and text in one model.** The same Claude call reads a chat screenshot, a label photo, or damage on a controller.
 - **Strict structured outputs.** Combined with Zod, they turned free-form model output into typed data we can trust.
 - **OpenRouter's single API** made a second model a one-line fallback instead of a second integration.
+- **Provider routing rules** let us require providers that don't keep or train on people's data, per request.
 
 ## Official resources
 
@@ -65,4 +75,4 @@ A **code referee** ([`negotiate.ts`](../web/src/lib/server/negotiate.ts)) checks
 
 ## Credits
 
-Reasoning and vision by **Claude** (Anthropic), routed through **OpenRouter**, with responses validated by **Zod**.
+Reasoning and vision by **Claude** (Anthropic), routed through **OpenRouter**, with **Groq** as the backup and responses validated by **Zod**. Built with **Claude Code** as a pair programmer.

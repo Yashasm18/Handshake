@@ -31,7 +31,10 @@ flowchart TB
     APP -->|product search| C3["Channel3"]
     APP -->|open a pasted link| K["Kernel<br/>cloud browser"]
     APP -->|scam memory| ES["Elasticsearch<br/>+ Jina models"]
-    APP -->|structured outputs| AI["Claude via OpenRouter"]
+    APP -->|structured outputs| AI["Claude and GPT via OpenRouter<br/>Groq's free tier as backup"]
+    APP <-->|signed webhooks| EP["EasyPost<br/>parcel tracking"]
+    APP -->|deal emails and reminders| GM["Gmail"]
+    UI -. "PayPal checkout (JS SDK)" .-> PAYPAL
 ```
 
 ## Deal lifecycle

@@ -54,9 +54,13 @@ Run these from `web/` (CI runs the same on every pull request):
 ```bash
 npm run lint
 npm run typecheck   # generates Next.js route types, then runs tsc
-npm test
+npm test            # the suite on the file store
+npm run test:pg     # the same suite on a real Postgres engine (PGlite)
+node ../scripts/check-test-counts.mjs app   # the test counts the site quotes still match
 npm run build
 ```
+
+Tests never reach a real service: the setup removes every production setting, and any real database connection or network call throws. Mock what a test needs.
 
 And from `workflows/`:
 

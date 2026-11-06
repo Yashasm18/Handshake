@@ -21,8 +21,9 @@ Handshake runs entirely on Render, defined in a single Blueprint ([`render.yaml`
 | Piece | Render feature | What it does for Handshake |
 |---|---|---|
 | **Web service** | Node web service, **Starter** plan | Runs the Next.js app and its API. Always on, so a judge's first click is instant. |
-| **Persistent disk** | 1 GB disk at `/var/data` | Deals and their clocks survive redeploys and restarts. Writes are atomic (write, then rename). |
-| **Tests gate deploys** | `buildCommand: npm ci && npm test && npm run build` | The money-rule tests run before every build. If they fail, the deploy stops and the live site keeps working. |
+| **Render Postgres** | `handshake-db`, reached over Render's private network | Every deal and its history, with indexed lookups and a per-deal advisory lock so two servers never run the same money step. Daily backups. |
+| **Persistent disk** | 1 GB disk at `/var/data` | Keeps the original JSON deal file as a backup; it was imported into Postgres once, on the first start with a database. |
+| **Tests gate deploys** | `buildCommand: npm ci && npm test && npm run test:pg && npm run build` | The whole suite runs twice before every build, on the file store and on a real Postgres engine. If anything fails, the deploy stops and the live site keeps working. The tests strip every production setting first, so a build can never touch the live database. |
 | **Deadline enforcement** | **Render Workflows** (TypeScript SDK) | Two tasks, `sweepDeals` and `enforceDeadline`, with per-run instances and automatic retries. |
 | **Scheduler** | **Cron job**, every 5 minutes | Starts each sweep; workflows don't schedule themselves yet. |
 | **Shared secret** | Blueprint **environment group** with `generateValue` | Render generates the secret the app uses to trust the workflow. Nobody types it. |
@@ -74,7 +75,7 @@ sweep 2: 0 due               nothing runs twice
 
 - **Tasks as plain functions.** `task()` plus `ctx.run()` turned "fan out one job per deal, retry each" into a few lines.
 - **Retries and observability for free.** Every run shows up in the dashboard with its inputs and result, which made debugging the sweep easy.
-- **Blueprints.** The web service, disk, workflow, cron and generated secret all live in one file, so the whole system deploys from the repo.
+- **Blueprints.** The web service, Postgres, disk, workflow, cron and generated secret all live in one file, so the whole system deploys from the repo. Adding the database was one Blueprint sync.
 - **Tests in the build command.** A failing money rule simply never reaches production.
 
 ## Official Render resources
@@ -84,9 +85,10 @@ sweep 2: 0 due               nothing runs twice
 - [Defining tasks](https://render.com/docs/workflows-defining-tasks)
 - [Triggering runs](https://render.com/docs/workflows-running)
 - [Cron jobs](https://render.com/docs/cronjobs)
+- [Render Postgres](https://render.com/docs/postgresql)
 - [Persistent disks](https://render.com/docs/disks)
 - [Blueprint reference](https://render.com/docs/blueprint-spec)
 
 ## Credits
 
-Hosted on **[Render](https://render.com/)**: web service, persistent disk, Workflows and cron. Thank you to the Render team for the hackathon credits.
+Hosted on **[Render](https://render.com/)**: web service, Render Postgres, persistent disk, Workflows and cron. Thank you to the Render team for the hackathon credits.
