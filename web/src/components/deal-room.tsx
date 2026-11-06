@@ -766,15 +766,19 @@ function DealFacts({ deal }: { deal: Deal }) {
           {deal.checklist.map((c) => <li key={c}>— {c}</li>)}
         </ul>
       )}
-      {m && (
+      {m && m.medianCents > 0 && (
+        // Worked out from this deal's own price, and naming what was priced, so a check made for some
+        // other listing can't make this one look fairly priced.
         <p className="mt-5 border-t hairline pt-4 text-[14px] text-muted">
-          Retail median {usd(m.medianCents)} across {m.comps.length} stores. This deal is{" "}
-          {m.belowMarketPct != null && m.belowMarketPct > 0 ? `${m.belowMarketPct}% under retail` : "at or above retail"}.
+          Retail median for &ldquo;{m.query}&rdquo; is {usd(m.medianCents)} across {m.comps.length} stores. This deal is{" "}
+          {deal.priceCents < m.medianCents ? `${Math.round(((m.medianCents - deal.priceCents) / m.medianCents) * 100)}% under retail` : "at or above retail"}.
         </p>
       )}
-      {deal.scan && (
-        <p className={`mt-3 text-[14px] ${deal.scan.risk === "LOW" ? "text-safe" : deal.scan.risk === "MEDIUM" ? "text-held" : "text-alert"}`}>
-          ● Scam check: {deal.scan.risk === "LOW" ? "no red flags" : `${deal.scan.flags.length} warning${deal.scan.flags.length === 1 ? "" : "s"}`}
+      {/* The seller ran this check on what they chose to paste, so it can't vouch for them: a clean
+          result isn't shown to buyers as a badge. Warnings are, because a seller has no reason to fake them. */}
+      {deal.scan && deal.scan.risk !== "LOW" && (
+        <p className={`mt-3 text-[14px] ${deal.scan.risk === "MEDIUM" ? "text-held" : "text-alert"}`}>
+          ● The seller&apos;s listing raised {deal.scan.flags.length} warning{deal.scan.flags.length === 1 ? "" : "s"} in Handshake&apos;s check.
         </p>
       )}
     </div>

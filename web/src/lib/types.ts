@@ -104,7 +104,10 @@ export type Negotiation = {
   askingCents: number;
   // Buyer-only secret: the hold amount and the most their agent may offer.
   maxCents?: number;
-  // Fair price band for this item in this condition, computed in code from retail comps.
+  // Retail prices Handshake looked up itself for this deal's title when the negotiation started (never
+  // the seller's own scan, which they could have run on another listing). undefined until looked up.
+  market?: Market | null;
+  // Fair price band for this item in this condition, computed in code from that lookup.
   fair: { lowCents: number; highCents: number } | null;
   turns: Turn[];
   agreedCents?: number;

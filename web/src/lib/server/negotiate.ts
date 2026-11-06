@@ -4,6 +4,7 @@ import { fairBand } from "../fair";
 import type { Deal, Negotiation, Turn } from "../types";
 import { usd } from "../types";
 import { structured, text, untrusted } from "./ai";
+import { marketFor } from "./checks";
 import { getDeal, log, withDeal } from "./deals";
 import { voidHold } from "./paypal";
 
@@ -37,7 +38,7 @@ export type Allowed = { prices: number[]; specs: number[] };
 // specs are unit-tagged numbers from the listing ("128GB"). The seller writes the listing, so specs
 // can never make a number near a limit count as public.
 function allowedFigures(deal: Deal, n: Negotiation): Allowed {
-  const m = deal.scan?.market;
+  const m = n.market;
   const prices = [n.askingCents, m?.medianCents, n.fair?.lowCents, n.fair?.highCents, ...n.turns.map((t) => t.offerCents)].filter((c): c is number => !!c).map(dollars);
   return { prices, specs: specsIn([deal.title, deal.condition, ...deal.checklist].join(" ")) };
 }
@@ -63,7 +64,7 @@ export function messageProblem(message: string, limitCents: number, allowed: All
 }
 
 async function agentTurn(deal: Deal, n: Negotiation, role: "buyer" | "seller", limitCents: number) {
-  const m = deal.scan?.market;
+  const m = n.market;
   const range = allowedRange(n, role, limitCents);
   // FACTS holds only values Handshake computed or validated; everything the seller typed goes in LISTING.
   const facts = [
@@ -148,7 +149,8 @@ export function startNegotiation(deal: Deal) {
     status: "RUNNING",
     askingCents: deal.priceCents,
     maxCents: deal.pendingOfferCents,
-    fair: fairBand(deal.condition, deal.scan?.market),
+    // Looked up by Handshake when the negotiation runs (see negotiate), not taken from the seller's scan.
+    fair: null,
     turns: [],
     startedAt: new Date().toISOString(),
   };
@@ -203,6 +205,17 @@ async function negotiate(id: string) {
     const deal = await getDeal(id);
     const n = deal?.negotiation;
     if (!deal || deal.status !== "NEGOTIATING" || !n || n.status !== "RUNNING") return;
+    // First, Handshake's own retail lookup for this deal's title: both agents argue from it.
+    if (n.market === undefined) {
+      const market = await marketFor(deal.title, deal.priceCents).catch(() => null);
+      await withDeal(id, async (d) => {
+        if (d.negotiation && d.negotiation.market === undefined) {
+          d.negotiation.market = market;
+          d.negotiation.fair = fairBand(d.condition, market);
+        }
+      });
+      continue;
+    }
     const role = n.turns.length % 2 === 0 ? "buyer" : "seller";
     const limit = role === "buyer" ? n.maxCents! : deal.floorCents!;
 

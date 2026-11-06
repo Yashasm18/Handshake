@@ -2,11 +2,15 @@ import "server-only";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { sessionSecret } from "./session";
 
-// A scam check is shown to buyers on the deal page ("Scam check: no red flags", the retail median), so
-// it must be Handshake's own result. The scan travels through the seller's browser between the check
-// and creating the deal, so the server seals it with a keyed signature, and a deal only accepts a scan
-// whose seal still matches: a forged or edited scan is refused. A seal lasts a day, enough for a seller
-// to sign in with PayPal and come back to their draft.
+// A scan stored on a deal must be Handshake's own result. It travels through the seller's browser between
+// the check and creating the deal, so the server seals it with a keyed signature, and a deal only accepts
+// a scan whose seal still matches: a forged or edited scan is refused. A seal lasts a day, enough for a
+// seller to sign in with PayPal and come back to their draft.
+//
+// A seal proves Handshake ran a check, not that it was a check of this deal: a seller chooses what to
+// scan. So nothing downstream trusts a seller's scan to vouch for them. The deal page shows its warnings
+// but never a clean badge, works out "under retail" from the deal's own price, and the negotiating agents
+// use Handshake's own retail lookup for the deal's title (negotiate.ts), not the seller's scan.
 export const SEAL_MAX_AGE_MS = 24 * 60 * 60_000;
 
 // Without a configured secret (local runs), a per-process one: seals still can't be forged, they just
