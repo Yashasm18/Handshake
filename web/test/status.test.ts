@@ -92,20 +92,20 @@ describe("the checks", () => {
 
   it("AI credit running out is flagged before it fails", async () => {
     answer = { "openrouter.ai": () => Response.json({ data: { limit_remaining: 0.2 } }) };
-    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "Key 1 credit nearly used up" });
+    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "AI credit nearly used up" });
   });
 
   it("a key at $0 is a warning while OpenRouter still answers; once it actually refuses, the row goes down (the alert)", async () => {
     const skip = ((globalThis as { __hsKeySkip?: Map<string, unknown> }).__hsKeySkip = new Map());
     answer = { "/api/v1/credits": () => Response.json({ data: { total_credits: 0, total_usage: 0.1 } }) };
-    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "Key 1 has $0 credit (still answering, may stop any time)" });
+    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "AI credit is low; still answering" });
     g.__hsStatus = new Map();
     skip.set("or-SECRET", { until: Date.now() + 60_000, why: "credit" });
-    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "down", note: "Out of credit: running on free backup models" });
+    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "down", note: "Paid AI is out of credit: running on the free backup" });
     skip.clear();
     g.__hsStatus = new Map();
     answer = { "/api/v1/credits": () => Response.json({ data: { total_credits: 5, total_usage: 4.5 } }) };
-    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "Key 1 credit nearly used up" });
+    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "AI credit nearly used up" });
     g.__hsStatus = new Map();
     answer = { "/api/v1/credits": () => Response.json({ data: { total_credits: 10, total_usage: 1 } }) };
     expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "up" });
@@ -120,12 +120,19 @@ describe("the checks", () => {
     );
     try {
       refuse("or-SECRET", "or-2-SECRET");
-      expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "Keys 1 and 2 out of credit; using key 3" });
+      // Switching to key 3 is invisible to the public: paid AI still answers. The detail is the owner's.
+      expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "up", note: undefined, detail: "4 OpenRouter keys; keys 1 and 2 refused for credit; using key 3 (ok)" });
       g.__hsStatus = new Map();
       refuse("or-3-SECRET", "or-4-SECRET");
       smtp.sendMail.mockClear();
-      expect(byId(await status.checkAll({ now: T + 10 * 60_000 }), "ai")).toMatchObject({ status: "down", note: "All 4 OpenRouter keys are out of credit: running on free backup models" });
+      expect(byId(await status.checkAll({ now: T + 10 * 60_000 }), "ai")).toMatchObject({ status: "down", note: "Paid AI is out of credit: running on the free backup" });
       expect(alerts().map((a) => a.subject)).toContain("Handshake alert: AI agents (OpenRouter) is down");
+      // The owner's email has the key detail; the public API never shows it.
+      const email = smtp.sendMail.mock.calls.map((c) => (c as unknown as [{ text: string }])[0].text).find((t) => t.includes("AI agents"));
+      expect(email).toContain("Details (not shown on the public page): 4 OpenRouter keys; keys 1, 2, 3 and 4 refused for credit.");
+      const json = await (await route()).text();
+      expect(json).not.toMatch(/key 1|keys 1|OpenRouter keys/i);
+      expect(JSON.parse(json).checks.find((c: { id: string }) => c.id === "ai")).toMatchObject({ status: "down", note: "Paid AI is out of credit: running on the free backup" });
     } finally {
       skip.clear();
       for (const n of [2, 3, 4]) delete process.env[`OPENROUTER_API_KEY_${n}`];

@@ -9,9 +9,12 @@ import { sendEmail } from "./email";
 // cheapest real request that proves the service answers with our credentials; none of them creates
 // anything or spends credits (Channel3, whose searches may cost credits, is checked every 6 hours).
 export type ServiceStatus = "up" | "slow" | "down" | "off";
-export type Check = { id: string; name: string; role: string; status: ServiceStatus; ms?: number; checkedAt: string; note?: string };
+// `note` is public. `detail` is for the owner only: it goes into alert emails and the server log, and
+// /api/status strips it.
+export type Check = { id: string; name: string; role: string; status: ServiceStatus; ms?: number; checkedAt: string; note?: string; detail?: string };
 
-type Probe = { id: string; name: string; role: string; ttlMs: number; enabled: () => boolean; run: () => Promise<string | void> };
+type ProbeResult = string | { note?: string; detail?: string } | void;
+type Probe = { id: string; name: string; role: string; ttlMs: number; enabled: () => boolean; run: () => Promise<ProbeResult> };
 
 const MIN = 60_000;
 // A first request includes a fresh TLS connection; only beyond this is a service called slow.
@@ -77,29 +80,26 @@ export const PROBES: Probe[] = [
     role: "Scam checks, label reading, claims and negotiation",
     ttlMs: 5 * MIN,
     enabled: () => openRouterKeys().length > 0,
-    // Each key belongs to its own OpenRouter account with its own credit; the AI uses key 1, then 2,
-    // 3, 4. The row says which keys are empty, and goes down (which emails the alert) only when every
-    // key is out of credit, leaving the free backups.
+    // The AI uses its OpenRouter keys in order. The public row only says whether paid AI is answering;
+    // which keys are empty is detail for the owner (alert email and log). It goes down, which emails the
+    // alert, only when every key has actually been refused, leaving the free backup.
     run: async () => {
       const keys = openRouterKeys();
       const states = await Promise.all(keys.map(keyState));
-      const n = keys.length;
       if (states.every((s) => s === "refused" || s === "error")) throw states.includes("refused") ? new Error("401") : new Error("No answer");
       const usable = states.flatMap((s, i) => (s === "ok" || s === "low" || s === "zero" ? [i + 1] : []));
-      if (!usable.length) {
-        throw Object.assign(new Error("all out"), { safeNote: n > 1 ? `All ${n} OpenRouter keys are out of credit: running on free backup models` : "Out of credit: running on free backup models" });
-      }
       const empty = states.flatMap((s, i) => (s === "empty" ? [i + 1] : []));
       const bad = states.flatMap((s, i) => (s === "refused" || s === "error" ? [i + 1] : []));
-      const inUse = states[usable[0] - 1];
-      const notes = [
-        empty.length ? `${plural("key", empty)} out of credit` : "",
+      const detail = [
+        `${keys.length} OpenRouter key${keys.length === 1 ? "" : "s"}`,
+        empty.length ? `${plural("key", empty)} refused for credit` : "",
         bad.length ? `${plural("key", bad)} not answering` : "",
-        empty.length || bad.length ? `using key ${usable[0]}` : "",
-        inUse === "low" ? `key ${usable[0]} credit nearly used up` : "",
-        inUse === "zero" ? `key ${usable[0]} has $0 credit (still answering, may stop any time)` : "",
-      ].filter(Boolean);
-      if (notes.length) return notes.join("; ").replace(/^./, (c) => c.toUpperCase());
+        usable.length ? `using key ${usable[0]} (${states[usable[0] - 1]})` : "",
+      ].filter(Boolean).join("; ");
+      if (!usable.length) throw Object.assign(new Error("all out"), { safeNote: "Paid AI is out of credit: running on the free backup", safeDetail: detail });
+      const inUse = states[usable[0] - 1];
+      const note = inUse === "zero" ? "AI credit is low; still answering" : inUse === "low" ? "AI credit nearly used up" : undefined;
+      return { note, detail: empty.length || bad.length || note ? detail : undefined };
     },
   },
   {
@@ -209,14 +209,17 @@ async function runProbe(p: Probe, now: number): Promise<Check> {
   if (!p.enabled()) return { ...base, status: "off", note: "Not configured on this server" };
   const started = Date.now();
   try {
-    const note = await p.run();
+    const result = await p.run();
+    const { note, detail } = typeof result === "string" ? { note: result, detail: undefined } : (result ?? {});
     const ms = Date.now() - started;
-    return { ...base, status: ms > SLOW_MS || note ? "slow" : "up", ms, note: note ?? undefined };
+    if (detail) console.log("status", p.id, detail);
+    return { ...base, status: ms > SLOW_MS || note ? "slow" : "up", ms, note, detail };
   } catch (e) {
     // Only a short, generic reason is ever shown: never a key, URL or full error.
     // A probe may give its own reason, written here in this file (never text from a service).
-    const own = (e as { safeNote?: string }).safeNote;
-    if (own) return { ...base, status: "down", ms: Date.now() - started, note: own };
+    const own = e as { safeNote?: string; safeDetail?: string };
+    if (own.safeDetail) console.log("status", p.id, own.safeDetail);
+    if (own.safeNote) return { ...base, status: "down", ms: Date.now() - started, note: own.safeNote, detail: own.safeDetail };
     const msg = (e as Error).message ?? "";
     const code = msg.match(/\b(4\d\d|5\d\d)\b/)?.[1];
     const why = (e as Error).name === "TimeoutError" || /abort|timeout/i.test(msg) ? "Timed out" : code === "401" || code === "403" ? "Credentials refused" : code === "429" ? "Rate limited" : code ? `Error ${code}` : "No answer";
@@ -306,7 +309,8 @@ async function alertOnChange(next: Check) {
   const to = process.env.ALERT_EMAIL;
   if (!to || (!wentDown && !recovered)) return;
   const subject = wentDown ? `Handshake alert: ${next.name} is down` : `Handshake: ${next.name} recovered`;
-  const text = `${next.name} (${next.role}) is ${wentDown ? `down: ${next.note ?? "no answer"}` : "working again"}.\n\nStatus page: ${baseUrl()}/status`;
+  const details = wentDown && next.detail ? `\n\nDetails (not shown on the public page): ${next.detail}.` : "";
+  const text = `${next.name} (${next.role}) is ${wentDown ? `down: ${next.note ?? "no answer"}` : "working again"}.${details}\n\nStatus page: ${baseUrl()}/status`;
   await sendEmail({ to, subject, text, html: `<p>${text.replace(/\n/g, "<br>")}</p>` }).catch((e) => console.error("alert email", (e as Error).message));
 }
 
