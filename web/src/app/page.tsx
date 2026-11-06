@@ -1,5 +1,5 @@
 import { Arrow, Button, Nav } from "@/components/chrome";
-import { TESTS, TOTAL_TESTS } from "@/lib/facts";
+import { TOTAL_TESTS } from "@/lib/facts";
 import { WatchDeal } from "@/components/watch-deal";
 import { FadeIn, RevealText } from "@/components/motion";
 import { HowItWorks } from "@/components/how-it-works";
