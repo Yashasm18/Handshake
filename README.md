@@ -95,7 +95,7 @@ People buying and selling secondhand electronics, games, bikes, tickets and coll
 
 ## At a glance
 
-| | |
+| Area | What it is |
 |---|---|
 | **Live demo** | [usehandshake.onrender.com](https://usehandshake.onrender.com) (PayPal sandbox, test mode: no real money moves) |
 | **PayPal** | Orders (authorize, capture, partial capture, reauthorize, void, tracking), Payouts, Log in with PayPal, and the PayPal JS SDK. [Details](#paypal-in-handshake) |
@@ -142,8 +142,8 @@ stateDiagram-v2
 
 | Step | What happens | PayPal | AI and partners |
 |---|---|---|---|
-| **Check** | The chat, screenshot or link is checked for scam tricks and bait prices | | AI reads it; Channel3 prices it; Elastic remembers it; Kernel opens links |
-| **Hold** | The buyer pays, or backs an offer at a secret maximum | Order with `intent: AUTHORIZE` | |
+| **Check** | The chat, screenshot or link is checked for scam tricks and bait prices | Nothing moves yet: no money is touched until the deal looks safe | AI reads it; Channel3 prices it; Elastic remembers it; Kernel opens links |
+| **Hold** | The buyer pays, or backs an offer at a secret maximum | Order with `intent: AUTHORIZE` | None: holding the money is PayPal's job alone |
 | **Negotiate** (optional) | Two agents haggle within both owners' secret limits | The hold sits at the buyer's max | AI agents, refereed by code |
 | **Ship or meet** | The label must match the buyer's PayPal address; the parcel is tracked. Or the buyer scans the seller's code at a meetup | Verified shipping address from the order | AI reads the label; EasyPost tracks the parcel |
 | **Settle** | The fair amount is captured and the seller is paid | Capture (full or partial), tracking attached, Payout | AI prices damage from Channel3 part prices |
@@ -310,7 +310,7 @@ Handshake is tested three ways: **315 automated tests** that run on every push a
 | Listing links (Kernel) | 20 | 3 | Only public pages are opened, every browser is closed, store photos are flagged |
 | Scam memory (Elastic) | 21 | 6 | Reworded scams, reused details and photos are recognised; nobody can brand a seller with one fake report |
 | Status and alerts | 15 | 1 | Live checks, one alert per outage and recovery, and nothing secret ever shown |
-| Database (Postgres) | 9 | | Schema and indexes, locking under concurrent clicks, and tests that can never reach a real database |
+| Database (Postgres) | 9 | all 42 | Schema and indexes, locking under concurrent clicks, and tests that can never reach a real database; every live scenario runs on the production Postgres |
 
 The live runs and the final attack pass found real bugs, including a forgeable scam check and a test run that reached the production database, and every one is fixed and covered by a test. Results, PayPal sandbox ids and how to re-run them: **[docs/TESTING.md](docs/TESTING.md)**.
 

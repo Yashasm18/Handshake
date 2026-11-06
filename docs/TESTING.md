@@ -11,9 +11,9 @@
 Handshake moves other people's money, so every rule that touches it is tested twice:
 
 1. **Automated tests (315: 307 for the app, each run on both the file store and Postgres, plus 8 for the deadline workflow).** They run on every push in GitHub Actions and again on Render before every deploy. External services are replaced with fakes, so these tests check *our* rules: amounts, limits, states, retries and who can see what.
-2. **Live end-to-end scenarios (33).** A script drives a running Handshake server through real deals on the **PayPal sandbox**, with live **Channel3** prices, **Kernel** cloud browsers reading real listings, **Elastic** scam memory, and the real **AI models** reading real images. These check that everything works together.
+2. **Live end-to-end scenarios (42: 33 run by a script, 9 by hand).** A script drives a running Handshake server through real deals on the **PayPal sandbox**, with live **Channel3** prices, **Kernel** cloud browsers reading real listings, **Elastic** scam memory, and the real **AI models** reading real images. These check that everything works together.
 
-| | Automated | Live |
+| Detail | Automated | Live |
 |---|---|---|
 | Count | 315 tests | 42 scenarios |
 | Runs | Every push and every deploy | Before each release, and on demand |

@@ -78,7 +78,7 @@ Then I attacked the live site the way a scammer would: stolen links, forged webh
 
 ## By the numbers
 
-| | |
+| What | How many |
 |---|---|
 | Days | 4 |
 | PayPal REST calls | 9, plus PayPal's JS SDK checkout |
