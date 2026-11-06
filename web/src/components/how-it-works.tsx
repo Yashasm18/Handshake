@@ -27,8 +27,8 @@ const STEPS = [
   },
   {
     t: "Ship to the right place",
-    d: "Sellers snap the label. If it doesn't match the buyer's PayPal-verified address, we stop it before it ships somewhere PayPal Seller Protection may not cover.",
-    tag: "AI · Label check",
+    d: "Sellers snap the label. If it doesn't match the buyer's PayPal-verified address, we stop it before it ships. Then we follow the parcel with the carrier: a fake or reused tracking number blocks the payout.",
+    tag: "AI · Label check · EasyPost",
   },
   {
     t: "Settle in a minute, not a month",

@@ -96,9 +96,9 @@ export default function Home() {
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {[
               { href: "/agents", k: "Agents", n: "0", t: `times an agent crossed its owner's limit, across ${TOTAL_TESTS} automated tests and live prompt-injection runs.` },
-              { href: "/paypal", k: "PayPal", n: "7", t: "PayPal calls take a deal from hold to payout, each one run live on the sandbox in our end-to-end tests." },
+              { href: "/paypal", k: "PayPal", n: "9", t: "PayPal calls take a deal from a signed-in seller to a paid one, each run live on the sandbox in our end-to-end tests." },
               { href: "/channel3", k: "Channel3", n: "25k", t: "stores priced live to catch bait, set a fair range and price damaged parts." },
-              { href: "/render", k: "Render", n: "4", t: "deadlines enforced by a Render Workflow, tested to fire exactly once, so no deal can stall." },
+              { href: "/render", k: "Render", n: "8", t: "kinds of deadline enforced by a Render Workflow, each tested to fire exactly once, so no deal can stall." },
               { href: "/kernel", k: "Kernel", n: "1", t: "pasted link is all a buyer needs: a Kernel cloud browser reads the listing and spots store photos." },
               { href: "/elastic", k: "Elastic", n: "3", t: "ways scam memory recognizes a scam again: the same details, the same tactics, the same photo." },
             ].map((c, i) => (
@@ -144,7 +144,7 @@ export default function Home() {
             <div className="mt-16 grid gap-10 md:grid-cols-3">
               {[
                 ["PayPal holds it", "Your money sits in a PayPal authorization, not with us and not with the seller. If the deal falls apart, the hold is released and you pay nothing."],
-                ["Both people agree", "AI suggests an outcome. Nothing is captured until both of you tap accept. Hard limits mean a refund can never exceed what you paid."],
+                ["Both people get a say", "For a damage claim, AI suggests a fair refund. Nothing is captured until you both accept, or neither of you declines within 3 days. A refund can never exceed what you paid."],
                 ["Prices are real", "Market prices and repair costs come from live listings across 25,000 retailers, so a refund is evidence, not a guess."],
               ].map(([h, p], i) => (
                 <FadeIn key={h} delay={i * 0.1} className="border-t border-paper/15 pt-6">
