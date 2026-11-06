@@ -14,6 +14,15 @@ const PRODUCTION_SETTINGS = [
 ];
 for (const key of PRODUCTION_SETTINGS) delete process.env[key];
 
+// Fails closed on the network too: unless a test replaces fetch with its own fake, any request to a
+// host other than this machine throws, naming the host. No test can reach a real service by accident.
+const realFetch = globalThis.fetch;
+globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+  if (!["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) throw new Error(`Tests may not reach real services (${url.hostname}). Mock fetch in this test.`);
+  return realFetch(input, init);
+}) as typeof fetch;
+
 // With HS_TEST_DB=pglite, every test file runs against a fresh, real Postgres (PGlite) instead of the
 // JSON file store, so the whole suite proves the production database path too.
 if (process.env.HS_TEST_DB === "pglite") {

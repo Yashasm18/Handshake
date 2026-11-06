@@ -103,13 +103,18 @@ describe("Postgres store", () => {
     expect((await store.getDeal(d.id))!.priceCents).toBe(20);
   });
 
-  it("a test run never connects to the real database, even with DATABASE_URL set (as in Render's build)", async () => {
+  it("a test run refuses to connect to a real database, even with DATABASE_URL set (as in Render's build)", async () => {
     const { getDb } = await import("@/lib/server/db");
     process.env.DATABASE_URL = "postgres://prod.example/handshake";
     setDb(undefined as never);
-    expect(getDb()).toBeNull();
+    expect(() => getDb()).toThrow("Tests must never connect to a real database");
     delete process.env.DATABASE_URL;
     setDb(db);
+  });
+
+  it("a test can't reach a real service over the network unless it mocks it", async () => {
+    await expect(fetch("https://api-m.sandbox.paypal.com/v1/oauth2/token")).rejects.toThrow("Tests may not reach real services (api-m.sandbox.paypal.com)");
+    await expect(fetch("https://openrouter.ai/api/v1/credits")).rejects.toThrow("openrouter.ai");
   });
 
   it("a fetched deal is a copy: changing it saves nothing until saveDeal", async () => {

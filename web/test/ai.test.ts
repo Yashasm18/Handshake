@@ -6,12 +6,13 @@ import { z } from "zod";
 // for them, or they can spend the whole token budget thinking and return no answer.
 const calls: { url: string; model: string; reasoning?: unknown; provider?: unknown; effort?: unknown; auth?: string; timeout: boolean }[] = [];
 let reply: (model: string) => Response;
-vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
+const defaultFetch = async (url: string, init: RequestInit) => {
   const body = JSON.parse(String(init.body));
   const auth = (init.headers as Record<string, string>).Authorization;
   calls.push({ url, model: body.model, reasoning: body.reasoning, provider: body.provider, effort: body.reasoning_effort, auth, timeout: Boolean(init.signal) });
   return reply(body.model);
-}));
+};
+vi.stubGlobal("fetch", vi.fn(defaultFetch));
 vi.spyOn(console, "error").mockImplementation(() => {});
 
 process.env.OPENROUTER_API_KEY = "or-key";
@@ -29,6 +30,8 @@ afterEach(() => {
   delete process.env.GROQ_API_KEY;
   for (const n of [2, 3, 4]) delete process.env[`OPENROUTER_API_KEY_${n}`];
   (globalThis as { __hsKeySkip?: Map<string, unknown> }).__hsKeySkip = new Map();
+  // Some tests answer per key with their own fake; every test starts from the shared one.
+  vi.mocked(fetch).mockImplementation(defaultFetch as typeof fetch);
 });
 
 describe("the AI model chain", () => {
@@ -55,7 +58,7 @@ describe("the AI model chain", () => {
   it("people's data only goes to providers that don't keep or train on it: a model without one fails safely", async () => {
     const noSuchProvider = () => Response.json({ error: { message: "No endpoints found matching your data policy" } }, { status: 404 });
     reply = (m) => (m.endsWith(":free") ? noSuchProvider() : outOfCredit());
-    await expect(ask()).rejects.toThrow("data policy");
+    await expect(ask()).rejects.toMatchObject({ name: "AiUnavailable", cause: { message: expect.stringContaining("data policy") } });
     expect(calls.every((c) => JSON.stringify(c.provider) === '{"data_collection":"deny"}')).toBe(true);
   });
 
@@ -137,6 +140,15 @@ describe("the AI model chain", () => {
     calls.length = 0;
     await ask();
     expect(calls.map((c) => c.model)).toEqual([DEFAULT_MODELS.at(-1)]);
+  });
+
+  it("when every model fails, the visitor gets a clear 503 saying nothing moved, not a blame-the-input 400", async () => {
+    reply = () => answer('{"risk":"MAYBE"}'); // every model answers outside the schema
+    const { handle } = await import("@/lib/server/http");
+    const res = await handle(() => ask());
+    expect(res.status).toBe(503);
+    expect(res.headers.get("Retry-After")).toBe("120");
+    expect(await res.json()).toEqual({ error: "Our AI checks are unavailable for a moment. Nothing was charged, shipped or released. Try again in a few minutes.", retryable: true });
   });
 
   it("AI_MODELS replaces the list without a code change", async () => {
