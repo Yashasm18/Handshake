@@ -15,7 +15,7 @@ Agents negotiate a fair price, and every deadline enforces itself.
 <br>
 
 [![Live demo](https://img.shields.io/badge/Live_demo-usehandshake.onrender.com-111110?style=for-the-badge)](https://usehandshake.onrender.com)
-[![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/Yashasm18/HandShake/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/Yashasm18/HandShake/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/Yashasm18/HandShake/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-0a7a4b?style=for-the-badge)](LICENSE)
 
 **Powered by**
