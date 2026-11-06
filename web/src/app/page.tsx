@@ -29,7 +29,7 @@ export default function Home() {
           </p>
           <RevealText
             text={"Trust the deal,\nnot the stranger."}
-            className="display text-[clamp(52px,10.5vw,168px)]"
+            className="display text-[clamp(44px,10.5vw,168px)]"
             delay={0.05}
             stagger={0.05}
             immediate

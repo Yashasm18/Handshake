@@ -16,7 +16,11 @@ export default function BlogPage() {
       <Nav />
       <main className="mx-auto max-w-[760px] px-5 pb-24 pt-28 md:px-10 md:pt-36">
         <p className="label text-muted">The build story · November 2026</p>
-        <h1 className="display mt-4 text-[clamp(44px,7vw,88px)]">Trust the deal, not the stranger.</h1>
+        <h1 className="display mt-4 text-[clamp(44px,7vw,88px)]">
+          {/* Broken after the comma on purpose, like the homepage, so "not the stranger" stays together. */}
+          <span className="block">Trust the deal,</span>
+          <span className="block">not the stranger.</span>
+        </h1>
         <p className="mt-6 text-[20px] leading-relaxed text-muted">
           How Handshake went from a familiar bad feeling to a working product in four days, what it taught us, and where we want to take it.
         </p>
