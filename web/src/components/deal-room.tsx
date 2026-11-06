@@ -67,7 +67,9 @@ export function DealRoom() {
 
   const refresh = useCallback(async () => {
     try {
-      setDeal(await api<Deal>(`/api/deals/${id}`));
+      const next = await api<Deal>(`/api/deals/${id}`);
+      // A refresh that started before a click can land after it: keep whichever copy is newer.
+      setDeal((prev) => (prev && Date.parse(prev.updatedAt) > Date.parse(next.updatedAt) ? prev : next));
     } catch {
       setMissing(true);
     }
@@ -84,13 +86,16 @@ export function DealRoom() {
     };
   }, [refresh, live]);
 
+  // `key` names which button is working, when two buttons share an action (Accept and Decline).
   const act = useCallback(
-    async (action: string, body: unknown = {}) => {
-      setBusy(action);
+    async (action: string, body: unknown = {}, key: string = action) => {
+      setBusy(key);
       setError(null);
       try {
         const res = await api<Deal | { blocked: boolean }>(`/api/deals/${id}/${action}`, body);
-        await refresh();
+        // Most actions answer with the updated deal: show it straight away instead of asking again.
+        if (res && typeof res === "object" && "events" in res && "status" in res) setDeal(res as Deal);
+        else await refresh();
         return res;
       } catch (e) {
         setError((e as Error).message);
@@ -156,7 +161,7 @@ export function DealRoom() {
       <div className="mt-12 grid gap-8 lg:grid-cols-[1.35fr_1fr]">
         <div>
           <AnimatePresence mode="wait">
-            <motion.div key={`${deal.status}-${role}`} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.5, ease: EASE }}>
+            <motion.div key={`${deal.status}-${role}`} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.35, ease: EASE } }} exit={{ opacity: 0, y: -12, transition: { duration: 0.15, ease: EASE } }}>
               {role ? (
                 <ActionCard deal={deal} role={role} counterpart={counterpart} act={act} busy={busy} onHeld={onHeld} onPayError={onPayError} />
               ) : (
@@ -226,7 +231,7 @@ type ActProps = {
   deal: Deal;
   role: Role;
   counterpart: string;
-  act: (action: string, body?: unknown) => Promise<unknown>;
+  act: (action: string, body?: unknown, key?: string) => Promise<unknown>;
   busy: string | null;
   onHeld: () => void;
   onPayError: (m: string) => void;
@@ -370,8 +375,8 @@ function SellerWaitingPayment({ deal, act, busy }: ActProps) {
         </span>
         Waiting for payment
       </p>
-      <button onClick={() => act("cancel", { role: "seller" })} disabled={!!busy} className="mt-8 text-[14px] text-paper/50 hover:text-paper">
-        Cancel this deal
+      <button onClick={() => act("cancel", { role: "seller" })} disabled={!!busy} className="mt-8 text-[14px] text-paper/50 hover:text-paper disabled:cursor-wait">
+        {busy === "cancel" ? "Cancelling…" : "Cancel this deal"}
       </button>
     </Panel>
   );
@@ -702,8 +707,8 @@ function ClaimCard({ deal, role, act, busy }: ActProps) {
             <Button size="lg" disabled={!!busy} onClick={() => act("respond", { role, accept: true })}>
               {busy === "respond" ? "Settling with PayPal…" : "Accept"}
             </Button>
-            <Button size="lg" variant="ghost" disabled={!!busy} onClick={() => act("respond", { role, accept: false })}>
-              Decline
+            <Button size="lg" variant="ghost" disabled={!!busy} onClick={() => act("respond", { role, accept: false }, "decline")}>
+              {busy === "decline" ? "Declining…" : "Decline"}
             </Button>
           </>
         )}
