@@ -90,22 +90,22 @@ describe("the checks", () => {
     process.env.KERNEL_API_KEY = saved;
   });
 
-  it("AI credit running out is flagged before it fails", async () => {
+  it("AI credit running low stays green while it answers; the owner sees it in the detail", async () => {
     answer = { "openrouter.ai": () => Response.json({ data: { limit_remaining: 0.2 } }) };
-    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "AI credit nearly used up" });
+    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "up", note: undefined, detail: "1 OpenRouter key; using key 1 (low)" });
   });
 
-  it("a key at $0 is a warning while OpenRouter still answers; once it actually refuses, the row goes down (the alert)", async () => {
+  it("a key at $0 is green while OpenRouter still answers; once it actually refuses, the row goes down (the alert)", async () => {
     const skip = ((globalThis as { __hsKeySkip?: Map<string, unknown> }).__hsKeySkip = new Map());
     answer = { "/api/v1/credits": () => Response.json({ data: { total_credits: 0, total_usage: 0.1 } }) };
-    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "AI credit is low; still answering" });
+    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "up", note: undefined, detail: "1 OpenRouter key; using key 1 (zero)" });
     g.__hsStatus = new Map();
     skip.set("or-SECRET", { until: Date.now() + 60_000, why: "credit" });
     expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "down", note: "Paid AI is out of credit: running on the free backup" });
     skip.clear();
     g.__hsStatus = new Map();
     answer = { "/api/v1/credits": () => Response.json({ data: { total_credits: 5, total_usage: 4.5 } }) };
-    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "slow", note: "AI credit nearly used up" });
+    expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "up", note: undefined, detail: "1 OpenRouter key; using key 1 (low)" });
     g.__hsStatus = new Map();
     answer = { "/api/v1/credits": () => Response.json({ data: { total_credits: 10, total_usage: 1 } }) };
     expect(byId(await status.checkAll({ now: T }), "ai")).toMatchObject({ status: "up" });

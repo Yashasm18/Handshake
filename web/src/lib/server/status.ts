@@ -97,9 +97,10 @@ export const PROBES: Probe[] = [
         usable.length ? `using key ${usable[0]} (${states[usable[0] - 1]})` : "",
       ].filter(Boolean).join("; ");
       if (!usable.length) throw Object.assign(new Error("all out"), { safeNote: "Paid AI is out of credit: running on the free backup", safeDetail: detail });
+      // Paid AI is answering, so for everyone using the site it's working: the row stays green. How much
+      // credit the key in use has left is the owner's to watch, in the detail (never shown publicly).
       const inUse = states[usable[0] - 1];
-      const note = inUse === "zero" ? "AI credit is low; still answering" : inUse === "low" ? "AI credit nearly used up" : undefined;
-      return { note, detail: empty.length || bad.length || note ? detail : undefined };
+      return { detail: empty.length || bad.length || inUse !== "ok" ? detail : undefined };
     },
   },
   {
