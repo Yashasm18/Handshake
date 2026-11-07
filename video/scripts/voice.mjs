@@ -1,4 +1,4 @@
-// Narration with the Kokoro "bm_fable" voice (British storyteller), the same way the Qosmix videos do it.
+// Narration with a Kokoro voice (VOICE=..., default "bm_fable"; the demo uses "am_puck"), the same way the Qosmix videos do it.
 // Writes public/audio/<beat>.wav and src/durations.json.
 //
 //   node scripts/voice.mjs            (all beats)   node scripts/voice.mjs intro paid   (some)
@@ -8,16 +8,18 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
-import { beats } from "../src/beats.js";
+// BEATS=demo voices the under-3-minute demo (src/demo/beats.js) into public/audio/demo/.
+const DEMO = process.env.BEATS === "demo";
+const { beats } = await import(DEMO ? "../src/demo/beats.js" : "../src/beats.js");
 
 // Reuse an already-downloaded model when there is one, instead of fetching 400 MB again.
 const shared = `${os.homedir()}/Documents/YT/binance/node_modules/@huggingface/transformers/.cache/`;
 if (fs.existsSync(`${shared}onnx-community/Kokoro-82M-v1.0-ONNX`)) env.cacheDir = shared;
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const audio = `${root}public/audio/`;
+const audio = `${root}public/audio/${DEMO ? "demo/" : ""}`;
 fs.mkdirSync(audio, { recursive: true });
-const durFile = `${root}src/durations.json`;
+const durFile = `${root}src/${DEMO ? "demo/" : ""}durations.json`;
 const dur = fs.existsSync(durFile) ? JSON.parse(fs.readFileSync(durFile, "utf8")) : {};
 
 const tts = await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", { dtype: "fp32", device: "cpu" });

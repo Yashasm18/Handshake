@@ -1,0 +1,157 @@
+WEBVTT
+
+1
+00:00:00.250 --> 00:00:02.827
+You find a used console at a good price.
+
+2
+00:00:02.827 --> 00:00:07.337
+Then the seller writes: pay me Friends and Family, no fees, and hurry.
+
+3
+00:00:07.337 --> 00:00:09.399
+Pay, and you have no protection.
+
+4
+00:00:09.399 --> 00:00:11.718
+Walk away, and you lose a fair deal.
+
+5
+00:00:12.317 --> 00:00:19.017
+This is Handshake: a safe way to buy and sell with strangers online, on any marketplace or group chat.
+
+6
+00:00:19.617 --> 00:00:21.232
+It works in three steps.
+
+7
+00:00:21.232 --> 00:00:24.799
+First, AI checks the deal for scams and a fair price.
+
+8
+00:00:24.799 --> 00:00:30.048
+Second, the buyer pays into a PayPal hold, so the money is reserved, not sent.
+
+9
+00:00:30.048 --> 00:00:34.490
+Third, the seller is paid only when the item arrives as described.
+
+10
+00:00:35.083 --> 00:00:36.170
+Here it is, live.
+
+11
+00:00:36.170 --> 00:00:37.129
+Paste the chat.
+
+12
+00:00:37.129 --> 00:00:45.375
+Claude reads it and flags every trick, quoting the exact words: Friends and Family, fake urgency, and a fake PayPal invoice link.
+
+13
+00:00:45.983 --> 00:00:48.897
+Channel3 checks the price against real stores.
+
+14
+00:00:48.897 --> 00:00:52.571
+A sealed console at a fraction of the store price is bait.
+
+15
+00:00:52.571 --> 00:00:57.701
+And Elastic remembers every scam Handshake has caught, so this one is recognised.
+
+16
+00:00:58.317 --> 00:00:59.644
+Now an honest deal.
+
+17
+00:00:59.644 --> 00:01:03.834
+Sam pastes his listing: no red flags, and a fair used price.
+
+18
+00:01:03.834 --> 00:01:09.212
+He creates a protected deal, and sets a secret lowest price for his AI agent.
+
+19
+00:01:09.817 --> 00:01:11.794
+The buyer opens Sam's link.
+
+20
+00:01:11.794 --> 00:01:16.846
+They can pay through PayPal's own checkout, but the money isn't sent.
+
+21
+00:01:16.846 --> 00:01:20.653
+PayPal's Orders API places an authorisation: a hold.
+
+22
+00:01:20.653 --> 00:01:22.264
+Sam can see it's real.
+
+23
+00:01:22.264 --> 00:01:23.948
+Nobody can take it yet.
+
+24
+00:01:24.550 --> 00:01:28.947
+Or the buyer backs an offer at a secret maximum, held by PayPal.
+
+25
+00:01:28.947 --> 00:01:35.542
+Two AI agents negotiate from real prices, and code makes sure neither crosses its owner's limit.
+
+26
+00:01:35.542 --> 00:01:39.459
+They agree, and PayPal will only ever capture that price.
+
+27
+00:01:40.050 --> 00:01:40.709
+Sam ships.
+
+28
+00:01:40.709 --> 00:01:46.640
+The AI reads his shipping label and checks it against the buyer's PayPal-verified address.
+
+29
+00:01:46.640 --> 00:01:49.013
+A label to anywhere else is stopped.
+
+30
+00:01:49.013 --> 00:01:53.363
+The right one passes, and EasyPost follows the parcel to the door.
+
+31
+00:01:53.950 --> 00:01:56.080
+The buyer confirms it arrived.
+
+32
+00:01:56.080 --> 00:02:03.251
+PayPal captures the payment, attaches the tracking, and pays Sam into his PayPal, after PayPal's fee.
+
+33
+00:02:03.251 --> 00:02:04.387
+Damaged instead?
+
+34
+00:02:04.387 --> 00:02:09.996
+A photo is priced against real parts, and PayPal captures only the fair amount.
+
+35
+00:02:10.583 --> 00:02:14.145
+Every deadline enforces itself with a Render Workflow.
+
+36
+00:02:14.145 --> 00:02:18.631
+If Sam never ships, the hold is released and the buyer pays nothing.
+
+37
+00:02:18.631 --> 00:02:26.282
+The AI advises, and code moves the money, checked by three hundred and fifteen tests and live on the PayPal sandbox.
+
+38
+00:02:26.883 --> 00:02:27.570
+Handshake.
+
+39
+00:02:27.570 --> 00:02:29.837
+Trust the deal, not the stranger.

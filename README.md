@@ -44,11 +44,17 @@ Agents negotiate a fair price, and every deadline enforces itself.
 
 <br>
 
-[Live demo](https://usehandshake.onrender.com) · [Watch it work (2 min)](https://usehandshake.onrender.com/#see-how) · [Try it in 60 seconds](#try-it-in-60-seconds) · [How it works](#how-it-works) · [Architecture](#architecture) · [Security](SECURITY.md) · [The build story](BLOG.md)
+[Live demo](https://usehandshake.onrender.com) · [Watch the demo (2:33)](https://youtu.be/qnwLbxLTqNE) · [Try it in 60 seconds](#try-it-in-60-seconds) · [How it works](#how-it-works) · [Architecture](#architecture) · [Security](SECURITY.md) · [The build story](BLOG.md)
 
 </div>
 
 ---
+
+## Watch the demo
+
+<a href="https://youtu.be/qnwLbxLTqNE"><img src="docs/assets/demo-poster.jpg" alt="Watch the Handshake demo on YouTube (2:33)" width="100%"></a>
+
+**[Watch on YouTube](https://youtu.be/qnwLbxLTqNE)** (2:33, narrated, recorded on the live site). AI stops a scam before any money moves, then an honest deal goes from listing to payout: a PayPal hold, two AI agents negotiating inside secret limits, a shipping label checked against the buyer's PayPal address, and PayPal capture and Payouts.
 
 ## The problem
 
