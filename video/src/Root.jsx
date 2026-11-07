@@ -5,6 +5,7 @@ import { HowItWorks, TOTAL_FRAMES } from "./HowItWorks.jsx";
 import { Demo, FPS as DEMO_FPS, TOTAL_FRAMES as DEMO_FRAMES } from "./demo/Demo.jsx";
 import { Thumbnail } from "./demo/Thumbnail.jsx";
 import { ThumbDark, ThumbLight } from "./demo/YouTubeThumbs.jsx";
+import { Gallery, SLIDE_COUNT } from "./demo/Gallery.jsx";
 
 export const Root = () => (
   <>
@@ -18,5 +19,7 @@ export const Root = () => (
     <Composition id="ThumbLight" component={ThumbLight} durationInFrames={1} fps={30} width={1280} height={720} />
     {/* The README's poster: the YouTube thumbnail with a play button. */}
     <Composition id="ReadmePoster" component={ThumbLight} defaultProps={{ play: true }} durationInFrames={1} fps={30} width={1280} height={720} />
+    {/* The Devpost image gallery, 3:2: one slide per frame. */}
+    <Composition id="Gallery" component={Gallery} durationInFrames={SLIDE_COUNT} fps={30} width={1500} height={1000} />
   </>
 );

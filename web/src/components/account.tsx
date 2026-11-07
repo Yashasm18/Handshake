@@ -35,7 +35,9 @@ export const useMe = () => useSyncExternalStore(subscribe, () => current, () => 
 
 const here = () => window.location.pathname + window.location.search;
 
-// Asks Handshake for a one-time PayPal sign-in link, then goes to PayPal directly.
+// Asks Handshake for a one-time PayPal sign-in link, then goes to PayPal directly. Sign-in and sign-out
+// use full page loads on purpose: the session cookie changes, so every part of the page must start fresh.
+/* eslint-disable @next/next/no-location-assign-relative-destination */
 export async function startSignIn(next?: string) {
   const target = next ?? here();
   try {
@@ -53,6 +55,7 @@ export async function signOut() {
   await fetch("/api/auth/signout", { method: "POST" });
   window.location.assign("/");
 }
+/* eslint-enable @next/next/no-location-assign-relative-destination */
 
 export function PayPalMark({ className = "size-4" }: { className?: string }) {
   return (

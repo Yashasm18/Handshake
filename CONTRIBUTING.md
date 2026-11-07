@@ -26,7 +26,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the pieces fit together
 
 ## Getting started
 
-Requires **Node 22+** and free sandbox accounts for PayPal, Channel3 and OpenRouter.
+Requires **Node 22+** and free sandbox accounts for PayPal, Channel3 and OpenRouter. The settings you need, and where each comes from, are listed under [Run it locally](README.md#run-it-locally).
 
 ```bash
 git clone https://github.com/Yashasm18/HandShake.git

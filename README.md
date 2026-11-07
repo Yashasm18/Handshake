@@ -113,14 +113,14 @@ People buying and selling secondhand electronics, games, bikes, tickets and coll
 
 Everything runs on the **PayPal sandbox**: no real money moves, and no sign-in is needed.
 
-1. Open the **[live demo](https://usehandshake.onrender.com)**, choose **Check a deal**, and try **A scam chat**. Handshake explains every trick it finds.
-2. Choose **I'm selling** and paste a listing, for example:
+1. Open the **[live demo](https://usehandshake.onrender.com)**, choose **Check a deal**, tap **A scam chat**, then **Check this deal**. Handshake explains every trick it finds.
+2. Switch to **I'm selling**, paste a listing and choose **Check my listing**, for example:
    > *Selling my Nintendo Switch OLED (white), $230. Small scuff on the back, screen perfect, both Joy-Cons, dock and charger included.*
-3. Create the deal as a **demo seller** (just type a first name). Leave **Let my agent take offers** on and set a lowest price, say $190.
+3. Choose **Create a protected deal** and continue as a **demo seller** (just type a first name). Leave **Let my agent take offers** on, set a lowest price (say $190), and choose **Create deal link**.
 4. Copy the deal link and open it in a **private or incognito window**. You're the buyer there.
 5. Choose **Make an offer**, set a secret max (say $215), and back it with **PayPal's sandbox test card**. Watch the two agents negotiate live.
-6. Back in the seller's window, pick the **Delivered** test parcel and mark it shipped.
-7. In the buyer's window, **confirm it arrived**, or **report a problem** with a photo to see a fair partial refund.
+6. Back in the seller's window, pick the **Delivered** test parcel and choose **Mark as shipped**.
+7. In the buyer's window, choose **Yes, release payment**, or **Report a problem** with a photo to see a fair partial refund. Within a minute the seller's window shows **You've been paid**.
 
 The **PayPal sandbox record** on each deal shows the real order, authorization, capture and payout ids. Sandbox PayPal logins for trying **Sign in with PayPal** are in the Devpost submission; real PayPal accounts can't sign in to the sandbox.
 
@@ -340,23 +340,34 @@ The full story of how it was built, and why: **[BLOG.md](BLOG.md)**.
 
 ## Run it locally
 
-Requires **Node 22+** and free keys for the PayPal sandbox, Channel3 and OpenRouter; Kernel (pasted links), Elastic (scam memory), EasyPost (tracking), Groq (AI backup) and Gmail (emails) are optional.
+Requires **Node 22+**, a free [PayPal Developer](https://developer.paypal.com) account, and free keys for [Channel3](https://trychannel3.com/developers) and [OpenRouter](https://openrouter.ai/keys). Kernel (pasted links), Elastic (scam memory), EasyPost (tracking), Groq (AI backup) and Gmail (emails) are optional: without them, those features step aside and everything else works.
 
 ```bash
 git clone https://github.com/Yashasm18/HandShake.git
 cd HandShake
-cp .env.example .env          # add your sandbox keys
+cp .env.example .env          # then fill in the keys below
 cd web && ln -s ../.env .env.local
 npm install
 npm run dev                   # http://localhost:3000
 ```
 
-Without `DATABASE_URL`, deals are kept in a local JSON file; with it, in Postgres. To start scam memory with common scam scripts: `cd web && npx tsx --conditions=react-server scripts/seed-memory.mts`. Set `TIMER_SCALE=0.0007` in `.env` to make a day pass in about a minute when trying the deadlines.
+In `.env`, the minimum is:
+
+| Setting | Where it comes from |
+|---|---|
+| `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | PayPal Developer Dashboard → Apps & Credentials → a **Sandbox** app |
+| `SELLER_EMAIL` | Dashboard → Testing Tools → Sandbox Accounts: a sandbox account that receives demo sellers' payouts |
+| `CHANNEL3_API_KEY` | Channel3 developer dashboard |
+| `OPENROUTER_API_KEY` | OpenRouter → Keys |
+
+Then try a whole deal locally with the steps in [Try it in 60 seconds](#try-it-in-60-seconds), at `http://localhost:3000`. If a check says the AI is unavailable, the terminal running `npm run dev` names the missing key.
+
+Without `DATABASE_URL`, deals are kept in a local JSON file (`web/.data`); with it, in Postgres. Locally there's no deadline workflow, so opening a deal enforces any deadline that has passed; set `TIMER_SCALE=0.0007` to make a day pass in about a minute. To start scam memory with common scam scripts: `cd web && npx tsx --conditions=react-server scripts/seed-memory.mts`.
 
 ```bash
 npm --prefix web test         # the app suite on the file store
 npm --prefix web run test:pg  # the same suite on Postgres (PGlite)
-npm --prefix workflows test   # the deadline workflow
+npm --prefix workflows test   # the deadline workflow (run npm --prefix workflows install first)
 ```
 
 ## Deploy

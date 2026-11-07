@@ -117,7 +117,8 @@ export async function structured<T extends z.ZodType>(opts: {
       }
     }
   }
-  throw new AiUnavailable(lastError);
+  // No model was even tried: no key is set. Say so in the server log, where whoever runs it will look.
+  throw new AiUnavailable(lastError ?? new Error("no AI key is set: add OPENROUTER_API_KEY (or GROQ_API_KEY) to .env"));
 }
 
 // Every model and key failed (out of credit, rate limited, down, or answers outside the schema). Each
