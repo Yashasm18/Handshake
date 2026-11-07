@@ -2,11 +2,14 @@
   "name": "handshake-video",
   "private": true,
   "type": "module",
-  "description": "The 'See how it works' video: a real deal recorded from both sides, narrated, composed with Remotion.",
+  "description": "Handshake's demo video, thumbnails and gallery: stills from one real deal on the live site, narrated and composed with Remotion.",
   "scripts": {
-    "record": "node scripts/record.mjs",
+    "capture": "node scripts/capture.mjs",
     "voice": "node scripts/voice.mjs",
-    "render": "remotion render src/index.jsx HowItWorks out/how-it-works.mp4"
+    "render": "remotion render src/index.jsx Demo out/demo-raw.mp4 --scale=1.3333333333333333 --crf=16",
+    "loudness": "ffmpeg -v error -y -i out/demo-raw.mp4 -c:v copy -af loudnorm=I=-14:TP=-1.5:LRA=11 -c:a aac -b:a 192k -ar 48000 out/demo.mp4",
+    "publish": "node scripts/publish-demo.mjs",
+    "studio": "remotion studio src/index.jsx"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.534",

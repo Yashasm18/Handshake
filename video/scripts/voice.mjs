@@ -1,30 +1,23 @@
-// Narration with a Kokoro voice (VOICE=..., default "bm_fable"; the demo uses "am_puck"), the same way the Qosmix videos do it.
-// Writes public/audio/<beat>.wav and src/durations.json.
+// The demo's narration with the Kokoro "am_puck" voice (open source, runs on this machine), one file per
+// beat of src/demo/beats.js. Writes public/audio/demo/<beat>.wav and src/demo/durations.json.
 //
-//   node scripts/voice.mjs            (all beats)   node scripts/voice.mjs intro paid   (some)
-import { env } from "@huggingface/transformers";
+//   node scripts/voice.mjs            (all beats)   node scripts/voice.mjs intro how   (some)
+//   VOICE=af_heart SPEED=1 node scripts/voice.mjs  (another Kokoro voice or pace)
 import { KokoroTTS } from "kokoro-js";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import { fileURLToPath } from "node:url";
-// BEATS=demo voices the under-3-minute demo (src/demo/beats.js) into public/audio/demo/.
-const DEMO = process.env.BEATS === "demo";
-const { beats } = await import(DEMO ? "../src/demo/beats.js" : "../src/beats.js");
-
-// Reuse an already-downloaded model when there is one, instead of fetching 400 MB again.
-const shared = `${os.homedir()}/Documents/YT/binance/node_modules/@huggingface/transformers/.cache/`;
-if (fs.existsSync(`${shared}onnx-community/Kokoro-82M-v1.0-ONNX`)) env.cacheDir = shared;
+import { beats } from "../src/demo/beats.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const audio = `${root}public/audio/${DEMO ? "demo/" : ""}`;
+const audio = `${root}public/audio/demo/`;
 fs.mkdirSync(audio, { recursive: true });
-const durFile = `${root}src/${DEMO ? "demo/" : ""}durations.json`;
+const durFile = `${root}src/demo/durations.json`;
 const dur = fs.existsSync(durFile) ? JSON.parse(fs.readFileSync(durFile, "utf8")) : {};
 
 const tts = await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", { dtype: "fp32", device: "cpu" });
-const VOICE = process.env.VOICE || "bm_fable";
-const SPEED = +(process.env.SPEED || 0.92);
+const VOICE = process.env.VOICE || "am_puck";
+const SPEED = +(process.env.SPEED || 1.1);
 const only = process.argv.slice(2);
 
 // A few sentences per pass, so the model paces them itself. Kokoro drops words past ~500 phonemes,

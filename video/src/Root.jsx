@@ -1,7 +1,5 @@
 import React from "react";
 import { Composition } from "remotion";
-import { FPS } from "./timeline.js";
-import { HowItWorks, TOTAL_FRAMES } from "./HowItWorks.jsx";
 import { Demo, FPS as DEMO_FPS, TOTAL_FRAMES as DEMO_FRAMES } from "./demo/Demo.jsx";
 import { Thumbnail } from "./demo/Thumbnail.jsx";
 import { ThumbDark, ThumbLight } from "./demo/YouTubeThumbs.jsx";
@@ -9,7 +7,6 @@ import { Gallery, SLIDE_COUNT } from "./demo/Gallery.jsx";
 
 export const Root = () => (
   <>
-    <Composition id="HowItWorks" component={HowItWorks} durationInFrames={TOTAL_FRAMES} fps={FPS} width={1920} height={1080} />
     {/* The under-3-minute demo, composed at 1080p and rendered at 2x scale (2560x1440) or more. */}
     <Composition id="Demo" component={Demo} durationInFrames={DEMO_FRAMES} fps={DEMO_FPS} width={1920} height={1080} />
     {/* The Devpost thumbnail, 3:2. */}

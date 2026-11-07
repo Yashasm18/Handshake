@@ -1,6 +1,6 @@
 # Contributing to Handshake
 
-Thanks for helping make deals between strangers safer. This guide covers how to run the project, the rules every change must follow, and how to get a pull request merged.
+Thanks for helping make deals between strangers safer. This guide covers how to run the project, the rules every change must follow, and how to get a pull request merged. Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Ground rules
 
@@ -18,7 +18,8 @@ Found a security issue? Please follow [SECURITY.md](SECURITY.md) instead of open
 web/         Next.js app: pages, API routes, PayPal/Channel3/AI clients, tests
 workflows/   Render Workflow that enforces deal deadlines, plus its cron trigger
 docs/        Architecture and sponsor write-ups
-scripts/     One-off PayPal sandbox checks
+scripts/     Live end-to-end scenarios and PayPal sandbox checks
+video/       The demo video, thumbnails and gallery, built in code (Remotion)
 render.yaml  Render Blueprint for the whole system
 ```
 

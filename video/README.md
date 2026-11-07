@@ -1,28 +1,35 @@
-# "See how it works" video
+# Demo video
 
-The narrated walkthrough on the landing page: one real deal on the live site, recorded from both sides at once (buyer on the left, seller on the right), narrated in the Kokoro `bm_fable` voice and composed with [Remotion](https://www.remotion.dev/).
+The narrated demo on the landing page, in the README and on [YouTube](https://youtu.be/qnwLbxLTqNE): under three minutes, full screen, built from one real deal on the live site with real PayPal sandbox calls. It's composed in code with [Remotion](https://www.remotion.dev/), so it can be rebuilt exactly whenever the product changes.
 
 ## Make it again
+
+Needs Node 22+, Chrome, ffmpeg, and Python 3 with NumPy and SciPy (for the music).
 
 ```bash
 cd video
 npm install
-node scripts/record.mjs     # a real deal on the live site, both sides, in headless Chrome
-node scripts/footage.mjs    # frames -> public/footage/{buyer,seller}.mp4 and marks.json
-node scripts/voice.mjs      # narration -> public/audio/*.wav and src/durations.json
-npm run render              # -> out/how-it-works.mp4 (1920x1080)
-node scripts/publish.mjs    # -> web/public/video/ (web MP4, poster, captions)
+npm run capture                         # a real deal on the live site -> public/shots/*.png + shots.json
+npm run voice                           # narration -> public/audio/demo/*.wav + src/demo/durations.json
+python3 scripts/music.py public/audio/demo/music.wav 180   # the original music bed
+npm run render                          # -> out/demo-raw.mp4 (2560x1440)
+npm run loudness                        # -> out/demo.mp4 at -14 LUFS, YouTube's standard
+npm run publish                         # -> web/public/video/ (web MP4, poster, captions) and the README poster
 ```
 
-The agents' price is different every run, so after recording, update the numbers in [`src/beats.js`](src/beats.js) to match `public/footage/marks.json` (`facts`), then run the voice and render steps.
+`npm run studio` opens the compositions to preview and adjust. The stills, audio and renders stay local (git-ignored); only the code that makes them is here.
 
 ## How it fits together
 
 | File | What it does |
 |---|---|
-| [`scripts/record.mjs`](scripts/record.mjs) | Drives the buyer and the seller in two browsers with separate cookies. Frames come from Chrome's screencast with their capture times, so both sides share one clock. Each step is marked. |
-| [`src/beats.js`](src/beats.js) | The script: each beat's narration, on-screen caption and the sponsors that light up, mapped to the recorded marks. |
-| [`src/timeline.js`](src/timeline.js) | Lays the beats on the narration and maps each one onto its stretch of footage. |
-| [`src/HowItWorks.jsx`](src/HowItWorks.jsx) | The composition: two browser windows, the acting side highlighted, Newsreader captions and the sponsor strip. |
+| [`scripts/capture.mjs`](scripts/capture.mjs) | Runs a whole deal on the live site in headless Chrome, as a scam victim, a seller and a buyer: a scam stopped, a listing, a PayPal hold, the agents negotiating, a wrong label stopped, delivery, payout. Saves a sharp still of each moment and where its button is. |
+| [`src/demo/beats.js`](src/demo/beats.js) | The script: what the narrator says, the caption, and which stills (and zooms) each beat shows. |
+| [`src/demo/timeline.js`](src/demo/timeline.js) | Lays every beat and still on the narration; the website's captions are timed from the same place. |
+| [`src/demo/Demo.jsx`](src/demo/Demo.jsx) | The video: full-screen stills with a cursor, clicks and zooms, the three-step card, and captions in the site's own type. |
+| [`scripts/voice.mjs`](scripts/voice.mjs) | The narration, in the open-source Kokoro `am_puck` voice. |
+| [`scripts/music.py`](scripts/music.py) | An original ambient music bed, synthesised from scratch: no samples, no third-party music. |
+| [`scripts/publish-demo.mjs`](scripts/publish-demo.mjs) | The website's copy: a 1080p MP4 that starts playing at once, a poster and WebVTT captions. |
+| [`src/demo/Thumbnail.jsx`](src/demo/Thumbnail.jsx), [`YouTubeThumbs.jsx`](src/demo/YouTubeThumbs.jsx), [`Gallery.jsx`](src/demo/Gallery.jsx) | The thumbnails and the image gallery, in the same type and colours. |
 
-Recording runs on the PayPal sandbox; no real money moves.
+Everything runs on the PayPal sandbox; no real money moves.

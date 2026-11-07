@@ -1,6 +1,5 @@
 node_modules/
 out/
-public/footage/
-public/audio/
+# Captured stills, audio and old recordings stay on this machine; only the code that makes them is shared.
+public/
 take/
-public/shots/

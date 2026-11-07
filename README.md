@@ -340,7 +340,7 @@ The full story of how it was built, and why: **[BLOG.md](BLOG.md)**.
 
 ## Run it locally
 
-Requires **Node 22+**, a free [PayPal Developer](https://developer.paypal.com) account, and free keys for [Channel3](https://trychannel3.com/developers) and [OpenRouter](https://openrouter.ai/keys). Kernel (pasted links), Elastic (scam memory), EasyPost (tracking), Groq (AI backup) and Gmail (emails) are optional: without them, those features step aside and everything else works.
+Requires **Node 22+** (`nvm use` picks it up from `.nvmrc`), a free [PayPal Developer](https://developer.paypal.com) account, and free keys for [Channel3](https://trychannel3.com/developers) and [OpenRouter](https://openrouter.ai/keys). Kernel (pasted links), Elastic (scam memory), EasyPost (tracking), Groq (AI backup) and Gmail (emails) are optional: without them, those features step aside and everything else works.
 
 ```bash
 git clone https://github.com/Yashasm18/HandShake.git
@@ -383,9 +383,10 @@ web/                 Next.js app: pages, API routes, and the PayPal, AI and part
 workflows/           Render Workflow tasks and the cron trigger
 docs/                Architecture, AI, testing, and one page per partner
 scripts/             Live end-to-end scenarios and PayPal sandbox checks
-video/               The narrated "See how it works" video (Remotion)
+video/               The demo video, thumbnails and gallery, built in code (Remotion)
 render.yaml          Render Blueprint
 BLOG.md              The build story
+CHANGELOG.md         What changed, day by day
 ```
 
 ## Contributing
