@@ -9,6 +9,7 @@ import { currentAccount, type Account } from "./session";
 import { contactView, notifyEnabled } from "./notify";
 import { testMode, trackingEnabled } from "./easypost";
 import { publicTracking } from "./tracking";
+import { receiptsEnabled } from "./receipts";
 
 type Party = "seller" | "buyer";
 
@@ -125,6 +126,7 @@ export function publicDeal(deal: Deal, viewer: Viewer): DealView {
     events: party ? rest.events : rest.events.map((e) => ({ ...e, ref: undefined })),
     viewer,
     sellerPayPal: { signedIn: Boolean(deal.seller), verified: Boolean(deal.seller?.verified) },
+    receipts: receiptsEnabled(),
     // Each person sees only their own (masked) email settings.
     notify: {
       enabled: notifyEnabled(),

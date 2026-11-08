@@ -187,6 +187,31 @@ export function payoutOutcome(batch: PayoutBatch): "paid" | "failed" | "pending"
   return "pending";
 }
 
+// Invoicing v2: the buyer's receipt. The same invoice actions PayPal's Agent Toolkit gives AI agents
+// (create_invoice, send_invoice, record_payment_for_invoice), called directly like every other PayPal
+// call here. A receipt records money PayPal already captured; it never moves any.
+export type Invoice = {
+  id: string;
+  status: string;
+  detail?: { invoice_number?: string; metadata?: { recipient_view_url?: string; invoicer_view_url?: string } };
+};
+export const createInvoice = (body: unknown, key: string) => call<Invoice>("POST", "/v2/invoicing/invoices", body, key);
+export const getInvoice = (id: string) => call<Invoice>("GET", `/v2/invoicing/invoices/${encodeURIComponent(id)}`);
+// Recorded without PayPal emailing anyone: the receipt is shown on the deal page. Sandbox addresses
+// can't receive mail anyway, and a buyer who paid by card may have left no email.
+export const sendInvoice = (id: string) =>
+  call("POST", `/v2/invoicing/invoices/${encodeURIComponent(id)}/send`, { send_to_invoicer: false, send_to_recipient: false }, `receipt-send-${id}`);
+export const recordInvoicePayment = (id: string, cents: number, date: string, note: string) =>
+  call<{ payment_id?: string }>(
+    "POST",
+    `/v2/invoicing/invoices/${encodeURIComponent(id)}/payments`,
+    { method: "PAYPAL", payment_date: date, amount: money(cents), note: note.slice(0, 2000) },
+    `receipt-paid-${id}`,
+  );
+// Finds an invoice by its number: recovers a receipt PayPal created but whose answer never arrived.
+export const findInvoice = (number: string) =>
+  call<{ items?: Invoice[] }>("POST", "/v2/invoicing/search-invoices?page=1&page_size=1&total_required=false", { invoice_number: number });
+
 export function holdFrom(order: Order) {
   const unit = order.purchase_units[0];
   const auth = unit?.payments?.authorizations?.[0];

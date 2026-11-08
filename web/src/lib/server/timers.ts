@@ -8,6 +8,7 @@ import { PayPalError, reauthorizeHold, voidHold } from "./paypal";
 import { createTracker, getTracker, rejected, trackingEnabled } from "./easypost";
 import { applyTracker, markRejected, reusedElsewhere } from "./tracking";
 import { announceTracking } from "./notify";
+import { issueReceiptSoon } from "./receipts";
 
 // TIMER_SCALE shrinks every deadline for demos (e.g. 0.0007 ≈ a day per minute). Real deals use 1.
 export const timerScale = () => {
@@ -33,13 +34,20 @@ export type TimerResult = { dealId: string; kind: DeadlineKind; outcome: "done" 
 // Runs one deadline's action. Safe to call twice or concurrently: it re-checks the deadline inside the
 // deal lock, and a deal that already moved on (shipped, settled, cancelled) simply reports "not-due".
 export async function runTimer(dealId: string, kind: DeadlineKind, now = Date.now()): Promise<TimerResult> {
-  return withDeal(dealId, async (deal) => {
+  let settled: Deal | undefined;
+  const result = await withDeal(dealId, async (deal): Promise<TimerResult> => {
     const due = dueNow(deal, now, timerScale()).some((t) => t.kind === kind);
     if (!due) return { dealId, kind, outcome: "not-due", detail: `Nothing to do; the deal is ${deal.status}.` };
     // A failed PayPal call fails the run so the workflow retries it. Completed steps stay recorded
     // (settle resumes where it stopped), so a retry never repeats a money movement.
-    return { dealId, kind, ...(await ACTIONS[kind](deal, now)) };
+    const out: TimerResult = { dealId, kind, ...(await ACTIONS[kind](deal, now)) };
+    if (deal.paypal.captureId) settled = deal;
+    return out;
   });
+  // A deadline that settled the deal (release on silence, a claim nobody declined): the buyer's receipt
+  // follows in the background, after the deal's lock is released.
+  if (settled) issueReceiptSoon(settled);
+  return result;
 }
 
 type Action = (deal: Deal, now: number) => Promise<Omit<TimerResult, "dealId" | "kind">>;

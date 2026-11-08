@@ -96,7 +96,7 @@ export default function Home() {
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {[
               { href: "/agents", k: "Agents", n: "0", t: `times an agent crossed its owner's limit, across ${TOTAL_TESTS} automated tests and live prompt-injection runs.` },
-              { href: "/paypal", k: "PayPal", n: "9", t: "PayPal calls take a deal from a signed-in seller to a paid one, each run live on the sandbox in our end-to-end tests." },
+              { href: "/paypal", k: "PayPal", n: "12", t: "PayPal calls take a deal from a signed-in seller to a paid one and a paid PayPal receipt, each run live on the sandbox." },
               { href: "/channel3", k: "Channel3", n: "25k", t: "stores priced live to catch bait, set a fair range and price damaged parts." },
               { href: "/render", k: "Render", n: "8", t: "kinds of deadline enforced by a Render Workflow, each tested to fire exactly once, so no deal can stall." },
               { href: "/kernel", k: "Kernel", n: "1", t: "pasted link is all a buyer needs: a Kernel cloud browser reads the listing and spots store photos." },

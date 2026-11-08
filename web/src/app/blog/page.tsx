@@ -117,7 +117,7 @@ export default function BlogPage() {
             stats={[
               { n: "4", t: "days from the first sandbox call to a hardened product", s: "The build" },
               { n: String(TOTAL_TESTS), t: `automated tests, plus ${TESTS.liveScenarios} live runs on the PayPal sandbox`, s: "Proof" },
-              { n: "9", t: "PayPal calls, from a held payment to a paid seller", s: "PayPal" },
+              { n: "12", t: "PayPal calls, from a held payment to a paid seller and a paid receipt", s: "PayPal" },
             ]}
           />
 

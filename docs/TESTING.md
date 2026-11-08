@@ -10,12 +10,12 @@
 
 Handshake moves other people's money, so every rule that touches it is tested twice:
 
-1. **Automated tests (315: 307 for the app, each run on both the file store and Postgres, plus 8 for the deadline workflow).** They run on every push in GitHub Actions and again on Render before every deploy. External services are replaced with fakes, so these tests check *our* rules: amounts, limits, states, retries and who can see what.
-2. **Live end-to-end scenarios (42: 33 run by a script, 9 by hand).** A script drives a running Handshake server through real deals on the **PayPal sandbox**, with live **Channel3** prices, **Kernel** cloud browsers reading real listings, **Elastic** scam memory, and the real **AI models** reading real images. These check that everything works together.
+1. **Automated tests (327: 319 for the app, each run on both the file store and Postgres, plus 8 for the deadline workflow).** They run on every push in GitHub Actions and again on Render before every deploy. External services are replaced with fakes, so these tests check *our* rules: amounts, limits, states, retries and who can see what.
+2. **Live end-to-end scenarios (44: 33 run by a script, 11 by hand).** A script drives a running Handshake server through real deals on the **PayPal sandbox**, with live **Channel3** prices, **Kernel** cloud browsers reading real listings, **Elastic** scam memory, and the real **AI models** reading real images. These check that everything works together.
 
 | Detail | Automated | Live |
 |---|---|---|
-| Count | 315 tests | 42 scenarios |
+| Count | 327 tests | 44 scenarios |
 | Runs | Every push and every deploy | Before each release, and on demand |
 | PayPal, Channel3, Kernel, Elastic, AI | Faked | Real (PayPal sandbox) |
 | Result | All pass | All pass |
@@ -23,13 +23,14 @@ Handshake moves other people's money, so every rule that touches it is tested tw
 ## Automated tests
 
 ```bash
-npm --prefix web test         # 266 tests
+npm --prefix web test         # 319 tests
 npm --prefix workflows test   # 8 tests
 ```
 
 | Suite | Tests | What it covers |
 |---|---:|---|
 | [`flows.test.ts`](../web/test/flows.test.ts) | 33 | The deal state machine: paying with the test card, backed offers, shipping with a label photo, confirming delivery, damage claims, both-sides acceptance, cancelling, and meeting in person (handover codes that work once, expire, lock after 5 wrong tries and are stored only as hashes; no shipping around the code; a failed payout resumes without a second capture). Sellers signed in with PayPal are paid by payer id; a buyer who pays through PayPal is linked by theirs; the seller's own account can't fund the deal (the hold is voided). Checks the exact PayPal calls and amounts, and that each step is refused in the wrong state. |
+| [`receipts.test.ts`](../web/test/receipts.test.ts) | 12 | The buyer's PayPal receipt: the invoice bills exactly what PayPal captured (a damage refund is its own line), carries the seller's promises, the negotiated price, the tracking and the capture; each step has its own idempotency key; a failure never throws and the retry finishes the same invoice; an invoice PayPal made on a lost answer is recovered by its number; a missing Invoicing permission hides the card and retries once after the token refreshes; only the two parties see it |
 | [`timers.test.ts`](../web/test/timers.test.ts) | 19 | Every deadline: when it's due, what it does, that it does nothing the second time, that a failed payout resumes without capturing twice, and that three simultaneous runs move money once. |
 | [`signin.test.ts`](../web/test/signin.test.ts) | 26 | Sign in with PayPal: signed sessions that can't be forged, edited, re-signed with another key or used after 30 days; the full OAuth round trip against a fake PayPal (the server never redirects to PayPal itself, only this site can start a sign-in, state must match and works once, cancel and bad codes, profiles without a payer id, no redirects off the site); the payer id never reaches the browser; a PayPal account opens its own side of a deal on any device and nothing else; a seller can't pay for their own deal. |
 | [`tracking.test.ts`](../web/test/tracking.test.ts) | 28 | Delivery tracking through EasyPost: scans read in order with places; the buyer's 3-day window starts at the delivery scan, and only with proof it went to the buyer (the delivery ZIP matches their PayPal address, or the label photo did); the reuse check runs again right before an automatic payout and only counts a deal that shipped the number earlier (so copying an honest seller's number into a later deal can't stall them), on numbers compared without spaces or dashes; no payout on silence before delivery or when a scam sign shows (a number the carrier doesn't know after a day, delivery to a different ZIP, a number reused on another deal, a delivery dated before shipping, a lost parcel); a returned parcel voids the hold; the timer polls when a webhook is missed; shipping still works when EasyPost is down; the webhook checks EasyPost's own HMAC scheme and refuses forged or test-mode events; each milestone emails once; strangers see progress but not the number or places. |
@@ -193,6 +194,17 @@ The run also found that EasyPost's test parcels carry fixed old dates (a deal ma
 | # | Scenario | Result |
 |---|---|---|
 | X1 | Open /status on the live site after a deploy | **Pass.** "Everything is working": all 8 services answered from Render with real requests (PayPal 215 ms, payouts 324 ms, AI 152 ms, Channel3 842 ms, Kernel, Elastic, EasyPost, email), and the deadline timer reported its sweep within 5 minutes |
+
+### PayPal receipts (Nov 8, 2026)
+
+Two full deals on a fresh local server against the real PayPal sandbox, from the scam check to the seller's payout, then the receipt.
+
+| Run | What happened | Result |
+|---|---|---|
+| R1 | Agents agreed $208 on a $230 listing; delivered; buyer released payment | **Pass.** Invoice `INV2-7AGZ-9RCB-KHN3-ZRJA` issued and marked paid ($208.00 paid, $0.00 due) with the condition promises, "asking $230, agreed $208", the USPS tracking and capture `47M40968UK193330R`. Found one bug: PayPal silently drops a recipient's `full_name`, so the buyer's name was missing. Fixed: the name is sent as given name and surname |
+| R2 | Same flow after the fix; agents agreed $210 | **Pass.** Invoice `INV2-NBLE-EEJG-SHNB-7GXW` addressed to Maya Chen, $210.00 paid, $0.00 due. The "PayPal receipt, Paid" card appeared for both sides within seconds, and the PayPal sandbox record lists the invoice |
+
+Also found while setting it up: a PayPal access token keeps the permissions it was issued with for up to 9 hours, so enabling Invoicing on the app didn't take effect until a new token was issued. A permission refusal now hides the receipt card and retries once, 10 hours later, instead of giving up or retrying constantly.
 
 ### Self-enforcing deadlines
 

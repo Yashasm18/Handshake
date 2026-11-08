@@ -64,6 +64,7 @@ stateDiagram-v2
 | [`web/src/app/api/deals/[id]/[action]`](../web/src/app/api/deals/%5Bid%5D/%5Baction%5D/route.ts) | Every deal action, each with the role allowed to run it |
 | [`web/src/lib/server/flows.ts`](../web/src/lib/server/flows.ts) | The deal state machine: pay, ship, settle, claim, cancel |
 | [`web/src/lib/server/paypal.ts`](../web/src/lib/server/paypal.ts) | PayPal REST client with idempotency keys |
+| [`web/src/lib/server/receipts.ts`](../web/src/lib/server/receipts.ts) | The buyer's PayPal receipt: an invoice for the deal, issued after the capture and marked paid, in the background and resumable |
 | [`web/src/lib/server/negotiate.ts`](../web/src/lib/server/negotiate.ts) | Agent negotiation and its code referee |
 | [`web/src/lib/server/timers.ts`](../web/src/lib/server/timers.ts) · [`web/src/lib/deadlines.ts`](../web/src/lib/deadlines.ts) | Deadline rules and the actions that enforce them |
 | [`web/src/lib/server/checks.ts`](../web/src/lib/server/checks.ts) · [`channel3.ts`](../web/src/lib/server/channel3.ts) | Scam scan, label and damage review, price data and filters |

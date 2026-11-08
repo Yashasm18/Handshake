@@ -48,7 +48,7 @@ export default function PayPalPage() {
 
         <Section
           eyebrow="The deal lifecycle"
-          title={"Seven PayPal calls.\nZero trust needed."}
+          title={"Eight steps with PayPal.\nZero trust needed."}
           intro="Paying a stranger usually means trusting them first. Handshake puts PayPal in the middle of every step, so neither side has to."
         >
           <Steps
@@ -59,6 +59,7 @@ export default function PayPalPage() {
               { t: "Charge only what's fair", d: "On delivery, Handshake captures the deal price, or less after a damage refund, with final_capture. PayPal releases whatever is left.", tag: "Partial capture" },
               { t: "Prove it shipped", d: "Tracking is attached to the PayPal capture, which PayPal recommends for physical goods and uses when resolving disputes. Protection eligibility is PayPal's call.", tag: "Order tracking" },
               { t: "Pay the seller", d: "The seller's share goes out through PayPal Payouts, after PayPal's fee, straight to their PayPal account.", tag: "Payouts v1" },
+              { t: "Hand over a receipt", d: "Once PayPal captures, the buyer gets an official PayPal invoice, marked paid: the item and what was promised, the agreed price, any refund as its own line, the tracking and the capture.", tag: "Invoicing v2" },
               { t: "Or release it all", d: "Seller never ships, or the agents can't agree? The hold is voided and the buyer is never charged.", tag: "Void" },
             ]}
           />
@@ -100,6 +101,7 @@ export default function PayPalPage() {
               { name: "Void", call: "POST /v2/payments/authorizations/{id}/void", why: "Releases the whole hold on cancel, when the agents can't agree, or when the seller misses the shipping deadline." },
               { name: "Add tracking", call: "POST /v2/checkout/orders/{id}/track", why: "Attaches the carrier and tracking number to the capture, as PayPal recommends for physical goods." },
               { name: "Payouts", call: "POST /v1/payments/payouts", why: "Sends the seller their net amount after PayPal's fee, into their own PayPal account by payer id." },
+              { name: "Invoicing", call: "POST /v2/invoicing/invoices · /{id}/send · /{id}/payments", why: "After the capture, the buyer's receipt: a PayPal invoice for the deal, marked paid, never emailed to anyone. It never moves money." },
               { name: "JS SDK Buttons", call: "intent=authorize", why: "PayPal's own checkout window, plus the sandbox test card for judges without a login." },
             ]}
           />
@@ -113,6 +115,7 @@ export default function PayPalPage() {
               { label: "Orders v2", href: "https://developer.paypal.com/docs/api/orders/v2/", note: "Create, authorize and track." },
               { label: "Payments v2", href: "https://developer.paypal.com/docs/api/payments/v2/", note: "Capture and void authorizations." },
               { label: "Payouts", href: "https://developer.paypal.com/docs/api/payments.payouts-batch/v1/", note: "Paying the seller." },
+              { label: "Invoicing v2", href: "https://developer.paypal.com/docs/api/invoicing/v2/", note: "The buyer's paid receipt." },
               { label: "Authorize & capture guide", href: "https://developer.paypal.com/docs/checkout/standard/customize/authorization/", note: "PayPal's guide to the hold-then-capture pattern." },
               { label: "Idempotency", href: "https://developer.paypal.com/api/rest/reference/idempotency/", note: "Why every request carries PayPal-Request-Id." },
             ]}

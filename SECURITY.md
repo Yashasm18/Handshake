@@ -29,7 +29,7 @@ The demo runs on the **PayPal sandbox**: no real money moves. Please test only w
 ### Money
 - **Holds, not payments.** Buyers' money is a PayPal authorization until the item arrives; Handshake never holds funds itself.
 - **Amounts come from code, not AI.** Captures use the agreed price or a code-computed refund that is capped by verdict and can never exceed what was paid.
-- **Idempotent PayPal calls.** Every POST carries a `PayPal-Request-Id`; captures use one key per authorization and payouts one per deal.
+- **Idempotent PayPal calls.** Every POST carries a `PayPal-Request-Id`; captures use one key per authorization, payouts one per deal, and each receipt step one per invoice. A receipt runs only after the capture and never moves money.
 - **Resumable, locked settlement.** Capture, tracking and payout are recorded step by step under a per-deal lock. A retry finishes a failed payout without capturing twice, and once money is captured no claim or cancellation can change the amount.
 - **Automatic release needs proof.** Payment is only released on buyer silence when the seller's label photo matched the buyer's PayPal-verified address.
 

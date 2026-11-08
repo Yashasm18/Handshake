@@ -104,10 +104,10 @@ People buying and selling secondhand electronics, games, bikes, tickets and coll
 | Area | What it is |
 |---|---|
 | **Live demo** | [usehandshake.onrender.com](https://usehandshake.onrender.com) (PayPal sandbox, test mode: no real money moves) |
-| **PayPal** | Orders (authorize, capture, partial capture, reauthorize, void, tracking), Payouts, Log in with PayPal, and the PayPal JS SDK. [Details](#paypal-in-handshake) |
+| **PayPal** | Orders (authorize, capture, partial capture, reauthorize, void, tracking), Payouts, Invoicing (a paid PayPal receipt for every deal), Log in with PayPal, and the PayPal JS SDK. [Details](#paypal-in-handshake) |
 | **AI** | Reads scam chats and screenshots, shipping labels and damage photos, and runs two negotiating agents. Claude through OpenRouter, with Groq's free tier as the backup. [Details](#ai-in-handshake) |
 | **Partners** | Channel3 (real prices), Render (hosting, Postgres, Workflows), Kernel (cloud browser), Elastic (scam memory) |
-| **Quality** | 315 automated tests, 42 live end-to-end scenarios on the PayPal sandbox, and an attack pass on the live site. [Testing](docs/TESTING.md) |
+| **Quality** | 327 automated tests, 44 live end-to-end scenarios on the PayPal sandbox, and an attack pass on the live site. [Testing](docs/TESTING.md) |
 
 ## Try it in 60 seconds
 
@@ -152,7 +152,7 @@ stateDiagram-v2
 | **Hold** | The buyer pays, or backs an offer at a secret maximum | Order with `intent: AUTHORIZE` | None: holding the money is PayPal's job alone |
 | **Negotiate** (optional) | Two agents haggle within both owners' secret limits | The hold sits at the buyer's max | AI agents, refereed by code |
 | **Ship or meet** | The label must match the buyer's PayPal address; the parcel is tracked. Or the buyer scans the seller's code at a meetup | Verified shipping address from the order | AI reads the label; EasyPost tracks the parcel |
-| **Settle** | The fair amount is captured and the seller is paid | Capture (full or partial), tracking attached, Payout | AI prices damage from Channel3 part prices |
+| **Settle** | The fair amount is captured, the seller is paid, and the buyer gets a PayPal receipt | Capture (full or partial), tracking attached, Payout, Invoice marked paid | AI prices damage from Channel3 part prices |
 | **Deadlines** | Ship-by, renewals, release on silence and payout retries run on their own | Reauthorize, void | Render Workflow, every 5 minutes |
 
 > **The AI advises. Code moves the money.** Models read, argue and suggest; every amount, limit and refund is computed in code, tested, and paid through PayPal.
@@ -175,6 +175,7 @@ stateDiagram-v2
 | **Reminder emails** | A day before a deadline acts, the person who has to act hears exactly when and what happens otherwise |
 | **Sign in with PayPal** | Sellers sign in on PayPal's own page and are paid into their own PayPal by payer id. Buyers see a "Verified PayPal" badge; My deals works on any device |
 | **Email updates** | Each side hears when the deal needs them. Typed-in addresses are confirmed from the inbox first |
+| **A PayPal receipt for every deal** | Once PayPal captures, the buyer gets an official PayPal invoice marked paid: the item and what the seller promised, the asking and agreed price, any damage refund as its own line, the tracking and the capture. It runs after the money moved, so it can never hold a payment up |
 | **Payouts that heal themselves** | A payout PayPal refuses is retried with backoff; one PayPal is still processing is checked every 30 seconds. The seller is told they're paid only once PayPal confirms it |
 | **Live status page** | [/status](https://usehandshake.onrender.com/status) checks every service with a real request; outages and recoveries are emailed to the team |
 | **Test mode** | A bar on every page says it's the PayPal sandbox, and every sign-in button says a sandbox account is needed |
@@ -213,7 +214,7 @@ The full data model, storage and file map are in **[docs/ARCHITECTURE.md](docs/A
 
 ## PayPal in Handshake
 
-PayPal is the engine of every deal: take it out and nothing works. Handshake makes **nine PayPal REST calls**, and the buyer pays through **PayPal's own checkout buttons**.
+PayPal is the engine of every deal: take it out and nothing works. Handshake makes **twelve PayPal REST calls**, and the buyer pays through **PayPal's own checkout buttons**.
 
 | Step | PayPal API | Why |
 |---|---|---|
@@ -227,6 +228,9 @@ PayPal is the engine of every deal: take it out and nothing works. Handshake mak
 | Pay the seller | `POST /v1/payments/payouts` | Sends the seller's share into their own PayPal account |
 | Confirm the payout | `GET /v1/payments/payouts/{batch_id}` | The seller is told they're paid only once the payout item completes |
 | Release | `POST /v2/payments/authorizations/{id}/void` | Cancels the hold when a deal is cancelled, never shipped, or the agents can't agree |
+| Write the receipt | `POST /v2/invoicing/invoices` | After the capture: a PayPal invoice for the deal, with the item, the seller's promises, the agreed price and any refund line |
+| Issue it | `POST /v2/invoicing/invoices/{id}/send` | Makes the receipt live on PayPal, without emailing anyone; the buyer opens it from the deal page |
+| Mark it paid | `POST /v2/invoicing/invoices/{id}/payments` | Records the capture against the invoice, so it reads paid, $0 due |
 
 Every call that moves money carries an idempotency key, and PayPal's own records match Handshake's to the cent (checked in the [final test pass](docs/TESTING.md#final-break-it-pass-nov-6-2026)). Sequence diagrams and setup: **[docs/sponsors/paypal.md](docs/sponsors/paypal.md)**.
 
@@ -255,7 +259,7 @@ Each partner powers a different part of a safe deal. Click through for exactly w
   <tr>
     <td width="50%" valign="top">
       <h3><a href="docs/sponsors/paypal.md">PayPal</a></h3>
-      <b>Holds, captures, payouts.</b> Nine PayPal calls take a deal from a reserved hold to a paid seller, with partial captures for damage, reauthorization for long shipments, Log in with PayPal, and idempotency on every money step.<br><br>
+      <b>Holds, captures, payouts, receipts.</b> Twelve PayPal calls take a deal from a reserved hold to a paid seller and a paid PayPal receipt, with partial captures for damage, reauthorization for long shipments, Log in with PayPal, and idempotency on every money step.<br><br>
       <a href="docs/sponsors/paypal.md"><b>How Handshake uses PayPal →</b></a>
     </td>
     <td width="50%" valign="top">
@@ -300,7 +304,7 @@ The threat model and every issue we've found and fixed: **[SECURITY.md](SECURITY
 
 ## Tests and quality
 
-Handshake is tested three ways: **315 automated tests** that run on every push and deploy (307 for the app, each run on both the file store and Postgres, plus 8 for the deadline workflow), **42 live end-to-end scenarios** against the real PayPal sandbox, Channel3, Kernel, Elastic, EasyPost and the AI models, and a final **attack pass on the live site**.
+Handshake is tested three ways: **327 automated tests** that run on every push and deploy (319 for the app, each run on both the file store and Postgres, plus 8 for the deadline workflow), **44 live end-to-end scenarios** against the real PayPal sandbox, Channel3, Kernel, Elastic, EasyPost and the AI models, and a final **attack pass on the live site**.
 
 | Area | Automated | Live | What it proves |
 |---|---:|---:|---|
@@ -316,7 +320,8 @@ Handshake is tested three ways: **315 automated tests** that run on every push a
 | Listing links (Kernel) | 20 | 3 | Only public pages are opened, every browser is closed, store photos are flagged |
 | Scam memory (Elastic) | 21 | 6 | Reworded scams, reused details and photos are recognised; nobody can brand a seller with one fake report |
 | Status and alerts | 15 | 1 | Live checks, one alert per outage and recovery, and nothing secret ever shown |
-| Database (Postgres) | 9 | all 42 | Schema and indexes, locking under concurrent clicks, and tests that can never reach a real database; every live scenario runs on the production Postgres |
+| PayPal receipts | 12 | 2 | The receipt shows exactly what PayPal captured, a retry finishes the same invoice instead of making a second, a missing permission never touches the deal, and only the two parties see it |
+| Database (Postgres) | 9 | 42 | Schema and indexes, locking under concurrent clicks, and tests that can never reach a real database; the 42 scripted and hand-run deal scenarios ran on the production Postgres (the 2 receipt runs used a local server) |
 
 The live runs and the final attack pass found real bugs, including a forgeable scam check and a test run that reached the production database, and every one is fixed and covered by a test. Results, PayPal sandbox ids and how to re-run them: **[docs/TESTING.md](docs/TESTING.md)**.
 

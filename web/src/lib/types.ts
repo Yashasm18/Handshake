@@ -168,6 +168,9 @@ export type Deal = {
     // A payout batch is only a request: the seller is paid once PayPal says its item completed.
     payoutStatus?: "pending" | "paid";
     trackingAttached?: boolean;
+    // The buyer's receipt: a PayPal invoice for the deal, made after the capture and marked paid. Each
+    // step is recorded, so a retry finishes it instead of starting a second one. See server/receipts.ts.
+    receipt?: { invoiceId?: string; number?: string; status?: "created" | "sent" | "paid"; url?: string; attempts?: number; retryAt?: string; unavailable?: boolean };
     // Server-only: binds "confirm payment" to the browser that opened the PayPal checkout.
     payNonce?: string;
     payStartedAt?: string;
@@ -232,6 +235,8 @@ export type DealView = Omit<Deal, "sellerToken" | "buyerToken" | "sellerEmail" |
   notify: { seller?: ContactView | null; buyer?: ContactView | null; enabled: boolean };
   // What a buyer may know about the seller's PayPal: whether they signed in with it, and whether PayPal verified them.
   sellerPayPal: { signedIn: boolean; verified: boolean };
+  // Whether this server issues PayPal receipts (an invoice marked paid) once a deal's money is captured.
+  receipts: boolean;
   // Whether parcels are followed with the carrier, and whether those are EasyPost's simulated test parcels.
   parcels: { tracked: boolean; test: boolean };
   acceptsOffers: boolean;

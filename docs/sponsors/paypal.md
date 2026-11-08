@@ -18,7 +18,7 @@ Every money movement in Handshake is a PayPal API call. Nothing is simulated: th
 
 ## What we use
 
-Handshake makes **nine** PayPal REST calls: two to sign sellers in with PayPal ([`paypal-login.ts`](../../web/src/lib/server/paypal-login.ts)) and seven across a deal ([`paypal.ts`](../../web/src/lib/server/paypal.ts)).
+Handshake makes **twelve** PayPal REST calls: two to sign sellers in with PayPal ([`paypal-login.ts`](../../web/src/lib/server/paypal-login.ts)), seven across a deal and three for the buyer's receipt ([`paypal.ts`](../../web/src/lib/server/paypal.ts), [`receipts.ts`](../../web/src/lib/server/receipts.ts)).
 
 | Step | API | Why Handshake needs it |
 |---|---|---|
@@ -32,8 +32,26 @@ Handshake makes **nine** PayPal REST calls: two to sign sellers in with PayPal (
 | Pay the seller | `POST /v1/payments/payouts` | Sends the seller their share after PayPal's fee, into **their own PayPal account** (`recipient_type: PAYPAL_ID`, the payer id). Guest demo sellers are paid into the sandbox seller account by email. |
 | Confirm the seller was paid | `GET /v1/payments/payouts/{batch_id}` | A payout request can still be denied after PayPal accepts it. The deal settles, and the seller hears "you've been paid", only once the payout item completes. |
 | Release everything | `POST /v2/payments/authorizations/{id}/void` | Cancels the hold when a deal is cancelled, the agents can't agree, or the seller misses the shipping deadline. |
+| Write the receipt | `POST /v2/invoicing/invoices` | After the capture, a PayPal invoice for the deal: the item with the seller's condition promises, the agreed price (and the asking price, when agents negotiated), a damage refund as its own line, the tracking and the capture id. |
+| Issue it | `POST /v2/invoicing/invoices/{id}/send` | Makes it live on PayPal without emailing anyone (`send_to_recipient: false`); the buyer opens it from the deal page. |
+| Mark it paid | `POST /v2/invoicing/invoices/{id}/payments` | Records the capture against it, so the receipt reads paid with nothing due. |
 
 On the client, the **PayPal JS SDK** (`intent=authorize`) renders PayPal's own checkout buttons ([`paypal-button.tsx`](../../web/src/components/paypal-button.tsx)). For judges without a sandbox login, a test-card path funds the same `AUTHORIZE` order with PayPal's published sandbox card.
+
+## A PayPal receipt for every deal
+
+Once PayPal has captured a deal's payment, the buyer gets an official PayPal invoice for it, marked paid. It isn't a bare total: it's the deal's proof, with the item and what the seller promised, "asking $230, agreed $208" when the agents negotiated, any damage refund as a separate line (so the total is exactly what PayPal captured), the tracking number or the in-person handover, and the PayPal capture id. Both sides see a **PayPal receipt, Paid** card on the settled deal, and the invoice id joins the PayPal sandbox record.
+
+These are the same invoice actions PayPal's [Agent Toolkit](https://github.com/paypal/agent-toolkit) gives AI agents (`create_invoice`, `send_invoice`, `record_payment_for_invoice`). Handshake calls the Invoicing API directly, like every other PayPal call here, because the toolkit package currently pulls in dependencies with open security advisories.
+
+A receipt never moves money and can never hold a payment up:
+
+- It runs only after the capture, in the background, so the buyer's "Yes, release payment" is as fast as before.
+- Each call has its own idempotency key and each step is saved, so a retry finishes the same invoice; an invoice PayPal created on an answer that never arrived is recovered by its number.
+- If PayPal is busy it tries again later (1, 2, 4 minutes, up to an hour), when someone opens the deal. If PayPal refuses permission, the card is hidden and it retries once after any old access token has expired.
+- Only the buyer and the seller see the receipt or its link.
+
+**Setup:** tick **Invoicing** under the main sandbox app's features. A PayPal access token keeps the permissions it was issued with for up to 9 hours, so a running server picks the change up when its token is renewed (a restart or deploy does it at once). Set `PAYPAL_RECEIPTS=false` to switch receipts off.
 
 ## Two PayPal apps
 

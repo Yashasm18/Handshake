@@ -8,6 +8,7 @@ import { visitorOf, windowLimiter } from "@/lib/server/visitor";
 import { getDeal, HttpError } from "@/lib/server/deals";
 import { handle } from "@/lib/server/http";
 import type { Deal } from "@/lib/types";
+import { issueReceiptSoon } from "@/lib/server/receipts";
 
 const Role = z.enum(["buyer", "seller"]);
 const emailLimiter = windowLimiter(10, 60 * 60_000);
@@ -110,6 +111,8 @@ export async function POST(req: Request, ctx: RouteContext<"/api/deals/[id]/[act
     // Flows return the full deal; only ever send the public view back.
     if (result && typeof result === "object" && "events" in result) {
       const fresh = (await getDeal(id))!;
+      // Money was just captured (say, "Yes, release payment"): the buyer's receipt follows in the background.
+      issueReceiptSoon(fresh);
       return publicDeal(fresh, await viewerOf(fresh));
     }
     return result;

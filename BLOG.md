@@ -71,7 +71,7 @@ Then I attacked the live site the way a scammer would: stolen links, forged webh
 ## What I learned
 
 - **Build the money path first, and make it boring.** Idempotency keys, saving each step as it happens, and resumable settlement are what let everything else move fast without fear.
-- **Every bug becomes a test.** The suite grew to 315 automated tests, and many of them exist because something real went wrong, or nearly did.
+- **Every bug becomes a test.** The suite grew to 327 automated tests, and many of them exist because something real went wrong, or nearly did.
 - **Test the product as a stranger would.** The scripts proved the money was right; only walking through it as a newcomer found where a person would get stuck.
 - **Trust signals are attack surface.** Anything that tells a buyer "this is safe" has to be impossible for a seller to fake.
 - **AI is a reader, not a decider.** Giving models narrow jobs with strict schemas made them reliable enough to sit next to real money.
@@ -81,11 +81,11 @@ Then I attacked the live site the way a scammer would: stolen links, forged webh
 | What | How many |
 |---|---|
 | Days | 4 |
-| PayPal REST calls | 9, plus PayPal's JS SDK checkout |
+| PayPal REST calls | 12, plus PayPal's JS SDK checkout |
 | AI jobs | 4: scam check, label check, damage review, negotiation |
 | Partners | Channel3, Render, Kernel, Elastic, plus EasyPost, OpenRouter and Groq |
-| Automated tests | 315, run twice before every deploy (file store and Postgres) |
-| Live end-to-end scenarios | 42 on the PayPal sandbox |
+| Automated tests | 327, run twice before every deploy (file store and Postgres) |
+| Live end-to-end scenarios | 44 on the PayPal sandbox |
 | Attacks on the live site | 43, all holding |
 
 ## Where this goes: from a hackathon project to a company

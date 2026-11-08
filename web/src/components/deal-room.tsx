@@ -749,7 +749,41 @@ function Settled({ deal, role }: ActProps) {
           <Line k={`Paid to ${deal.sellerName}`} v={usd(pp.payoutCents ?? 0)} strong />
         </div>
       </dl>
+      <Receipt deal={deal} role={role} />
     </Panel>
+  );
+}
+
+// The buyer's PayPal receipt: an invoice for the deal, issued after the capture and marked paid.
+// It appears on its own a moment after settling; until then, a quiet line says it's on its way.
+function Receipt({ deal, role }: { deal: Deal; role: Role }) {
+  const r = deal.paypal.receipt;
+  if ((!deal.receipts && !r?.invoiceId) || (r?.unavailable && r.status !== "paid")) return null;
+  const ready = r?.status === "paid";
+  return (
+    <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: EASE }} className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl border hairline bg-card px-6 py-5">
+      <div className="min-w-0">
+        <p className="label flex items-center gap-2 text-muted">
+          <PayPalMark className="size-3.5" /> PayPal receipt
+          {ready && <span className="rounded-full bg-safe-soft px-2 py-0.5 text-safe">Paid</span>}
+        </p>
+        <p className="mt-2 text-[15px] leading-snug">
+          {ready
+            ? role === "buyer"
+              ? "An official PayPal invoice for this deal: the item, what was promised, and how it was protected."
+              : "The buyer has an official PayPal invoice for this deal, marked paid."
+            : "Preparing the PayPal invoice for this deal…"}
+        </p>
+        {ready && r?.number && <p className="mt-1 truncate font-mono text-[12px] text-muted">{r.number}</p>}
+      </div>
+      {ready && r?.url ? (
+        <a href={r.url} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-[14px] font-medium text-paper transition-transform hover:scale-[1.02]">
+          {role === "buyer" ? "View your receipt" : "View receipt"} <span aria-hidden>↗</span>
+        </a>
+      ) : !ready ? (
+        <span className="size-2 shrink-0 animate-pulse rounded-full bg-muted" aria-hidden />
+      ) : null}
+    </motion.div>
   );
 }
 
@@ -802,6 +836,7 @@ function Ledger({ deal }: { deal: Deal }) {
     ["Authorization (hold)", pp.authorizationId],
     ["Capture", pp.captureId],
     ["Payout batch", pp.payoutBatchId],
+    ["Invoice (receipt)", pp.receipt?.invoiceId],
   ].filter(([, v]) => v) as [string, string][];
   if (!rows.length) return null;
   return (

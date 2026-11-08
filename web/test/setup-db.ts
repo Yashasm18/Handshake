@@ -13,6 +13,8 @@ const PRODUCTION_SETTINGS = [
   "APP_URL", "HANDSHAKE_URL", "RENDER_EXTERNAL_URL",
 ];
 for (const key of PRODUCTION_SETTINGS) delete process.env[key];
+// Receipts run in the background after a capture; a test that covers them switches them on itself.
+process.env.PAYPAL_RECEIPTS = "false";
 
 // Fails closed on the network too: unless a test replaces fetch with its own fake, any request to a
 // host other than this machine throws, naming the host. No test can reach a real service by accident.

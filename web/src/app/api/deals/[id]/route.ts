@@ -4,6 +4,7 @@ import { handle } from "@/lib/server/http";
 import { resumeIfStalled } from "@/lib/server/negotiate";
 import { dueNow } from "@/lib/deadlines";
 import { runTimer, timerScale } from "@/lib/server/timers";
+import { issueReceiptSoon } from "@/lib/server/receipts";
 
 // One view-triggered run per deal and kind at a time on this server. The deal page polls every few
 // seconds; without this, each poll would wait on the deal's lock and hold a database connection.
@@ -30,6 +31,8 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/deals/[id]">) {
     // payout's status (or re-sends under the recorded key), inside the deal's lock, so it can't pay twice.
     const due = dueNow(deal, Date.now(), timerScale()).filter((t) => !process.env.TIMERS_SECRET || t.kind === "PAYOUT");
     for (const t of due) runOnView(deal.id, t.kind);
+    // A receipt that didn't finish (PayPal was busy) tries again while someone is looking at the deal.
+    issueReceiptSoon(deal);
     return publicDeal(deal, await viewerOf(deal));
   });
 }

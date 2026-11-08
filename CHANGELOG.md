@@ -2,6 +2,16 @@
 
 What changed in Handshake, day by day. Everything runs on the PayPal sandbox; the live demo is at [usehandshake.onrender.com](https://usehandshake.onrender.com). The full detail is in the [commit history](https://github.com/Yashasm18/HandShake/commits/main), and the story behind it in [BLOG.md](BLOG.md).
 
+## 2026-11-08: A PayPal receipt for every deal
+
+### Added
+- Once PayPal captures a deal's payment, the buyer gets an official PayPal invoice for it, marked paid (Invoicing v2). It records the deal, not just a total: the item and the seller's condition promises, the asking and agreed price when agents negotiated, any damage refund as its own line, the tracking or in-person handover, and the PayPal capture.
+- A "PayPal receipt, Paid" card on the settled deal for both sides, with a link to the invoice on PayPal, and the invoice id in the PayPal sandbox record.
+
+### Safety
+- The receipt runs only after the money moved, in the background, so it can never hold up a payment or a payout. Each step has its own idempotency key and is saved, so a retry finishes the same invoice; a lost answer is recovered by the invoice number; a missing permission hides the card and retries once later.
+- 12 new tests, and two full live deals on the PayPal sandbox, which found and fixed a missing buyer name on the invoice.
+
 ## 2026-11-07: The demo, checked from a fresh clone
 
 ### Added
