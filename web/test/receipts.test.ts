@@ -9,6 +9,8 @@ process.env.DATA_DIR = mkdtempSync(path.join(tmpdir(), "hs-receipts-"));
 // The buyer's PayPal receipt: an invoice issued after the capture and marked paid. What's under test is
 // that it shows exactly what PayPal captured, that a retry finishes the same invoice instead of making a
 // second one, and that no failure can ever reach the money steps.
+// The fakes keep PayPal's real parameters, so each test can check exactly what a call was given.
+/* eslint-disable @typescript-eslint/no-unused-vars */
 const pp = vi.hoisted(() => ({
   createInvoice: vi.fn(async (_body: unknown, _key: string) => ({ id: "INV2-AAAA", status: "DRAFT" })),
   sendInvoice: vi.fn(async (_id: string) => ({})),
@@ -16,6 +18,7 @@ const pp = vi.hoisted(() => ({
   getInvoice: vi.fn(async (id: string) => ({ id, status: "PAID", detail: { metadata: { recipient_view_url: `https://www.sandbox.paypal.com/invoice/p/#${id}` } } })),
   findInvoice: vi.fn(async (_n: string) => ({ items: [{ id: "INV2-FOUND", status: "DRAFT" }] })),
 }));
+/* eslint-enable @typescript-eslint/no-unused-vars */
 vi.mock("@/lib/server/paypal", async (orig) => ({ ...(await orig<typeof import("@/lib/server/paypal")>()), ...pp }));
 
 const { PayPalError } = await import("@/lib/server/paypal");
@@ -24,6 +27,15 @@ const { saveDeal, getDeal } = await import("@/lib/server/deals");
 const { publicDeal } = await import("@/lib/server/auth");
 
 const NOW = Date.parse("2026-11-08T12:00:00Z");
+// The parts of the invoice body these tests read.
+type Money = { currency_code: string; value: string };
+type InvoiceBody = {
+  detail: { invoice_number: string; invoice_date: string; note: string };
+  items: { name: string; description?: string; quantity: string; unit_amount: Money }[];
+  primary_recipients: { billing_info: unknown }[];
+  amount?: { breakdown: { discount: { invoice_discount: { amount: Money } } } };
+};
+const invoiceOf = (deal: Deal) => receipts.receiptInvoice(deal, NOW) as unknown as InvoiceBody;
 let n = 0;
 function captured(over: Partial<Deal> = {}): Deal {
   return {
@@ -47,7 +59,7 @@ beforeEach(() => {
 
 describe("the receipt invoice: proof of the deal, built from what PayPal captured", () => {
   it("bills the agreed price, with the condition promises, the negotiation, the tracking and the capture", () => {
-    const inv = receipts.receiptInvoice(captured(), NOW) as Record<string, any>;
+    const inv = invoiceOf(captured());
     expect(inv.detail.invoice_number).toMatch(/^HS-rcpt-/);
     expect(inv.detail.invoice_date).toBe("2026-11-08");
     expect(inv.items).toHaveLength(1);
@@ -65,21 +77,21 @@ describe("the receipt invoice: proof of the deal, built from what PayPal capture
       paypal: { orderId: "O", authorizationId: "A", captureId: "CAP-2", capturedCents: 15_500 },
       claim: { damagedPart: "left Joy-Con" } as Deal["claim"],
     });
-    const inv = receipts.receiptInvoice(deal, NOW) as Record<string, any>;
-    expect(inv.amount.breakdown.discount.invoice_discount.amount).toEqual({ currency_code: "USD", value: "45.00" });
-    expect(Number(inv.items[0].unit_amount.value) - Number(inv.amount.breakdown.discount.invoice_discount.amount.value)).toBe(155);
+    const inv = invoiceOf(deal);
+    expect(inv.amount!.breakdown.discount.invoice_discount.amount).toEqual({ currency_code: "USD", value: "45.00" });
+    expect(Number(inv.items[0].unit_amount.value) - Number(inv.amount!.breakdown.discount.invoice_discount.amount.value)).toBe(155);
     expect(inv.detail.note).toContain("$45 went back to the buyer for left Joy-Con");
   });
 
   it("says how an in-person deal was handed over, and leaves out a negotiation that didn't lower the price", () => {
-    const inv = receipts.receiptInvoice(captured({ handoff: "meet", shipment: undefined, negotiation: undefined }), NOW) as Record<string, any>;
+    const inv = invoiceOf(captured({ handoff: "meet", shipment: undefined, negotiation: undefined }));
     expect(inv.detail.note).toContain("Handed over in person");
     expect(inv.detail.note).not.toContain("agreed by AI agents");
   });
 
   it("works for a buyer who paid by card and left no email: the receipt names them from the shipping address", () => {
     const deal = captured({ paypal: { orderId: "O", authorizationId: "A", captureId: "CAP-3", capturedCents: 20_000 } });
-    const inv = receipts.receiptInvoice(deal, NOW) as Record<string, any>;
+    const inv = invoiceOf(deal);
     expect(inv.primary_recipients[0].billing_info).toEqual({ name: { given_name: "Maya", surname: "Chen" } });
   });
 });
