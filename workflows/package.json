@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@renderinc/sdk": "1.7.0",
+    "@renderinc/sdk": "1.8.0",
     "tsx": "4.23.15"
   },
   "devDependencies": {
