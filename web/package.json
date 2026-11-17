@@ -15,7 +15,7 @@
     "@onkernel/sdk": "0.128.0",
     "lenis": "^1.3.27",
     "motion": "^14.9.0",
-    "next": "16.4.4",
+    "next": "16.4.5",
     "nodemailer": "10.2.0",
     "pg": "8.23.1",
     "qrcode-generator": "2.0.4",
